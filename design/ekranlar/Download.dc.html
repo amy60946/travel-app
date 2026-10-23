@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Çevrimdışı indirme</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 60px 20px 16px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px">İndirilenler</h1>
+<span style="font-size: 15px; color: #5B6070; line-height: 1.4">İnternet olmadan da yürüyebilmen için harita ve sesli anlatımları önceden telefona indir.</span>
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 18px; background: #FFFFFF">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 18px; font-weight: 700">Tokyo · 3 günlük rota</span>
+<span style="font-size: 13px; color: #5B6070">11 durak · Türkçe anlatım</span>
+</div>
+<span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 10px; background: {{badgeBg}}; color: {{badgeFg}}">{{badge}}</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; justify-content: space-between; font-size: 15px; padding: 10px 0; border-bottom: 1px solid #EEF0F3"><span>Harita (rota çevresi)</span><span style="color: #5B6070">{{rowState}}</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 15px; padding: 10px 0; border-bottom: 1px solid #EEF0F3"><span>Sesli anlatımlar</span><span style="color: #5B6070">{{rowState}}</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 15px; padding: 10px 0"><span>Yön tarifi sesleri</span><span style="color: #5B6070">{{rowState}}</span></div>
+</div>
+<div aria-hidden="true" style="height: 6px; border-radius: 3px; background: #E3E5EA; overflow: hidden">
+<div style="height: 6px; border-radius: 3px; background: #1E7A45; width: {{progress}}"></div>
+</div>
+<button type="button" onClick="{{download}}" style="height: 50px; border-radius: 14px; border: none; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; background: {{btnBg}}; color: {{btnFg}}">{{btnLabel}}</button>
+</div>
+<label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 16px; background: #FFFFFF; font-size: 16px; cursor: pointer">
+<span>Yalnızca Wi-Fi ile indir</span>
+<input type="checkbox" checked style="width: 22px; height: 22px; accent-color: #C2381E">
+</label>
+<div style="display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 16px; background: #FFFFFF; opacity: 0.85">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 16px; font-weight: 600">İstanbul</span>
+<span style="font-size: 13px; color: #5B6070">Henüz rota yok</span>
+</div>
+<a href="City.dc.html" style="font-size: 14px; font-weight: 600">Rota oluştur</a>
+</div>
+</div>
+<nav aria-label="Sekmeler" style="height: 84px; flex: none; box-sizing: border-box; padding: 8px 8px 26px; background: #FFFFFF; border-top: 1px solid #E3E5EA; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>Gezim</a>
+<a href="Route.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="5" r="2"></circle><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"></path></svg>Rota</a>
+<a href="Walk.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></svg>Yürüyüş</a>
+<a href="Download.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #C2381E; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>İndirilenler</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const done = !!(this.state && this.state.done);
+    return {
+      badge: done ? 'Hazır' : 'İndirilmedi',
+      badgeBg: done ? '#E4F3EA' : '#FBE9E4',
+      badgeFg: done ? '#1E7A45' : '#9E2C15',
+      rowState: done ? 'İndirildi' : 'Bekliyor',
+      progress: done ? '100%' : '0%',
+      btnLabel: done ? 'Kaldır' : 'İndir',
+      btnBg: done ? '#F3F4F6' : '#C2381E',
+      btnFg: done ? '#15171C' : '#FFFFFF',
+      download: () => this.setState({ done: !done })
+    };
+  }
+}
+</script>
+</body>
+</html>
