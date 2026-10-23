@@ -57,8 +57,11 @@ cevapları.
 | 2026-10-23 | Şehirler kullanıcının kayıtlarına göre belirlenir; Tokyo öncelikli, İstanbul ile sınırlı değil. |
 | 2026-10-23 | İçerik: manuel küratörlük yok; kayıt aktarımı, rota ve anlatım otomatik üretilir, anlatımlar kaynaklı olur. |
 | 2026-10-23 | Kapsam dışı: rezervasyon, ödeme, sosyal özellikler, kendi keşif platformu. |
-| 2026-10-23 | Kişiselleştirme (gün sayısı ve tempo seçimi: rahat / normal / tempolu) **ilk sürümde (MVP)** olacak. Kaydırmalı öneri kartları ve Google Maps liste aktarımı Aşama 2'de kalır. |
+| 2026-10-23 | Kişiselleştirme (gün sayısı ve tempo seçimi: rahat / normal / tempolu) **ilk sürümde (MVP)** olacak. Kaydırmalı öneri kartları Aşama 2'de kalır. |
 | 2026-10-23 | Kayıtta **onay kartı yok**: güven yüksekse otomatik eklenir ve "Geri al" gösterilir; düşükse 2-3 aday arasından tek dokunuşla seçilir; bulunamazsa "Yeri belirle" etiketiyle bekler. |
 | 2026-10-23 | Aşama 0 sesli yürüyüş testi **Tokyo**'da yapılacak. İlk tester Oguz; kendi Instagram kayıtlarını aktararak deneyecek. |
 | 2026-10-23 | **Bütçe yok; her şey ücretsiz olmalı.** Yalnızca ücretsiz servisler ve ücretsiz kullanım katmanları kullanılır; ücret çıkabilecek her şey önce Oguz'a sorulur. |
 | 2026-10-23 | Bu proje için ayrı kurulum yapılır; başka projelerin Supabase'i veya anahtarları kullanılmaz. |
+| 2026-10-23 | **Google Maps liste aktarımı** (Google Takeout ile Yıldızlı yerler, Favoriler, "Gitmek istiyorum" ve özel listeler) **ilk sürüme (MVP)** alındı. |
+| 2026-10-23 | Yer bulma, anlatım ve ses için hangi ücretsiz yapay zekâ servislerinin kullanılacağına yazılım aşamasında Oguz ile birlikte karar verilecek. |
+| 2026-10-23 | Aşama 0-1 için ücretsiz Apple hesabı yeterli (uygulama Oguz'un telefonuna kısa süreli kurulur); ücretli Apple Developer hesabı şimdilik alınmayacak. |

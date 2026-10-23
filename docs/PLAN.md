@@ -47,6 +47,7 @@ mümkün. Bu ürünün yapması gereken, yapay zekânın tek başına yapamadı�
 | Özellik | Kapsam | Kabul ölçütü |
 |---|---|---|
 | Kayıt aktarımı | iOS paylaşma menüsü; Instagram/TikTok linki, ekran görüntüsü, Google Maps linki. Yer bulma sırası: konum etiketi → açıklama, hashtag ve etiketler (yapay zekâ + harita aramasıyla doğrulama) → fotoğraf/video karesi (görsel okuyan yapay zekâ). Onay kartı yok: güven yüksekse otomatik ekle + "Geri al"; düşükse 2-3 aday, tek dokunuş; bulunamazsa "Yeri belirle" etiketiyle bekler. | Paylaşmadan eklemeye 3 saniyenin altı; 20-30 gerçek post ile doğruluk oranı ölçülür |
+| Google Maps liste aktarımı | Google Takeout dosyası yüklenir: Yıldızlı yerler (GeoJSON, koordinatlı) doğrudan eklenir; Favoriler, "Gitmek istiyorum" ve özel listeler (CSV, koordinatsız) başlık ve linkten haritada eşleştirilir. Önce dosya yükleme, sonra liste linki paylaşma denenir | Listedeki yerler doğru konumda ve doğru şehre eklenir |
 | Gezim | Şehre göre liste ve harita (Apple Haritalar), her yer için küçük ikon ve fotoğraf | Yerler haritada doğru konumda |
 | Otomatik rota | Gün sayısı ve tempo seçimi; bölgeye göre gruplama, her gün tek bölgede kalmaya çalışma, sıralama; "güzel sokak puanı" ile yürüyüş rotası; bölgeler arası toplu taşıma veya taksi önerisi | Rota 5 saniyeden kısa sürede; tempoya göre durak sayısı değişir |
 | Düzenleme | Sürükle sırala, kaydırarak sil, "Günü hafiflet" düğmesi, her işlemde geri al | Metin yazma gerektirmez |
@@ -76,10 +77,10 @@ takibi. Kaydırmalı öneri kartları Aşama 2'de, Apple Watch Aşama 3'te.
   (Oguz'un Instagram kayıtları); Tokyo'da sesli yürüyüş prototip testi;
   10-15 hedef kullanıcıyla kısa görüşme; değer cümlesinin
   anlaşılırlığını ölçmek.
-- **Aşama 1 — MVP:** paylaşma menüsünden yer ekleme, gün sayısı ve tempo
-  seçimi, otomatik rota, yürüyüş modu ve ses, çevrimdışı indirme.
+- **Aşama 1 — MVP:** paylaşma menüsünden yer ekleme, Google Maps liste
+  aktarımı, gün sayısı ve tempo seçimi, otomatik rota, yürüyüş modu ve ses, çevrimdışı indirme.
 - **Aşama 2:** kaydırmalı öneri kartları (rotaya yakın yerler, oturumda
-  en fazla 8-10 kart), Google Maps liste aktarımı (Takeout CSV/GeoJSON).
+  en fazla 8-10 kart).
 - **Aşama 3:** Apple Watch (sıradaki durak, duraklat/devam), yeni
   şehirler, kendi yürüyüş rota motoru.
 
@@ -107,13 +108,11 @@ kurulum yapılır.
 
 ## 9. Açık sorular
 
-1. **Sıfır bütçeyle yapay zekâ ve ses:** Yer çıkarma ve anlatım üretimi
-   yapay zekâ gerektiriyor. Hangi ücretsiz servisler/katmanlar
-   kullanılacak, limit dolunca ne olacak?
-2. **Apple Developer hesabı:** TestFlight ile dağıtım ve App Store için
-   yıllık ücretli Apple Developer Program üyeliği gerekir. Ücretsiz
-   hesapla uygulama yalnızca kendi telefonuna, kısa süreli kurulabilir.
-   Aşama 0-1 için bu yeterli mi?
+1. **Sıfır bütçeyle yapay zekâ ve ses:** Hangi ücretsiz servislerin
+   kullanılacağına ve limit dolunca ne olacağına yazılım aşamasında
+   Oguz ile birlikte karar verilecek.
+2. **Apple Developer hesabı (çözüldü, 23 Eki):** Aşama 0-1 için ücretsiz
+   hesap yeterli. App Store'a çıkmadan önce yeniden konuşulacak.
 3. **Sunucu:** "İnce sunucu katmanı" hangi ücretsiz hizmette çalışacak?
 4. **Türkçe ve Japonca yer adları:** Tokyo'da yer adı okunuşları ve
    Türkçe/İngilizce ses kalitesi nasıl sağlanacak?
