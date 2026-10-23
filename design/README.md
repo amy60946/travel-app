@@ -18,5 +18,16 @@ Yazılım aşamasında SwiftUI ekranları bu taslağa göre yapılacak.
 | 8 | Yürüyüş modu (sade, karanlık ekran) | Walk.dc.html | Yürüyüş modu, Anlatım |
 | 9 | Çevrimdışı indirme | Download.dc.html | İndirme |
 
+
+### Alternatifler (Oguz'un 23 Eki notlarına göre)
+
+| # | Ekran | Dosya | Hangi nota cevap |
+|---|---|---|---|
+| B7 | Rota: harita ağırlıklı, fotoğraflı işaretler, alttan kaydırmalı kartlar | AltRouteMap.dc.html | "Harita görünümü ağırlıklı olmalı, minimum okuma" |
+| B8 | Yürüyüş: harita kalır, altta büyütülebilen pencere | AltWalkMap.dc.html | "Tam ekran anlamsız, harita kalsın" |
+| B3 | Paylaş: emin olunamazsa sormadan en olası yeri ekler, "Değiştir" ile düzeltilir | AltShareAuto.dc.html | "Bu ekran kullanıcıya top atıyor" |
+| B4 | Yer ekle: kopyalanan link algılama, fotoğraf çek, Instagram/TikTok/Google veri dosyası | AltAddPlace.dc.html | "Instagram/TikTok ile giriş", "Fotoğraf çekme" |
+| B4b | Fotoğraf çekerek yer ekleme | AltCamera.dc.html | "Fotoğraf çekme de eklenebilir" |
+
 Notlar: yerler ve sayılar örnektir (Tokyo); harita ve fotoğraflar yer
 tutucudur. Arayüz Türkçe çizildi, İngilizce çevirisi aynı ekranlar olacak.

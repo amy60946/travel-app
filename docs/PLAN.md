@@ -123,4 +123,9 @@ kurulum yapılır.
 
 ## 10. Öneriler / notlar
 
-Onay bekleyen öneriler buraya yazılır (henüz yok).
+Onay bekleyen öneriler buraya yazılır.
+
+- **2026-10-23 · Fotoğraf çekerek yer ekleme** (Oguz'un notu): kamera ile tabela/bina çekilir, görsel okuyan yapay zekâ + telefon konumu ile yer bulunur. Taslak: `design/ekranlar/AltCamera.dc.html`. MVP'ye alınıp alınmayacağı Oguz'a soruldu.
+- **2026-10-23 · Instagram/TikTok kayıtlarını toplu getirme** (Oguz'un notu: "giriş yapıp kayıtlara erişim"): Instagram ve TikTok, kaydedilenlere başka uygulamaların resmî yoldan erişmesine izin vermiyor; kazıma (scraping) risk tablosunda dışarıda. Önerilen yol: kullanıcının kendi "verilerini indir" dosyasını (Instagram: Hesap Merkezi → Bilgilerini indir → Kaydedilenler; TikTok: Verilerini indir → Favoriler) yüklemesi, Google Takeout gibi. Dosyanın içeriği ilk denemede doğrulanacak. Ek olarak: uygulama açılınca kopyalanmış linki algılayıp "Eklensin mi?" sormak. Taslak: `design/ekranlar/AltAddPlace.dc.html`.
+- **2026-10-23 · Emin olunamayan yerde sormadan tahmin** (Oguz'un notu: aday seçme ekranı efor istiyor): en olası yer "Tahmini konum" etiketiyle otomatik eklenir, kullanıcı isterse "Değiştir"e basar. Bu, Kararlar'daki "düşükse 2-3 aday arasından seçilir" kararını değiştirir; Oguz'un onayı bekleniyor. Taslak: `design/ekranlar/AltShareAuto.dc.html`.
+- **2026-10-23 · Harita ağırlıklı rota ve yürüyüş** (Oguz'un notları): rota ekranı haritada fotoğraflı işaretlerle, yürüyüş modu harita + büyütülebilen alt pencere. Taslaklar: `AltRouteMap.dc.html`, `AltWalkMap.dc.html`.
