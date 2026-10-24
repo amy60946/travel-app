@@ -130,3 +130,21 @@ Bundan sonra her yeni sürüm için yalnızca 6. adımı tekrarlaman yeterli.
 - Paket kimliği (bundle id): `io.travelapp.ios`.
 - Dil: geliştirme dili Türkçe; İngilizce çeviriler
   `ios/TravelApp/en.lproj/Localizable.strings`.
+
+## Yapay zekâ anahtarları (isteğe bağlı, ücretsiz)
+
+Fotoğraftan ve kopyalanan yazıdan yer bulma, Google Gemini ve Groq'un
+ücretsiz katmanlarını birlikte kullanır. İkisi de kredi kartı istemez.
+Anahtarı olmayan servis kapalı kalır; uygulama yine çalışır.
+
+1. **Gemini:** aistudio.google.com → Google hesabınla gir → sol üstte
+   *Get API key* → *Create API key* → anahtarı kopyala.
+2. **Groq:** console.groq.com → hesap aç → sol menüde *API Keys* →
+   *Create API Key* → bir ad ver → anahtarı kopyala.
+3. GitHub'da depoya gir → üstte *Settings* → soldan *Secrets and
+   variables* → *Actions* → *New repository secret*:
+   - Name: `GEMINI_API_KEY`, Secret: Gemini anahtarı → *Add secret*
+   - Name: `GROQ_API_KEY`, Secret: Groq anahtarı → *Add secret*
+
+Anahtarlar bir sonraki TestFlight yüklemesinde uygulamaya girer.
+Anahtarı sohbete yapıştırma.

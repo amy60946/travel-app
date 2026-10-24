@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Veri aktar: Google Maps (Takeout) dosyası ve kopyalanan link.
+/// Veri aktar: Google Maps (Takeout) dosyası, kopyalanan yazı ve link.
 /// Kazıma yok; yalnızca kullanıcının verdiği dosya ve link okunur.
 struct ImportView: View {
     @EnvironmentObject private var store: AppStore
@@ -12,6 +12,7 @@ struct ImportView: View {
     @State private var resultText: String?
     @State private var notFound: [String] = []
     @State private var linkMessage: String?
+    @State private var readingText = false
 
     var body: some View {
         NavigationStack {
@@ -51,6 +52,26 @@ struct ImportView: View {
                         ForEach(notFound, id: \.self) { name in
                             Label(name, systemImage: "questionmark.circle").foregroundStyle(Theme.muted)
                         }
+                    }
+                }
+
+                Section {
+                    Button {
+                        Task { await pasteText() }
+                    } label: {
+                        Label("Kopyaladığın yazıdan yer bul", systemImage: "text.quote")
+                    }
+                    .disabled(importer.progress != nil || readingText)
+                    if readingText {
+                        ProgressView("Yazıdaki yerler bulunuyor…")
+                    }
+                } header: {
+                    Text("Yazı")
+                } footer: {
+                    if PlaceAI.isAvailable {
+                        Text("Instagram ya da TikTok açıklaması, mesaj veya liste kopyala. Yazıdaki yerleri yapay zekâ bulur.")
+                    } else {
+                        Text("Her satır bir yer adı olarak aranır. Yapay zekâ anahtarı eklenince açıklamalardaki yerler de bulunur.")
                     }
                 }
 
@@ -105,6 +126,34 @@ struct ImportView: View {
             resultText = String(localized: "Bu dosyalarda yer bulunamadı.")
             notFound = []
             return
+        }
+        let result = await importer.resolve(items, knownCities: store.cities)
+        let added = store.importPlaces(result.added)
+        resultText = String(localized: "\(added) yer eklendi · \(result.notFound.count) bulunamadı")
+        notFound = result.notFound
+    }
+
+    private func pasteText() async {
+        guard let text = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else {
+            resultText = String(localized: "Panoda yazı yok.")
+            notFound = []
+            return
+        }
+        readingText = true
+        defer { readingText = false }
+        var found = PlaceAI.lines(in: text)
+        if PlaceAI.isAvailable {
+            found = await PlaceAI.places(inText: text)
+        }
+        guard !found.isEmpty else {
+            resultText = String(localized: "Yazıda yer bulunamadı.")
+            notFound = []
+            return
+        }
+        let items = found.map {
+            TakeoutParser.Item(name: $0.name, latitude: nil, longitude: nil, address: $0.city,
+                               note: "", url: nil, source: .text)
         }
         let result = await importer.resolve(items, knownCities: store.cities)
         let added = store.importPlaces(result.added)

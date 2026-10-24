@@ -2,7 +2,7 @@ import CoreLocation
 import Foundation
 
 enum PlaceSource: String, Codable, CaseIterable, Identifiable {
-    case instagram, tiktok, googleMaps, manual, photo, search
+    case instagram, tiktok, googleMaps, manual, photo, search, text
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum PlaceSource: String, Codable, CaseIterable, Identifiable {
         case .manual: String(localized: "Kendi yerin")
         case .photo: String(localized: "Fotoğraf")
         case .search: String(localized: "Arama")
+        case .text: String(localized: "Yazıdan")
         }
     }
 
