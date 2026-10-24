@@ -1,12 +1,106 @@
-"Gezim" = "My Trip";
-"Rota" = "Route";
-"Yürüyüş" = "Walk";
-"Kaydet" = "Save";
-"Yakında" = "Coming soon";
+/* Sekmeler */
+"Keşfet" = "Explore";
+"Kayıtlar" = "Saved";
+"İndirilenler" = "Downloads";
+"Ekle" = "Add";
+"Gezilerim" = "My trips";
+"Kayıtlarım" = "My saves";
+"%lld yer" = "%lld places";
+
+/* Kayıtlarım */
+"Tümü" = "All";
+"Rotada" = "On route";
+"Rotaya ekle" = "Add to route";
+"Rotaya ekle (%lld)" = "Add to route (%lld)";
+"Tahmini" = "Estimated";
+"Geri al" = "Undo";
+"Rotaya eklendi" = "Added to route";
+"%@ rotadan çıkarıldı" = "%@ removed from route";
+"%@ eklendi" = "%@ added";
+"Yürüyüşten önce harita, anlatım ve yön seslerini telefona indireceğiz. Bu bölüm sonraki adımda gelecek." = "Maps, narrations and directions will be downloaded before your walk. This section comes in the next step.";
+
+/* Kaynak ve tür */
+"Kendi yerin" = "Your place";
+"Fotoğraf" = "Photo";
+"Arama" = "Search";
+"Instagram'da kaydettin" = "You saved this on Instagram";
+"TikTok'ta kaydettin" = "You saved this on TikTok";
+"Google Maps'te kaydettin" = "You saved this on Google Maps";
+"Görülecek yer" = "Sight";
+"Tapınak" = "Temple";
+"Müze" = "Museum";
+"Yemek" = "Food";
+"Kafe" = "Café";
+"Alışveriş" = "Shopping";
+"Park" = "Park";
+"Manzara" = "Viewpoint";
+"Diğer" = "Other";
+"Yer" = "Place";
+
+/* Şehir planı */
+"%lld gün" = "%lld days";
+"%lld. gün" = "Day %lld";
 "Tempo" = "Pace";
 "Rahat" = "Relaxed";
 "Normal" = "Normal";
 "Tempolu" = "Brisk";
-"%lld gün" = "%lld days";
-"Günde %lld-%lld durak" = "%lld-%lld stops per day";
-"Toplam en fazla %lld durak" = "Up to %lld stops in total";
+"Yürü" = "Walk";
+"Harita türü" = "Map type";
+"Standart" = "Standard";
+"Uydu" = "Satellite";
+"Karma" = "Hybrid";
+"%lld yer sığar · rotada %lld yer" = "Fits %lld places · %lld on route";
+"%lld yer sığmadı. Gün ekle ya da tempoyu artır." = "%lld places didn't fit. Add a day or pick a faster pace.";
+"Harita ve yol tarifi: Apple Haritalar" = "Maps and directions: Apple Maps";
+"Yer ekle" = "Add place";
+"Kayıtlarından ekle" = "Add from saves";
+"Kendi yerini oluştur" = "Create your own place";
+"%lld durak" = "%lld stops";
+"%lld durak · %lld km yürüyüş · ~%lld sa" = "%lld stops · %lld km walk · ~%lld h";
+"Bu gün boş. \"+\" ile yer ekleyebilirsin." = "This day is empty. Use \"+\" to add places.";
+"Günü hafiflet" = "Lighten day";
+"Yürüyüşe başla" = "Start walk";
+
+/* Yer sayfası */
+"Bu yer artık kayıtlı değil." = "This place is no longer saved.";
+"%@ · %@" = "%@ · %@";
+"Ortalama süre: %lld dk" = "Average visit: %lld min";
+"Hakkında" = "About";
+"Kaynak: Wikipedia (CC BY-SA)" = "Source: Wikipedia (CC BY-SA)";
+"Notun" = "Your note";
+"Dinle" = "Listen";
+"Anlatım hazırlanıyor" = "Preparing narration";
+"Rehber anlatımı · iPhone sesi" = "Guide narration · iPhone voice";
+"Çıkar" = "Remove";
+
+/* Yer ekle */
+"Fotoğrafla ekle (yakında)" = "Add with photo (coming soon)";
+"Arama sonuçları" = "Search results";
+"Kayıtlarından" = "From your saves";
+"Popüler yerler" = "Popular places";
+"Popüler yerler yüklenemedi. İnternet bağlantını kontrol et." = "Couldn't load popular places. Check your internet connection.";
+"Son 30 günde %lld okunma" = "%lld reads in the last 30 days";
+"Sıralama: Wikipedia okunma sayısı. Arama: Apple Haritalar." = "Ranking: Wikipedia page views. Search: Apple Maps.";
+"%@ içinde ara" = "Search in %@";
+"Bitti" = "Done";
+
+/* Kendi yerin */
+"Yerin adı" = "Place name";
+"Tür" = "Type";
+"Konum" = "Location";
+"Pini yerine oturtmak için haritayı kaydır." = "Drag the map to place the pin.";
+"Not" = "Note";
+"İsteğe bağlı" = "Optional";
+"Gün" = "Day";
+"Otomatik (en yakın gün)" = "Automatic (nearest day)";
+"Vazgeç" = "Cancel";
+"Kaydet" = "Save";
+
+/* Yürü */
+"Sıradaki durak" = "Next stop";
+"%lld m" = "%lld m";
+"Günün rotası bitti" = "Today's route is done";
+"Anlatım çalıyor" = "Narration playing";
+"Yaklaşınca anlatım kendiliğinden başlar" = "Narration starts as you approach";
+"Sıradaki" = "Next";
+"Yaklaştın, anlatım başladı" = "You're close, narration started";

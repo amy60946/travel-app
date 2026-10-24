@@ -17,6 +17,13 @@ targets:
     platform: iOS
     sources:
       - TravelApp
+    info:
+      path: TravelApp/Info.plist
+      properties:
+        UIAppFonts: [Figtree.ttf]
+        NSLocationWhenInUseUsageDescription: "Yürüyüşte sıradaki durağa yaklaştığında anlatımı başlatmak için konumunu kullanıyoruz."
+        CFBundleDevelopmentRegion: tr
+        CFBundleLocalizations: [tr, en]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.amy60946.travelapp
