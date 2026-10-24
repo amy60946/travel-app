@@ -27,6 +27,12 @@ targets:
         GroqAPIKey: "$(GROQ_API_KEY)"
         CFBundleDevelopmentRegion: tr
         CFBundleLocalizations: [tr, en]
+        # Veri dosyası (.zip / .json) "Paylaş → TravelApp" ile açılabilsin.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: "Veri dosyası"
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.zip-archive, public.json]
+        LSSupportsOpeningDocumentsInPlace: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.travelapp.ios

@@ -36,6 +36,27 @@ enum SocialExport {
         return posts.filter { seen.insert(canonical($0.url)).inserted }
     }
 
+    /// Birden çok dosyadaki gönderiler; aynı gönderi iki dosyadaysa
+    /// (ör. kayıtlılar ve koleksiyonlar) koleksiyon ve hesap adı birleştirilir.
+    static func posts(in files: [ExportFiles.File]) -> [Post] {
+        var byKey: [String: Post] = [:]
+        var order: [String] = []
+        for file in files {
+            for post in parse(data: file.data, fileName: file.name) {
+                let key = canonical(post.url)
+                if var existing = byKey[key] {
+                    existing.collection = existing.collection ?? post.collection
+                    existing.author = existing.author ?? post.author
+                    byKey[key] = existing
+                } else {
+                    byKey[key] = post
+                    order.append(key)
+                }
+            }
+        }
+        return order.compactMap { byKey[$0] }
+    }
+
     // MARK: - JSON
 
     private static func walk(_ node: Any, path: String, collection: String?, into posts: inout [Post]) {
