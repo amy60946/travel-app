@@ -139,7 +139,11 @@
 "Yerler haritada bulunuyor…" = "Finding places on the map…";
 "Yeri belirle" = "Needs location";
 "Yeri belirlenecek %lld gönderi" = "%lld posts need a location";
-"Gönderiyi aç, açıklamayı ya da konum adını kopyala, buraya dönüp Yapıştır'a dokun." = "Open the post, copy its caption or location name, come back and tap Paste.";
+"Gönderiyi aç, ekran görüntüsü al ve buraya dön: uygulama açıklamayı ve konum etiketini okuyup yeri ekler. Açıklamayı kopyalayıp Yapıştır'a da dokunabilirsin." = "Open the post, take a screenshot and come back: the app reads the caption and location tag and adds the place. You can also copy the caption and tap Paste.";
+"Ekran görüntülerini kendiliğinden oku" = "Read screenshots automatically";
+"Ekran görüntüsü" = "Screenshot";
+"Fotoğraflar'a tam erişim verilmedi. Ekran görüntüsü düğmesiyle kendin seçebilirsin." = "Full Photos access wasn't given. You can pick the screenshot with the Screenshot button.";
+"Ekran görüntüsünde yer bulunamadı. Konum etiketi ya da açıklama görünecek şekilde tekrar dene." = "No place found in the screenshot. Try again with the location tag or caption visible.";
 "Yeri belirlenecek gönderi yok" = "No posts need a location";
 "Gönderi" = "Post";
 "Aç" = "Open";

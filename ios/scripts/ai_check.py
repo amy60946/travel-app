@@ -53,9 +53,11 @@ SEARCH_PROMPT = (
 # Gemini'nin "linki oku" (url_context) aracı için Instagram gönderisi linki
 # bulunan, gönderi gömen makaleler.
 ARTICLE_PAGES = [
-    "https://www.timeout.com/tokyo/restaurants/best-ramen-in-tokyo",
-    "https://www.timeout.com/tokyo/restaurants/best-restaurants-in-tokyo",
-    "https://www.timeout.com/tokyo/things-to-do/best-things-to-do-in-tokyo",
+    "https://www.timeout.com/tokyo/news/ramen-is-tokyos-most-iconic-dish-as-voted-by-you-120820",
+    "https://www.timeout.com/tokyo/news/6-tokyo-ramen-restaurants-ranked-in-japan-best-ramen-awards-2022-121622",
+    "https://www.timeout.com/tokyo/restaurants/the-best-ramen-in-tokyo",
+    "https://www.timeout.com/tokyo/restaurants/20-best-ramen-in-tokyo",
+    "https://byfood.com/blog/tokyo/best-ramen-in-tokyo",
 ]
 POST_LINK = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+/?")
 

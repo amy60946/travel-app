@@ -23,6 +23,7 @@ targets:
         UIAppFonts: [Figtree.ttf]
         NSLocationWhenInUseUsageDescription: "Yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
         NSCameraUsageDescription: "Tabela ya da bina fotoğrafından yeri bulmak için kamerayı kullanıyoruz."
+        NSPhotoLibraryUsageDescription: "Kaydettiğin gönderinin ekran görüntüsünden yeri bulmak için yalnızca en yeni ekran görüntüsüne bakıyoruz."
         GeminiAPIKey: "$(GEMINI_API_KEY)"
         GroqAPIKey: "$(GROQ_API_KEY)"
         CFBundleDevelopmentRegion: tr
