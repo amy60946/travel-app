@@ -62,6 +62,16 @@ final class PlaceImporter: ObservableObject {
         return response?.mapItems.first?.placemark.coordinate
     }
 
+    /// Konumun şehri: bilinen bir şehre yakınsa o, değilse haritadan bulunan ad.
+    func city(for location: CLLocation, knownCities: [AppStore.CitySummary]) async -> String {
+        if let near = knownCities.first(where: {
+            CLLocation(latitude: $0.latitude, longitude: $0.longitude).distance(from: location) < cityRadius
+        }) {
+            return near.name
+        }
+        return await cityName(at: location) ?? String(localized: "Diğer")
+    }
+
     /// Şehir adı. Japonya gibi ülkelerde ilçe yerine il (ör. Tokyo) seçilir.
     private func cityName(at location: CLLocation) async -> String? {
         let placemark = try? await geocoder.reverseGeocodeLocation(location).first

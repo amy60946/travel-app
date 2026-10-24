@@ -73,7 +73,6 @@
 "Çıkar" = "Remove";
 
 /* Yer ekle */
-"Fotoğrafla ekle (yakında)" = "Add with photo (coming soon)";
 "Arama sonuçları" = "Search results";
 "Kayıtlarından" = "From your saves";
 "Popüler yerler" = "Popular places";
@@ -140,3 +139,17 @@
 "İndirildi: %@" = "Downloaded: %@";
 "İndir" = "Download";
 "Güncelle" = "Update";
+
+/* Fotoğrafla ekle */
+"Fotoğrafla ekle" = "Add with photo";
+"Tabelanın ya da girişin fotoğrafını çek. Yazıyı telefonun kendisi okur, konumunla yakındaki yeri bulur." = "Take a photo of the sign or entrance. Your phone reads the text and finds the nearby place using your location.";
+"Fotoğraf çek" = "Take photo";
+"Galeriden seç" = "Choose from library";
+"Okunan yazı: %@" = "Text read: %@";
+"Eklendi · %@" = "Added · %@";
+"Yanlış yer mi? Değiştir:" = "Wrong place? Change:";
+"Yazı okunuyor…" = "Reading text…";
+"Fotoğrafta okunabilir yazı bulunamadı. Tabelaya daha yakından dene." = "No readable text in the photo. Try closer to the sign.";
+"Konumun alınamadı. Konum iznini kontrol et ve tekrar dene." = "Couldn't get your location. Check location permission and try again.";
+"Yakındaki yerler aranıyor…" = "Searching nearby places…";
+"Yakında bu yazıyla eşleşen yer bulunamadı." = "No nearby place matches this text.";

@@ -133,6 +133,13 @@ final class AppStore: ObservableObject {
         save()
     }
 
+    /// Bir yerin bilgilerini değiştirir ("Yanlış yer mi? Değiştir").
+    func update(_ place: Place) {
+        guard let index = places.firstIndex(where: { $0.id == place.id }) else { return }
+        places[index] = place
+        save()
+    }
+
     /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
     /// Eklenen sayısını döndürür.
     @discardableResult

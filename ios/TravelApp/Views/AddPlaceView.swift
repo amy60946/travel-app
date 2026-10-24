@@ -13,6 +13,7 @@ struct AddPlaceView: View {
     @State private var popular: [WikipediaService.PopularPlace] = []
     @State private var popularFailed = false
     @State private var showCustom = false
+    @State private var showCamera = false
 
     private var center: CLLocationCoordinate2D {
         store.cities.first { $0.name == city }?.coordinate
@@ -30,8 +31,9 @@ struct AddPlaceView: View {
                     Button { showCustom = true } label: {
                         Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse")
                     }
-                    Label("Fotoğrafla ekle (yakında)", systemImage: "camera")
-                        .foregroundStyle(Theme.muted)
+                    Button { showCamera = true } label: {
+                        Label("Fotoğrafla ekle", systemImage: "camera")
+                    }
                 }
 
                 if !results.isEmpty {
@@ -81,6 +83,7 @@ struct AddPlaceView: View {
             }
             .task { await loadPopular() }
             .sheet(isPresented: $showCustom) { CustomPlaceView(city: city) }
+            .sheet(isPresented: $showCamera) { CameraAddView() }
             .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
             .animation(.snappy, value: store.undoMessage)
         }

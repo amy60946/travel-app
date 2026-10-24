@@ -21,7 +21,8 @@ targets:
       path: TravelApp/Info.plist
       properties:
         UIAppFonts: [Figtree.ttf]
-        NSLocationWhenInUseUsageDescription: "Yürüyüşte sıradaki durağa yaklaştığında anlatımı başlatmak için konumunu kullanıyoruz."
+        NSLocationWhenInUseUsageDescription: "Yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
+        NSCameraUsageDescription: "Tabela ya da bina fotoğrafından yeri bulmak için kamerayı kullanıyoruz."
         CFBundleDevelopmentRegion: tr
         CFBundleLocalizations: [tr, en]
     settings:

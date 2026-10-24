@@ -58,12 +58,14 @@ enum AddSheet: Identifiable {
     case addPlace(city: String)
     case customPlace(city: String)
     case importData
+    case camera
 
     var id: String {
         switch self {
         case .addPlace(let city): "add-\(city)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
+        case .camera: "camera"
         }
     }
 
@@ -72,6 +74,7 @@ enum AddSheet: Identifiable {
         case .addPlace(let city): AddPlaceView(city: city)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
+        case .camera: CameraAddView()
         }
     }
 }
@@ -94,6 +97,7 @@ private struct TabBar: View {
 
             Menu {
                 Button { sheet = .addPlace(city: city) } label: { Label("Yer ekle", systemImage: "magnifyingglass") }
+                Button { sheet = .camera } label: { Label("Fotoğrafla ekle", systemImage: "camera") }
                 Button { sheet = .importData } label: { Label("Veri dosyası ya da link aktar", systemImage: "square.and.arrow.down") }
                 Button { sheet = .customPlace(city: city) } label: { Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse") }
             } label: {
