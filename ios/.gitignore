@@ -1,0 +1,7 @@
+TravelApp.xcodeproj/
+build/
+*.ipa
+Payload/
+DerivedData/
+.DS_Store
+xcuserdata/

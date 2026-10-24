@@ -3,7 +3,8 @@
 Kaynak: `TravelApp.docx` ("Seyahat Uygulaması: Araştırma ve Ürün
 İskeleti", 23 Eki 2026) ve Oguz'un 23 Eki 2026'da paylaştığı proje
 scope'u. Kesinleşen kararlar `CLAUDE.md` → Kararlar bölümündedir.
-Henüz yazılım aşamasına geçilmedi.
+Yazılım aşaması 24 Eki 2026'da başladı; derleme ve kurulum için bkz.
+`docs/GELISTIRME.md`.
 
 ## 1. Amaç
 
@@ -113,6 +114,8 @@ kurulum yapılır.
    Oguz ile birlikte karar verilecek.
 2. **Apple Developer hesabı (çözüldü, 23 Eki):** Aşama 0-1 için ücretsiz
    hesap yeterli. App Store'a çıkmadan önce yeniden konuşulacak.
+   24 Eki: Oguz'un mevcut ücretli Developer hesabı var; TestFlight'a
+   bağlantı yazılım iskeleti kurulduktan sonra yapılacak.
 3. **Sunucu:** "İnce sunucu katmanı" hangi ücretsiz hizmette çalışacak?
 4. **Türkçe ve Japonca yer adları:** Tokyo'da yer adı okunuşları ve
    Türkçe/İngilizce ses kalitesi nasıl sağlanacak?

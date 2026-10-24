@@ -1,0 +1,48 @@
+# XcodeGen ayar dosyası: Xcode projesi (TravelApp.xcodeproj) bu dosyadan
+# otomatik üretilir. Projeyi elle değil, bu dosyayı değiştirerek ayarlarız.
+name: TravelApp
+options:
+  bundleIdPrefix: io.github.amy60946
+  developmentLanguage: tr
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+targets:
+  TravelApp:
+    type: application
+    platform: iOS
+    sources:
+      - TravelApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.amy60946.travelapp
+        INFOPLIST_KEY_CFBundleDisplayName: TravelApp
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  TravelAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - TravelAppTests
+    dependencies:
+      - target: TravelApp
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  TravelApp:
+    build:
+      targets:
+        TravelApp: all
+        TravelAppTests: [test]
+    test:
+      targets:
+        - TravelAppTests
