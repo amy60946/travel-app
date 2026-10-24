@@ -85,7 +85,12 @@ struct HomeView: View {
         }
         .padding(16)
         .padding(.bottom, 80)
-        .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius, topTrailingRadius: Theme.sheetRadius))
+        .background {
+            // Panel ekranın alt kenarına kadar uzansın; altta harita görünmesin.
+            UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius, topTrailingRadius: Theme.sheetRadius)
+                .fill(.white)
+                .ignoresSafeArea(edges: .bottom)
+        }
         .softShadow()
     }
 
