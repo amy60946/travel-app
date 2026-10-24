@@ -124,11 +124,11 @@
 "Instagram ve TikTok kayıtların" = "Your Instagram and TikTok saves";
 "Instagram'dan nasıl indirilir?" = "How to download from Instagram?";
 "TikTok'tan nasıl indirilir?" = "How to download from TikTok?";
-"1. Instagram'da profiline gir → sağ üstte ☰ → **Hesaplar Merkezi**." = "1. In Instagram, open your profile → ☰ at top right → **Accounts Center**.";
-"2. **Bilgilerin ve izinlerin** → **Bilgilerini indir** → **Bilgileri indir veya aktar**." = "2. **Your information and permissions** → **Download your information** → **Download or transfer information**.";
-"3. Instagram hesabını seç → **Bilgilerinin bir kısmı** → yalnızca **Kaydedilenler**." = "3. Pick your Instagram account → **Some of your information** → only **Saved**.";
-"4. **Cihaza indir** → Biçim: **JSON**, Tarih aralığı: **Tüm zamanlar** → **Dosyaları oluştur**." = "4. **Download to device** → Format: **JSON**, Date range: **All time** → **Create files**.";
-"5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **saved_posts.json** ve **saved_collections.json** dosyalarını seç." = "5. When it's ready, download the .zip from the email, open it in Files and pick **saved_posts.json** and **saved_collections.json**.";
+"1. Instagram'da profiline gir → sağ üstte ☰ → **Ayarlar ve hareketler** → en üstte **Meta Hesabı** (eski adı: Hesaplar Merkezi)." = "1. In Instagram, open your profile → ☰ at top right → **Settings and activity** → **Meta Account** at the top (formerly Accounts Center).";
+"2. **Bilgilerin ve izinlerin** → **Bilgilerini dışa aktar** (bazı telefonlarda: Bilgilerini indir) → **Dışa aktarma oluştur**." = "2. **Your information and permissions** → **Export your information** (on some phones: Download your information) → **Create export**.";
+"3. Instagram hesabını seç → **Cihaza aktar** → **Bilgileri özelleştir** → yalnızca **Kaydedilenler**." = "3. Pick your Instagram account → **Export to device** → **Customize information** → only **Saved**.";
+"4. Tarih aralığı: **Tüm zamanlar**, Biçim: **JSON** → **Dışa aktarmayı başlat**." = "4. Date range: **All time**, Format: **JSON** → **Start export**.";
+"5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **your_instagram_activity → saved** klasöründeki **saved_posts.json** ve **saved_collections.json** dosyalarını seç." = "5. When it's ready, download the .zip from the email and open it in Files; in **your_instagram_activity → saved**, pick **saved_posts.json** and **saved_collections.json**.";
 "1. TikTok'ta profiline gir → ☰ → **Ayarlar ve gizlilik** → **Hesap** → **Verilerini indir**." = "1. In TikTok, open your profile → ☰ → **Settings and privacy** → **Account** → **Download your data**.";
 "2. Biçim: **JSON** → **Veri iste**." = "2. Format: **JSON** → **Request data**.";
 "3. Hazır olunca **Verileri indir** sekmesinden indir, Dosyalar'da .zip'i aç; **user_data_tiktok.json** dosyasını seç." = "3. When it's ready, download it from the **Download data** tab, open the .zip in Files and pick **user_data_tiktok.json**.";
