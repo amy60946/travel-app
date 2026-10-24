@@ -139,11 +139,11 @@ struct ImportView: View {
         Section {
             DisclosureGroup("Instagram'dan nasıl indirilir?") {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("1. Instagram'da profiline gir → sağ üstte ☰ → **Hesaplar Merkezi**.")
-                    Text("2. **Bilgilerin ve izinlerin** → **Bilgilerini indir** → **Bilgileri indir veya aktar**.")
-                    Text("3. Instagram hesabını seç → **Bilgilerinin bir kısmı** → yalnızca **Kaydedilenler**.")
-                    Text("4. **Cihaza indir** → Biçim: **JSON**, Tarih aralığı: **Tüm zamanlar** → **Dosyaları oluştur**.")
-                    Text("5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **saved_posts.json** ve **saved_collections.json** dosyalarını seç.")
+                    Text("1. Instagram'da profiline gir → sağ üstte ☰ → **Ayarlar ve hareketler** → en üstte **Hesaplar Merkezi**.")
+                    Text("2. **Bilgilerin ve izinlerin** → **Bilgilerini dışa aktar** (eski adı: Bilgilerini indir) → **Dışa aktarma oluştur**.")
+                    Text("3. Instagram hesabını seç → **Cihaza aktar** → **Bilgileri özelleştir** → yalnızca **Kaydedilenler**.")
+                    Text("4. Tarih aralığı: **Tüm zamanlar**, Biçim: **JSON** → **Dışa aktarmayı başlat**.")
+                    Text("5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **your_instagram_activity → saved** klasöründeki **saved_posts.json** ve **saved_collections.json** dosyalarını seç.")
                 }
                 .font(Theme.font(14))
                 .padding(.vertical, 4)
