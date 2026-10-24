@@ -10,3 +10,4 @@ Kararların tam listesi `CLAUDE.md` → Kararlar bölümündedir.
 - 2026-10-24 · Taslakta Oguz'un notlarına göre ekranlar esas alındı (CLAUDE.md Kararlar); Apple tarzı 3 stil alternatifi (A mavi, B siyah-beyaz, C koyu) eklendi · Oguz: tek bir stil seçsin
 - 2026-10-24 · Oguz hazır iOS görünümünü istemedi; seyahat uygulamaları araştırıldı, 3 marka yönü (Defter, İz, Ses) marka kartı ve ekranlarla eklendi · Oguz: bir yön seçsin ya da parçaları karıştırmayı söylesin
 - 2026-10-24 · Oguz Airbnb dilini seçti; tasarım dili kartı ve 9 ekran bu dille yeniden çizildi (Kiremit vurgu, Figtree yazı) · Oguz: ekranlara bakıp notlarını yazsın
+- 2026-10-24 · Polarsteps incelendi; Tripadvisor'ın ücretsiz olmadığı ve sesli okumaya uygun olmadığı bulundu, ücretsiz kaynak önerisi PLAN.md'ye yazıldı; tasarım panosuna 7 ekranlık "Polarsteps ilhamı" sayfası eklendi · Oguz: kaynak önerisini onaylasın, yeni akışla Airbnb dilindeki akıştan hangisinin esas alınacağını söylesin

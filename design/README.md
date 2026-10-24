@@ -44,7 +44,7 @@ ekranlar o stile geçirilecek.
 | B | B-Rota, B-Yuruyus, B-YerEkle | Açık zemin, tamamen siyah-beyaz |
 | C | C-Rota, C-Yuruyus, C-YerEkle | Koyu zemin, tek yeşil vurgu |
 
-### Marka dili (24 Eki, sayfa: "Marka dili (yeni)")
+### Marka dili (24 Eki, sayfa: "Marka dili")
 
 Büyük seyahat uygulamalarının (Airbnb, Tripadvisor, Komoot, Polarsteps,
 Citymapper, GetYourGuide, Booking.com) tasarım dilleri incelendi
@@ -66,3 +66,23 @@ beyaz zemin, mürekkep #222222, gri #6A6A6A, köşeler 14/8/tam yuvarlak,
 tek kat hafif gölge, fotoğraf önde. Dosyalar `N-*.dc.html`
 (N-Marka: tasarım dili kartı). Önceki denemeler (eski taslak, Apple
 stilleri, 3 marka yönü) karşılaştırma için duruyor.
+
+### Polarsteps ilhamı (24 Eki, sayfa: "Polarsteps ilhamı (yeni)")
+
+Oguz'un gönderdiği Polarsteps ekranlarından ilhamla harita odaklı bir
+akış. Renk ve yazı Airbnb dilindeki gibi (Kiremit, Figtree). Dosyalar
+`P-*.dc.html`. Araştırma ve öneriler: "Polarsteps incelemesi ve
+öneriler" belgesi (proje sohbetinde linki var).
+
+| # | Ekran | Dosya | Polarsteps'ten alınan |
+|---|---|---|---|
+| 1 | Ana sayfa: küre, gezilerin fotoğraflı pin, altta Gezilerim / Kayıtlarım | P-Ana.dc.html | Küre ana sayfa |
+| 2 | Kayıtlarım: Instagram/TikTok/Google Maps kayıtları, kaynağa göre süzme, + ile seçme | P-Koleksiyon.dc.html | Koleksiyonlar |
+| 3 | Şehir planı: harita üstte, günler altta, + menüsü, Planla / Yürü | P-Plan.dc.html | Plan zaman çizelgesi, + menüsü, Plan/Track |
+| 4 | Yer ekle: arama, kendi yerin, fotoğrafla ekle, Kayıtlarından + Popüler yerler | P-YerEkle.dc.html | Add a spot (Tripadvisor yerine ücretsiz kaynaklar) |
+| 5 | Yer sayfası: büyük Dinle kartı, açıklama, ipuçları, bilgiler, kaynaklar | P-Yer.dc.html | Spot sayfası + bizim sesli rehber |
+| 6 | Kendi yerini oluştur: ad, adres + pin, tür, not, gün otomatik | P-OzelYer.dc.html | Custom spot |
+| 7 | Yürü: harita açık, küçük sesli çalar, yaklaşınca anlatım başlar | P-Yuruyus.dc.html | Track modu (bizde sesli rehber) |
+
+Küredeki kara şekilleri Natural Earth verisinden (kamu malı), `world-atlas`
+paketiyle çizildi.
