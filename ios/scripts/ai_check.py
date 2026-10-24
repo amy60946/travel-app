@@ -58,6 +58,9 @@ ARTICLE_PAGES = [
     "https://www.timeout.com/tokyo/restaurants/the-best-ramen-in-tokyo",
     "https://www.timeout.com/tokyo/restaurants/20-best-ramen-in-tokyo",
     "https://byfood.com/blog/tokyo/best-ramen-in-tokyo",
+    "https://curiocity.com/afuri-ramen-new-vancouver-location/",
+    "https://greenpointers.com/?p=143939",
+    "https://www.pdxmonthly.com/restaurants/afuri-ramen",
 ]
 POST_LINK = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+/?")
 
@@ -125,7 +128,9 @@ def instagram_post_links():
         except Exception as error:
             print(f"   {page}: {error!r}")
             continue
-        for link in POST_LINK.findall(html):
+        found = POST_LINK.findall(html)
+        print(f"   {page}: {len(html)} karakter, {len(found)} gönderi linki, 'instagram' {html.count('instagram')} kez")
+        for link in found:
             if link not in links:
                 links.append(link)
     print(f"\n===== Makalelerde bulunan Instagram gönderi linkleri: {len(links)}")
