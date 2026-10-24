@@ -44,6 +44,14 @@ struct PlaceDetailView: View {
                             }
                             if place.isEstimated { EstimatedTag() }
                         }
+                        if let url = place.sourceURL {
+                            Link(destination: url) {
+                                Label("Kaydettiğin gönderiyi aç", systemImage: "arrow.up.right.square")
+                                    .font(Theme.caption)
+                                    .underline()
+                            }
+                            .foregroundStyle(Theme.muted)
+                        }
                         Text("Ortalama süre: \(place.category.averageMinutes) dk")
                             .font(Theme.caption)
                             .foregroundStyle(Theme.muted)

@@ -8,6 +8,7 @@ struct SavedPlacesView: View {
     @State private var filter: PlaceSource?
     @State private var selection: Set<UUID> = []
     @State private var showImport = false
+    @State private var showPending = false
 
     private let filters: [PlaceSource] = [.instagram, .tiktok, .googleMaps]
 
@@ -37,6 +38,22 @@ struct SavedPlacesView: View {
                 .padding(.horizontal, 20)
             }
 
+            if !store.pendingPosts.isEmpty {
+                Button { showPending = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "mappin.slash")
+                        Text("Yeri belirlenecek \(store.pendingPosts.count) gönderi")
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+                    }
+                    .font(Theme.font(14, .semibold))
+                    .padding(14)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+            }
+
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 16) {
                     ForEach(visible) { place in
@@ -52,6 +69,7 @@ struct SavedPlacesView: View {
             }
         }
         .sheet(isPresented: $showImport) { ImportView() }
+        .sheet(isPresented: $showPending) { PendingPostsView() }
         .overlay(alignment: .bottom) {
             if !selection.isEmpty {
                 PrimaryButton(title: "Rotaya ekle (\(selection.count))", systemImage: "plus") {

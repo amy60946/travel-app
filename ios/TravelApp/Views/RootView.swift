@@ -50,6 +50,29 @@ struct RootView: View {
         .sheet(item: $sheet) { sheet in
             sheet.view
         }
+        .task { openLaunchScreen() }
+    }
+
+    /// Yalnızca geliştirme sürümünde: `-screen city` gibi bir açılış
+    /// argümanıyla istenen ekranı açar (derlemedeki ekran görüntüleri için).
+    private func openLaunchScreen() {
+        #if DEBUG
+        guard let screen = UserDefaults.standard.string(forKey: "screen") else { return }
+        let city = store.cities.first?.name ?? "Tokyo"
+        let firstPlace = store.places(in: city).first
+        switch screen {
+        case "saved": tab = .saved
+        case "downloads": tab = .downloads
+        case "city": path = [.city(city)]
+        case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
+        case "walk": path = [.city(city), .walk(city: city, day: 0)]
+        case "add": sheet = .addPlace(city: city)
+        case "import": sheet = .importData
+        case "camera": sheet = .camera
+        case "custom": sheet = .customPlace(city: city)
+        default: break
+        }
+        #endif
     }
 }
 

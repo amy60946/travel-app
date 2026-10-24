@@ -90,6 +90,8 @@ struct Place: Identifiable, Codable, Hashable {
     /// İngilizce Wikipedia başlığı; açıklama ve fotoğraf buradan gelir.
     var wikipediaTitle: String?
     var addedAt = Date()
+    /// Yerin geldiği gönderi ya da harita linki (Instagram, TikTok, Google Maps).
+    var sourceURL: URL?
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
