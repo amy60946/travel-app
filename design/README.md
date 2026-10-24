@@ -31,3 +31,15 @@ Yazılım aşamasında SwiftUI ekranları bu taslağa göre yapılacak.
 
 Notlar: yerler ve sayılar örnektir (Tokyo); harita ve fotoğraflar yer
 tutucudur. Arayüz Türkçe çizildi, İngilizce çevirisi aynı ekranlar olacak.
+
+### Stil alternatifleri (24 Eki, sayfa: "Stil alternatifleri")
+
+Apple'ın tasarım dilinde, sakin ve az renkli üç stil; her biri Rota,
+Yürüyüş ve Yer ekle ekranlarıyla gösterildi. Biri seçilecek, sonra bütün
+ekranlar o stile geçirilecek.
+
+| Stil | Dosyalar | Renk |
+|---|---|---|
+| A | A-Rota, A-Yuruyus, A-YerEkle | Açık zemin, tek mavi vurgu |
+| B | B-Rota, B-Yuruyus, B-YerEkle | Açık zemin, tamamen siyah-beyaz |
+| C | C-Rota, C-Yuruyus, C-YerEkle | Koyu zemin, tek yeşil vurgu |
