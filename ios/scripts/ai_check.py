@@ -6,11 +6,16 @@ istemine ne cevap veriyor. Anahtarlar asla yazdırılmaz.
 """
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
 GEMINI_MODEL = "gemini-flash-latest"
 GROQ_MODEL = "qwen/qwen3.8-27b"
+# Karşılaştırma için denenen diğer modeller.
+GEMINI_OTHERS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]
+# Groq (Cloudflare) Python'un varsayılan tarayıcı imzasını engelliyor; uygulama gibi tanıt.
+USER_AGENT = "TravelApp/1.0 (iOS)"
 
 # Uygulamadaki SocialImporter.describe ile aynı biçimde örnek gönderiler.
 ENTRIES = [
@@ -35,14 +40,17 @@ PROMPT = (
 
 def call(url, headers, body=None):
     data = json.dumps(body).encode() if body is not None else None
+    headers = {**headers, "User-Agent": USER_AGENT}
     request = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    started = time.time()
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return response.status, response.read().decode("utf-8", "replace")
+        with urllib.request.urlopen(request, timeout=150) as response:
+            status, text = response.status, response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as error:
-        return error.code, error.read().decode("utf-8", "replace")
+        status, text = error.code, error.read().decode("utf-8", "replace")
     except Exception as error:  # ağ hatası
-        return 0, repr(error)
+        status, text = 0, repr(error)
+    return status, f"({time.time() - started:.1f} sn) {text}"
 
 
 def show(title, status, text, limit=2500):
@@ -59,14 +67,16 @@ def gemini(key):
     else:
         show("Gemini model listesi", status, text)
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
     body = {"contents": [{"parts": [{"text": PROMPT}]}],
             "generationConfig": {"responseMimeType": "application/json"}}
-    show(f"Gemini {GEMINI_MODEL} (uygulamadaki istem)", *call(url, headers, body))
+    for model in [GEMINI_MODEL] + GEMINI_OTHERS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        show(f"Gemini {model} (uygulamadaki istem)", *call(url, headers, body))
 
     # Deneme: Google Arama ile (gerçek hesap adlarını arayıp bulabilir mi?)
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     body = {"contents": [{"parts": [{"text": PROMPT}]}], "tools": [{"google_search": {}}]}
-    show(f"Gemini {GEMINI_MODEL} + Google Arama", *call(url, headers, body))
+    show("Gemini gemini-2.5-flash + Google Arama", *call(url, headers, body))
 
 
 def groq(key):
