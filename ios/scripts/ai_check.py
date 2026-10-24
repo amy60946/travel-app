@@ -50,7 +50,8 @@ def call(url, headers, body=None):
         status, text = error.code, error.read().decode("utf-8", "replace")
     except Exception as error:  # ağ hatası
         status, text = 0, repr(error)
-    return status, f"({time.time() - started:.1f} sn) {text}"
+    print(f"   ({url.split('?')[0].rsplit('/', 1)[-1]}: {time.time() - started:.1f} sn)")
+    return status, text
 
 
 def show(title, status, text, limit=2500):
