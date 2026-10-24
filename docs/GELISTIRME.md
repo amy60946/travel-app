@@ -22,13 +22,13 @@ kurulduğunu adım adım anlatır. Teknik ayrıntılar en altta.
 
 ## TestFlight bağlanana kadar: iPhone'a elle kurma (Sideloadly)
 
-Sideloadly, ücretsiz Apple hesabınla uygulamayı imzalayıp telefona
-kuran ücretsiz bir programdır. Windows'ta da Mac'te de çalışır.
+Sideloadly, Apple hesabınla uygulamayı imzalayıp telefona kuran
+ücretsiz bir programdır. Oguz Mac kullanıyor; aşağıdaki adımlar Mac'e
+göredir.
 
 1. Bilgisayara **Sideloadly**'yi kur: sideloadly.io → *Download*.
-   - Windows'ta Sideloadly ayrıca Apple'ın **iTunes** ve **iCloud**
-     programlarını ister; Microsoft Store sürümü değil, Apple'ın
-     sitesindeki sürüm gerekir (Sideloadly kurulumda bağlantıyı verir).
+   - Açarken "geliştiricisi doğrulanamadı" uyarısı çıkarsa: **Sistem
+     Ayarları → Gizlilik ve Güvenlik** → aşağıda *Yine de Aç*.
 2. iPhone'u kabloyla bilgisayara tak; telefonda **"Bu bilgisayara güven"**
    sorusuna *Güven* de.
 3. Sideloadly'yi aç → `.ipa` dosyasını pencereye sürükle → **Apple ID**
