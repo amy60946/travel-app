@@ -69,3 +69,4 @@ cevapları.
 | 2026-10-24 | Ürün belgesi (`docs/URUN.md`) onaylandı; yazılım bu belgeye göre yapılır. TestFlight kurulumu başlatıldı. |
 | 2026-10-24 | Bundle ID (uygulama kimliği): `io.travelapp.ios`. |
 | 2026-10-24 | Fotoğrafla ekleme: **ikisi birden**. Önce iPhone yazı tanıma + konum (ücretsiz, internetsiz); yazı okunamaz ya da eşleşmezse Google Gemini ücretsiz katmanı (anahtar `GEMINI_API_KEY`, GitHub Secrets). |
+| 2026-10-24 | Testler yeşil olunca PR'ları **Claude birleştirir** ve TestFlight yüklemesini başlatır; Oguz telefonda dener. |
