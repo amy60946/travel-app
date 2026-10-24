@@ -2,7 +2,7 @@
 # otomatik üretilir. Projeyi elle değil, bu dosyayı değiştirerek ayarlarız.
 name: TravelApp
 options:
-  bundleIdPrefix: io.github.amy60946
+  bundleIdPrefix: io.travelapp
   developmentLanguage: tr
   deploymentTarget:
     iOS: "17.0"
@@ -17,11 +17,21 @@ targets:
     platform: iOS
     sources:
       - TravelApp
+    info:
+      path: TravelApp/Info.plist
+      properties:
+        UIAppFonts: [Figtree.ttf]
+        NSLocationWhenInUseUsageDescription: "Yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
+        NSCameraUsageDescription: "Tabela ya da bina fotoğrafından yeri bulmak için kamerayı kullanıyoruz."
+        GeminiAPIKey: "$(GEMINI_API_KEY)"
+        CFBundleDevelopmentRegion: tr
+        CFBundleLocalizations: [tr, en]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.amy60946.travelapp
+        PRODUCT_BUNDLE_IDENTIFIER: io.travelapp.ios
         INFOPLIST_KEY_CFBundleDisplayName: TravelApp
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES

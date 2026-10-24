@@ -1,12 +1,157 @@
-"Gezim" = "My Trip";
-"Rota" = "Route";
-"Yürüyüş" = "Walk";
-"Kaydet" = "Save";
-"Yakında" = "Coming soon";
+/* Sekmeler */
+"Keşfet" = "Explore";
+"Kayıtlar" = "Saved";
+"İndirilenler" = "Downloads";
+"Ekle" = "Add";
+"Gezilerim" = "My trips";
+"Kayıtlarım" = "My saves";
+"%lld yer" = "%lld places";
+
+/* Kayıtlarım */
+"Tümü" = "All";
+"Rotada" = "On route";
+"Rotaya ekle" = "Add to route";
+"Rotaya ekle (%lld)" = "Add to route (%lld)";
+"Tahmini" = "Estimated";
+"Geri al" = "Undo";
+"Rotaya eklendi" = "Added to route";
+"%@ rotadan çıkarıldı" = "%@ removed from route";
+"%@ eklendi" = "%@ added";
+
+/* Kaynak ve tür */
+"Kendi yerin" = "Your place";
+"Fotoğraf" = "Photo";
+"Arama" = "Search";
+"Instagram'da kaydettin" = "You saved this on Instagram";
+"TikTok'ta kaydettin" = "You saved this on TikTok";
+"Google Maps'te kaydettin" = "You saved this on Google Maps";
+"Görülecek yer" = "Sight";
+"Tapınak" = "Temple";
+"Müze" = "Museum";
+"Yemek" = "Food";
+"Kafe" = "Café";
+"Alışveriş" = "Shopping";
+"Park" = "Park";
+"Manzara" = "Viewpoint";
+"Diğer" = "Other";
+"Yer" = "Place";
+
+/* Şehir planı */
+"%lld gün" = "%lld days";
+"%lld. gün" = "Day %lld";
 "Tempo" = "Pace";
 "Rahat" = "Relaxed";
 "Normal" = "Normal";
 "Tempolu" = "Brisk";
-"%lld gün" = "%lld days";
-"Günde %lld-%lld durak" = "%lld-%lld stops per day";
-"Toplam en fazla %lld durak" = "Up to %lld stops in total";
+"Yürü" = "Walk";
+"Harita türü" = "Map type";
+"Standart" = "Standard";
+"Uydu" = "Satellite";
+"Karma" = "Hybrid";
+"%lld yer sığar · rotada %lld yer" = "Fits %lld places · %lld on route";
+"%lld yer sığmadı. Gün ekle ya da tempoyu artır." = "%lld places didn't fit. Add a day or pick a faster pace.";
+"Harita ve yol tarifi: Apple Haritalar" = "Maps and directions: Apple Maps";
+"Yer ekle" = "Add place";
+"Kayıtlarından ekle" = "Add from saves";
+"Kendi yerini oluştur" = "Create your own place";
+"%lld durak" = "%lld stops";
+"%lld durak · %lld km yürüyüş · ~%lld sa" = "%lld stops · %lld km walk · ~%lld h";
+"Bu gün boş. \"+\" ile yer ekleyebilirsin." = "This day is empty. Use \"+\" to add places.";
+"Günü hafiflet" = "Lighten day";
+"Yürüyüşe başla" = "Start walk";
+
+/* Yer sayfası */
+"Bu yer artık kayıtlı değil." = "This place is no longer saved.";
+"%@ · %@" = "%@ · %@";
+"Ortalama süre: %lld dk" = "Average visit: %lld min";
+"Hakkında" = "About";
+"Kaynak: Wikipedia (CC BY-SA)" = "Source: Wikipedia (CC BY-SA)";
+"Notun" = "Your note";
+"Dinle" = "Listen";
+"Anlatım hazırlanıyor" = "Preparing narration";
+"Rehber anlatımı · iPhone sesi" = "Guide narration · iPhone voice";
+"Çıkar" = "Remove";
+
+/* Yer ekle */
+"Arama sonuçları" = "Search results";
+"Kayıtlarından" = "From your saves";
+"Popüler yerler" = "Popular places";
+"Popüler yerler yüklenemedi. İnternet bağlantını kontrol et." = "Couldn't load popular places. Check your internet connection.";
+"Son 30 günde %lld okunma" = "%lld reads in the last 30 days";
+"Sıralama: Wikipedia okunma sayısı. Arama: Apple Haritalar." = "Ranking: Wikipedia page views. Search: Apple Maps.";
+"%@ içinde ara" = "Search in %@";
+"Bitti" = "Done";
+
+/* Kendi yerin */
+"Yerin adı" = "Place name";
+"Tür" = "Type";
+"Konum" = "Location";
+"Pini yerine oturtmak için haritayı kaydır." = "Drag the map to place the pin.";
+"Not" = "Note";
+"İsteğe bağlı" = "Optional";
+"Gün" = "Day";
+"Otomatik (en yakın gün)" = "Automatic (nearest day)";
+"Vazgeç" = "Cancel";
+"Kaydet" = "Save";
+
+/* Yürü */
+"Sıradaki durak" = "Next stop";
+"%lld m" = "%lld m";
+"Günün rotası bitti" = "Today's route is done";
+"Anlatım çalıyor" = "Narration playing";
+"Yaklaşınca anlatım kendiliğinden başlar" = "Narration starts as you approach";
+"Sıradaki" = "Next";
+"Yaklaştın, anlatım başladı" = "You're close, narration started";
+
+/* Veri aktar */
+"Veri aktar" = "Import";
+"Veri dosyası ya da link aktar" = "Import data file or link";
+"%lld yer aktarıldı" = "%lld places imported";
+"1. Bilgisayarda ya da telefonda takeout.google.com adresine gir." = "1. Go to takeout.google.com on your computer or phone.";
+"2. \"Tümünün seçimini kaldır\" de, sonra yalnızca **Haritalar (yerleriniz)** ve **Kaydedilenler**'i seç." = "2. Tap \"Deselect all\", then select only **Maps (your places)** and **Saved**.";
+"3. Dışa aktarımı oluştur, gelen e-postadaki dosyayı indir." = "3. Create the export and download the file from the email.";
+"4. Dosyalar uygulamasında .zip'e dokunup aç; içindeki .json ve .csv dosyalarını burada seç." = "4. In the Files app, tap the .zip to unpack it, then pick the .json and .csv files here.";
+"Dosya seç" = "Choose files";
+"Google Maps listelerin" = "Your Google Maps lists";
+"Yıldızlı yerler, Favoriler, \"Gitmek istiyorum\" ve kendi listelerin. Koordinatı olmayan yerler Apple Haritalar'da aranır ve \"Tahmini\" diye işaretlenir." = "Starred places, Favorites, \"Want to go\" and your own lists. Places without coordinates are looked up in Apple Maps and marked \"Estimated\".";
+"Yerler bulunuyor: %lld / %lld" = "Finding places: %lld / %lld";
+"Sonuç" = "Result";
+"Bu dosyalarda yer bulunamadı." = "No places found in these files.";
+"%lld yer eklendi · %lld bulunamadı" = "%lld places added · %lld not found";
+"Kopyaladığın linki ekle" = "Add copied link";
+"Link" = "Link";
+"Google Maps'te yeri paylaş → Kopyala, sonra buraya dön." = "In Google Maps, share the place → Copy, then come back here.";
+"Instagram ve TikTok veri dosyası" = "Instagram and TikTok data file";
+"Sonraki adımda geliyor. Bu dosyalarda yer bilgisi olmadığı için önce gerçek bir dosyayla deneyeceğiz." = "Coming next. These files don't include locations, so we'll test with a real file first.";
+"Panoda link yok." = "No link on the clipboard.";
+"Şimdilik yalnızca Google Maps linkleri ekleniyor." = "Only Google Maps links are supported for now.";
+"%@ → %@ eklendi" = "%@ → %@ added";
+"Yer bulunamadı ya da zaten kayıtlı." = "Place not found or already saved.";
+
+/* İndirilenler */
+"Yürüyüşten önce anlatımları ve yürüyüş yollarını telefona indir; yolda internet olmasa da çalışır." = "Download narrations and walking routes before your walk; they work without internet.";
+"Yalnızca Wi-Fi ile indir" = "Download on Wi-Fi only";
+"Şu an mobil veridesin. İndirmek için Wi-Fi'ye bağlan ya da üstteki ayarı kapat." = "You're on mobile data. Connect to Wi-Fi or turn off the setting above.";
+"Henüz planlı bir gezin yok." = "You have no planned trips yet.";
+"Haritayı da indir" = "Download the map too";
+"Harita görüntüsü Apple Haritalar'dan gelir. İnternetsiz harita için: Apple Haritalar → sağ üstte profil resmin → Çevrimdışı Haritalar → Yeni Harita İndir → şehri seç." = "The map comes from Apple Maps. For offline maps: Apple Maps → your profile picture → Offline Maps → Download New Map → choose the city.";
+"%lld gün · %lld anlatım" = "%lld days · %lld narrations";
+"İndirildi: %@" = "Downloaded: %@";
+"İndir" = "Download";
+"Güncelle" = "Update";
+
+/* Fotoğrafla ekle */
+"Fotoğrafla ekle" = "Add with photo";
+"Tabelanın ya da girişin fotoğrafını çek. Yazıyı telefonun kendisi okur, konumunla yakındaki yeri bulur." = "Take a photo of the sign or entrance. Your phone reads the text and finds the nearby place using your location.";
+"Fotoğraf çek" = "Take photo";
+"Galeriden seç" = "Choose from library";
+"Okunan yazı: %@" = "Text read: %@";
+"Eklendi · %@" = "Added · %@";
+"Yanlış yer mi? Değiştir:" = "Wrong place? Change:";
+"Yazı okunuyor…" = "Reading text…";
+"Konumun alınamadı. Konum iznini kontrol et ve tekrar dene." = "Couldn't get your location. Check location permission and try again.";
+"Yakındaki yerler aranıyor…" = "Searching nearby places…";
+"Yakında bu yazıyla eşleşen yer bulunamadı." = "No nearby place matches this text.";
+"Yazı okunamazsa fotoğraf yeri tanımak için Google Gemini'ye gönderilir." = "If no text can be read, the photo is sent to Google Gemini to recognise the place.";
+"Fotoğraf yapay zekâya soruluyor…" = "Asking AI about the photo…";
+"Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";

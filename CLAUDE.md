@@ -66,3 +66,6 @@ cevapları.
 | 2026-10-23 | Yer bulma, anlatım ve ses için hangi ücretsiz yapay zekâ servislerinin kullanılacağına yazılım aşamasında Oguz ile birlikte karar verilecek. |
 | 2026-10-23 | Aşama 0-1 için ücretsiz Apple hesabı yeterli (uygulama Oguz'un telefonuna kısa süreli kurulur); ücretli Apple Developer hesabı şimdilik alınmayacak. |
 | 2026-10-24 | Oguz'un **mevcut ücretli Apple Developer hesabı** var (yeni ücret çıkmaz). Önce yazılım kurulup yapılandırılacak; hesap ve TestFlight bağlantısı sonra yapılacak. |
+| 2026-10-24 | Ürün belgesi (`docs/URUN.md`) onaylandı; yazılım bu belgeye göre yapılır. TestFlight kurulumu başlatıldı. |
+| 2026-10-24 | Bundle ID (uygulama kimliği): `io.travelapp.ios`. |
+| 2026-10-24 | Fotoğrafla ekleme: **ikisi birden**. Önce iPhone yazı tanıma + konum (ücretsiz, internetsiz); yazı okunamaz ya da eşleşmezse Google Gemini ücretsiz katmanı (anahtar `GEMINI_API_KEY`, GitHub Secrets). |

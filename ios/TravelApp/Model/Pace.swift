@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Gezi temposu. Durak sayıları docs/PLAN.md'deki başlangıç
 /// varsayımlarıdır; kullanıcı testiyle ayarlanacak.
-enum Pace: String, CaseIterable, Identifiable {
+enum Pace: String, CaseIterable, Identifiable, Codable {
     case relaxed
     case normal
     case brisk
