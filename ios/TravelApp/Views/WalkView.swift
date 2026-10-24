@@ -84,7 +84,8 @@ struct WalkView: View {
                 Text("Sıradaki durak").font(Theme.caption).foregroundStyle(Theme.muted)
                 Text(nextStop.name).font(Theme.headline)
                 if let location = tracker.location {
-                    Text("\(Int(location.distance(from: nextStop.location))) m")
+                    Text(Measurement(value: location.distance(from: nextStop.location), unit: UnitLength.meters)
+                        .formatted(.measurement(width: .abbreviated, usage: .road)))
                         .font(Theme.caption).foregroundStyle(Theme.muted)
                 }
             } else {

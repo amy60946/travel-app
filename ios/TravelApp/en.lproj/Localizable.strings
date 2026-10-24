@@ -191,3 +191,12 @@
 "Panoda yazı yok." = "No text on the clipboard.";
 "Yazıda yer bulunamadı." = "No places found in the text.";
 "Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";
+/* Ana sayfa */
+"Gezim" = "My travels";
+"Yer ara" = "Search places";
+"Henüz gezi yok. Kayıtlarım'dan bir şehir seç, rota oluştur." = "No trips yet. Pick a city from My saves and create a route.";
+"Henüz kayıt yok. + ile yer ekle ya da veri aktar." = "Nothing saved yet. Add a place with + or import your data.";
+"%lld gün · %lld yer" = "%lld days · %lld places";
+"%lld kayıtlı yer · rota yok" = "%lld saved places · no route";
+"Rota oluştur" = "Create route";
+"Yer, restoran veya kafe ara" = "Search places, restaurants or cafés";
