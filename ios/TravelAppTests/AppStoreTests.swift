@@ -54,4 +54,20 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(second.place(place.id)?.name, "Test")
         XCTAssertTrue(second.isPlanned(place))
     }
+
+    func testImportedPlaceClearsPendingPost() throws {
+        let store = makeStore()
+        let url = try XCTUnwrap(URL(string: "https://www.instagram.com/p/ABC123/"))
+        let post = SocialExport.Post(url: url, source: .instagram, author: "afuri_official")
+        store.addPending([post])
+        XCTAssertFalse(store.hasPlace(post))
+        XCTAssertEqual(store.pendingPosts.count, 1)
+
+        let place = Place(name: "AFURI Ebisu", city: "Tokyo", latitude: 35.6467, longitude: 139.7101,
+                          category: .food, source: .instagram,
+                          sourceURL: URL(string: "https://www.instagram.com/p/ABC123/?igsh=1"))
+        XCTAssertEqual(store.importPlaces([place]), 1)
+        XCTAssertTrue(store.pendingPosts.isEmpty)
+        XCTAssertTrue(store.hasPlace(post))
+    }
 }

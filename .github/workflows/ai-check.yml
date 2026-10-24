@@ -1,0 +1,22 @@
+# Yapay zekâ servislerini (Gemini, Groq) GitHub Secrets'taki anahtarlarla
+# dener ve cevapları günlüğe yazar (anahtarlar yazılmaz). Yalnızca commit
+# mesajında "[ai-test]" geçen gönderimlerde ya da elle başlatılınca çalışır.
+name: Yapay zekâ kontrolü
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ai-test]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gemini ve Groq'u dene
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python3 ios/scripts/ai_check.py

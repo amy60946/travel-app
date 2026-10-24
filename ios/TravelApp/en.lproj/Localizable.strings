@@ -210,3 +210,15 @@
 "%@ bulundu ve aktarıldı" = "Found and imported %@";
 "Bu dosyalarda kayıtlı yer ya da gönderi bulunamadı." = "No saved places or posts found in these files.";
 "Tarayıcıda aç" = "Open in browser";
+
+/* Yapay zekâ raporu ve yeniden arama */
+"%lld gönderi · %lld tanesinde hesap adı var" = "%lld posts · %lld with an account name";
+"%@: %lld yer" = "%1$@: %2$lld places";
+"%@: %lld yer, %lld istek hata verdi (%@)" = "%1$@: %2$lld places, %3$lld requests failed (%4$@)";
+"%@: hata (%@)" = "%1$@: error (%2$@)";
+"anahtar yok" = "no key";
+"zaman aşımı" = "timed out";
+"bağlantı yok" = "no connection";
+"boş cevap" = "empty reply";
+"Yapay zekâyla yeniden ara" = "Search again with AI";
+"Aranıyor…" = "Searching…";

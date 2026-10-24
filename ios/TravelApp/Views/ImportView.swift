@@ -301,7 +301,7 @@ struct ImportView: View {
             notFound = result.notFound
         }
         if !posts.isEmpty {
-            let fresh = posts.filter { !store.isKnown($0) }
+            let fresh = posts.filter { !store.hasPlace($0) }
             if fresh.isEmpty {
                 lines.append(String(localized: "Bu gönderiler zaten aktarılmış."))
             } else {
@@ -309,6 +309,7 @@ struct ImportView: View {
                 let added = store.importPlaces(result.places)
                 store.addPending(result.pending)
                 lines.append(String(localized: "\(added) yer eklendi · \(result.pending.count) gönderi \"Yeri belirle\" listesinde"))
+                if let summary = result.summary { lines.append(summary) }
             }
         }
         resultText = lines.joined(separator: "\n")

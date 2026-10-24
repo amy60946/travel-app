@@ -55,12 +55,32 @@ final class PlaceImporter: ObservableObject {
         return result
     }
 
+    /// Önce "ad, adres/şehir" aranır; bulunamazsa (ör. adres yerine bir
+    /// koleksiyon adı geldiyse) yalnızca ad.
     private func search(_ item: TakeoutParser.Item) async -> CLLocationCoordinate2D? {
+        if let address = item.address, !address.isEmpty,
+           let found = await search(query: "\(item.name), \(address)") {
+            return found
+        }
+        return await search(query: item.name)
+    }
+
+    /// Apple Haritalar dakikada belli sayıda aramaya izin verir; sınıra
+    /// takılınca biraz bekleyip yeniden dener.
+    private func search(query: String) async -> CLLocationCoordinate2D? {
         let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = [item.name, item.address].compactMap { $0 }.joined(separator: ", ")
+        request.naturalLanguageQuery = query
         request.resultTypes = .pointOfInterest
-        let response = try? await MKLocalSearch(request: request).start()
-        return response?.mapItems.first?.placemark.coordinate
+        for attempt in 1...3 {
+            do {
+                return try await MKLocalSearch(request: request).start().mapItems.first?.placemark.coordinate
+            } catch let error as MKError where error.code == .loadingThrottled && attempt < 3 {
+                try? await Task.sleep(for: .seconds(Double(attempt) * 15))
+            } catch {
+                return nil
+            }
+        }
+        return nil
     }
 
     /// Konumun şehri: bilinen bir şehre yakınsa o, değilse haritadan bulunan ad.
