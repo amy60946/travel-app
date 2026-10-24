@@ -54,7 +54,7 @@ linki `design/README.md`'de.
 | 7 | Kendi yerin | Fotoğraf, ad, adres + pin (sürüklenerek düzeltilir), tür, not, gün | Gün varsayılanı "Otomatik" (en yakın gün) | P-OzelYer |
 | 8 | Yürü | Harita açık; üstte yön kartı; "Yaklaştın, anlatım başladı"; altta küçük çalar ve "Sıradaki" | Anlatımlar üst üste binmez; telefon cepteyken de çalışır | P-Yuruyus |
 | 9 | Paylaş ile eklendi | "Tokyo'ya eklendi", "Geri al", "Yanlış yer mi? Değiştir" | Onay kartı yok; 3 saniyenin altı | N-Paylas |
-| 10 | Fotoğrafla ekle | Tabela/bina çekilir, yer konumla bulunur | MVP'ye girişi açık | N-Kamera |
+| 10 | Fotoğrafla ekle | Tabela/bina çekilir, yer konumla bulunur | MVP (karar 2026-10-24); sormadan tahmin + "Değiştir" | N-Kamera |
 | 11 | Veri aktar | Instagram, TikTok, Google Maps veri dosyası; kopyalanan linki algılama | Kazıma (scraping) yok | N-YerEkle |
 | 12 | Gün ve tempo | Gün sayısı, tempo (Rahat 3-4, Normal 5-6, Tempolu 7+ durak), anlatım dili | "X yer sığar" anında güncellenir | N-Plan |
 | 13 | İndirilenler | Harita, anlatım, yön sesleri indirme durumu; "Yalnızca Wi-Fi" | İnternetsiz yürüyüş için şart | N-Indir |
@@ -121,14 +121,13 @@ Secrets'ta durur.
 | Dinle, yürürken otomatik anlatım, yön tarifi | MVP |
 | İnternetsiz indirme | MVP |
 | Türkçe ve İngilizce arayüz ve ses | MVP |
-| Fotoğrafla yer ekleme | Açık (Oguz karar verecek) |
+| Fotoğrafla yer ekleme | MVP |
 | Kaydırmalı öneri kartları | Aşama 2 |
 | Apple Watch, yeni şehirler, kendi rota motoru | Aşama 3 |
 | Rezervasyon, uçuş, konaklama, ödeme, sosyal, gezi videosu, basılı kitap, masraf takibi | Kapsam dışı |
 
 ## Açık sorular
 
-- Fotoğrafla yer ekleme MVP'ye girsin mi? (Oguz)
 - Anlatımı yazacak ücretsiz yapay zekâ servisi ve daha doğal ücretsiz ses.
 - Tripadvisor hesabı (Oguz, yazılım aşamasında adım adım).
 - Tripadvisor puanı ile Wikivoyage ipuçları aynı sayfada olabilir mi?
