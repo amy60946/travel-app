@@ -219,13 +219,16 @@ enum PlaceAI {
     static func merge(_ lists: [[Found]]) -> [Found] {
         var order: [Found] = []
         var votes: [String: Int] = [:]
+        // Her servis bir yere en fazla bir oy verir.
+        var seen = Array(repeating: Set<String>(), count: lists.count)
         let longest = lists.map(\.count).max() ?? 0
         for rank in 0..<longest {
-            for list in lists where rank < list.count {
-                let key = normalized(list[rank].name)
-                guard !key.isEmpty else { continue }
+            for index in lists.indices where rank < lists[index].count {
+                let key = normalized(lists[index][rank].name)
+                guard !key.isEmpty, !seen[index].contains(key) else { continue }
+                seen[index].insert(key)
                 if votes[key] == nil {
-                    order.append(list[rank])
+                    order.append(lists[index][rank])
                 }
                 votes[key, default: 0] += 1
             }
