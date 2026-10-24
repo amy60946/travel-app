@@ -54,13 +54,13 @@ Apple'ın ve GitHub'ın kendi sayfalarına girilir.
 developer.apple.com/account → **Certificates, IDs & Profiles** → soldan
 **Identifiers** → mavi **(+)** → **App IDs** → *Continue* → **App** →
 *Continue* → *Description*: `TravelApp`, *Bundle ID*: **Explicit** ve
-`io.github.amy60946.travelapp` → *Continue* → **Register**.
+`io.travelapp.ios` → *Continue* → **Register**.
 
 **2. App Store Connect'te uygulamayı oluştur**
 appstoreconnect.apple.com → **Apps** → sol üstte **(+)** → **New App** →
 *Platforms*: iOS; *Name*: App Store'da görünecek ad (başkası almışsa
 "TravelApp Rehber" gibi bir ad dene; sonra değiştirilebilir); *Primary
-Language*: Turkish; *Bundle ID*: listeden `io.github.amy60946.travelapp`;
+Language*: Turkish; *Bundle ID*: listeden `io.travelapp.ios`;
 *SKU*: `travelapp`; *User Access*: Full Access → **Create**.
 
 **3. API anahtarı oluştur** (GitHub'ın senin adına yükleme yapabilmesi için)
@@ -127,6 +127,6 @@ Bundan sonra her yeni sürüm için yalnızca 6. adımı tekrarlaman yeterli.
   App Store Connect API anahtarıyla otomatik imzalar (`-allowProvisioningUpdates`),
   derleme numarası olarak çalışma numarasını kullanır, `ios/ExportOptions.plist`
   ile doğrudan yükler.
-- Paket kimliği (bundle id): `io.github.amy60946.travelapp`.
+- Paket kimliği (bundle id): `io.travelapp.ios`.
 - Dil: geliştirme dili Türkçe; İngilizce çeviriler
   `ios/TravelApp/en.lproj/Localizable.strings`.
