@@ -5,17 +5,29 @@ import UniformTypeIdentifiers
 /// dosyası, kopyalanan yazı ve link. Kazıma yok; yalnızca kullanıcının
 /// verdiği dosya ve link okunur.
 struct ImportView: View {
+    /// "Paylaş → TravelApp" ile gelen dosya; açılınca hemen aktarılır.
+    var initialFile: URL?
+
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var importer = PlaceImporter()
     @StateObject private var social = SocialImporter()
 
+    private enum PickerMode { case files, folder }
+
     @State private var showFilePicker = false
-    @State private var pickingSocial = false
+    @State private var pickerMode = PickerMode.files
+    @State private var folderName: String?
+    @State private var loading = false
     @State private var resultText: String?
     @State private var notFound: [String] = []
     @State private var linkMessage: String?
     @State private var readingText = false
+
+    /// Açık aktarma ekranı sayısı: açıkken ana ekran ikinci bir tane açmasın.
+    static var openCount = 0
 
     var body: some View {
         NavigationStack {
@@ -25,13 +37,12 @@ struct ImportView: View {
                         Text("1. Bilgisayarda ya da telefonda takeout.google.com adresine gir.")
                         Text("2. \"Tümünün seçimini kaldır\" de, sonra yalnızca **Haritalar (yerleriniz)** ve **Kaydedilenler**'i seç.")
                         Text("3. Dışa aktarımı oluştur, gelen e-postadaki dosyayı indir.")
-                        Text("4. Dosyalar uygulamasında .zip'e dokunup aç; içindeki .json ve .csv dosyalarını burada seç.")
+                        Text("4. Gelen e-postadaki .zip'i indir ve burada seç; açmana gerek yok.")
                     }
                     .font(Theme.font(14))
                     .padding(.vertical, 4)
                     Button {
-                        pickingSocial = false
-                        showFilePicker = true
+                        pick(.files)
                     } label: {
                         Label("Dosya seç", systemImage: "doc.badge.plus")
                     }
@@ -43,6 +54,10 @@ struct ImportView: View {
                 }
 
                 socialSection
+
+                if loading {
+                    Section { ProgressView("Dosya açılıyor…") }
+                }
 
                 if let status = social.status {
                     Section {
@@ -115,35 +130,88 @@ struct ImportView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Bitti") { dismiss() } }
             }
             .fileImporter(isPresented: $showFilePicker,
-                          allowedContentTypes: [.json, .commaSeparatedText, .plainText, .html],
-                          allowsMultipleSelection: true) { result in
-                if case .success(let urls) = result {
-                    Task {
-                        if pickingSocial {
-                            await importSocial(urls)
-                        } else {
-                            await importFiles(urls)
-                        }
+                          allowedContentTypes: pickerMode == .folder
+                              ? [.folder]
+                              : [.zip, .json, .commaSeparatedText, .plainText, .html],
+                          allowsMultipleSelection: pickerMode == .files) { result in
+                guard case .success(let urls) = result else { return }
+                switch pickerMode {
+                case .files:
+                    Task { await importURLs(urls) }
+                case .folder:
+                    if let folder = urls.first, ExportFolder.link(folder) {
+                        folderName = ExportFolder.folderName
+                        Task { await checkFolder(manual: true) }
+                    } else {
+                        resultText = String(localized: "Klasör bağlanamadı. Dosyalar'da bir klasör seç.")
                     }
                 }
+            }
+            .onAppear { Self.openCount += 1 }
+            .onDisappear { Self.openCount -= 1 }
+            .task {
+                folderName = ExportFolder.folderName
+                if let initialFile {
+                    await importURLs([initialFile])
+                    // "Paylaş" ile gelen kopya artık gerekmiyor.
+                    if initialFile.path.contains("/Inbox/") { try? FileManager.default.removeItem(at: initialFile) }
+                } else {
+                    await checkFolder(manual: false)
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await checkFolder(manual: false) } }
             }
         }
         .font(Theme.body)
     }
 
     private var isBusy: Bool {
-        importer.progress != nil || social.status != nil || readingText
+        loading || importer.progress != nil || social.status != nil || readingText
+    }
+
+    private func pick(_ mode: PickerMode) {
+        pickerMode = mode
+        showFilePicker = true
     }
 
     private var socialSection: some View {
         Section {
-            DisclosureGroup("Instagram'dan nasıl indirilir?") {
+            Button {
+                openURL(ExportFiles.instagramExportPage)
+            } label: {
+                Label("Instagram'dan al", systemImage: "arrow.up.forward.app")
+            }
+            Text("Açılan sayfada yalnızca **Kaydedilenler**'i (Saved) seç, biçim **JSON** → **Dışa aktarmayı başlat**. Hazır olunca Instagram e-posta gönderir; bağlantıdan dosyayı indir.")
+                .font(Theme.font(13))
+                .foregroundStyle(Theme.muted)
+            if folderName == nil {
+                Button {
+                    pick(.folder)
+                } label: {
+                    Label("İndirilenler klasörüne izin ver", systemImage: "folder.badge.plus")
+                }
+            } else {
+                Button {
+                    Task { await checkFolder(manual: true) }
+                } label: {
+                    Label("İndirilenleri şimdi kontrol et", systemImage: "arrow.clockwise")
+                }
+                .disabled(isBusy)
+            }
+            Button {
+                pick(.files)
+            } label: {
+                Label("Dosyayı kendim seçeyim", systemImage: "doc.badge.plus")
+            }
+            .disabled(isBusy)
+            DisclosureGroup("Instagram'dan adım adım") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("1. Instagram'da profiline gir → sağ üstte ☰ → **Ayarlar ve hareketler** → en üstte **Meta Hesabı** (eski adı: Hesaplar Merkezi).")
                     Text("2. **Bilgilerin ve izinlerin** → **Bilgilerini dışa aktar** (bazı telefonlarda: Bilgilerini indir) → **Dışa aktarma oluştur**.")
                     Text("3. Instagram hesabını seç → **Cihaza aktar** → **Bilgileri özelleştir** → yalnızca **Kaydedilenler**.")
                     Text("4. Tarih aralığı: **Tüm zamanlar**, Biçim: **JSON** → **Dışa aktarmayı başlat**.")
-                    Text("5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **your_instagram_activity → saved** klasöründeki **saved_posts.json** ve **saved_collections.json** dosyalarını seç.")
+                    Text("5. Hazır olunca e-postadaki bağlantıdan .zip'i indir. Uygulama onu İndirilenler'de kendisi bulur ya da burada seçersin.")
                 }
                 .font(Theme.font(14))
                 .padding(.vertical, 4)
@@ -152,82 +220,89 @@ struct ImportView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("1. TikTok'ta profiline gir → ☰ → **Ayarlar ve gizlilik** → **Hesap** → **Verilerini indir**.")
                     Text("2. Biçim: **JSON** → **Veri iste**.")
-                    Text("3. Hazır olunca **Verileri indir** sekmesinden indir, Dosyalar'da .zip'i aç; **user_data_tiktok.json** dosyasını seç.")
+                    Text("3. Hazır olunca **Verileri indir** sekmesinden indir. Uygulama onu İndirilenler'de kendisi bulur ya da burada seçersin.")
                 }
                 .font(Theme.font(14))
                 .padding(.vertical, 4)
             }
-            Button {
-                pickingSocial = true
-                showFilePicker = true
-            } label: {
-                Label("Instagram / TikTok dosyası seç", systemImage: "doc.badge.plus")
-            }
-            .disabled(isBusy)
         } header: {
             Text("Instagram ve TikTok kayıtların")
         } footer: {
-            if PlaceAI.isAvailable {
-                Text("Dosyada yer bilgisi yok. TikTok açıklaması TikTok'un resmi servisinden okunur, yerleri yapay zekâ bulur. Bulunamayan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
-            } else {
-                Text("Yapay zekâ anahtarı olmadan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
-            }
-        }
-    }
-
-    private func importSocial(_ urls: [URL]) async {
-        var byKey: [String: SocialExport.Post] = [:]
-        var order: [String] = []
-        for url in urls {
-            let access = url.startAccessingSecurityScopedResource()
-            defer { if access { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url) else { continue }
-            for post in SocialExport.parse(data: data, fileName: url.lastPathComponent) {
-                let key = SocialExport.canonical(post.url)
-                if var existing = byKey[key] {
-                    // Aynı gönderi iki dosyada: koleksiyon ve hesap adını birleştir.
-                    existing.collection = existing.collection ?? post.collection
-                    existing.author = existing.author ?? post.author
-                    byKey[key] = existing
+            VStack(alignment: .leading, spacing: 6) {
+                if let folderName {
+                    Text("Bağlı klasör: \(folderName). İndirdiğin Instagram, TikTok ya da Google dosyasını uygulama kendisi bulup aktarır.")
                 } else {
-                    byKey[key] = post
-                    order.append(key)
+                    Text("Bir kez izin ver: açılan pencerede **İndirilenler** klasörünü seç. Sonra indirdiğin dosyayı uygulama kendisi bulup aktarır.")
+                }
+                if PlaceAI.isAvailable {
+                    Text("Dosyada yer bilgisi yok. TikTok açıklaması TikTok'un resmi servisinden okunur, yerleri yapay zekâ bulur. Bulunamayan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
+                } else {
+                    Text("Yapay zekâ anahtarı olmadan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
                 }
             }
         }
-        let posts = order.compactMap { byKey[$0] }
-        let fresh = posts.filter { !store.isKnown($0) }
-        notFound = []
-        guard !fresh.isEmpty else {
-            resultText = posts.isEmpty
-                ? String(localized: "Bu dosyalarda kayıtlı gönderi bulunamadı.")
-                : String(localized: "Bu gönderiler zaten aktarılmış.")
-            return
-        }
-        let result = await social.resolve(fresh, knownCities: store.cities, importer: importer)
-        let added = store.importPlaces(result.places)
-        store.addPending(result.pending)
-        resultText = String(localized: "\(added) yer eklendi · \(result.pending.count) gönderi \"Yeri belirle\" listesinde")
     }
 
-    private func importFiles(_ urls: [URL]) async {
-        var items: [TakeoutParser.Item] = []
-        for url in urls {
-            let access = url.startAccessingSecurityScopedResource()
-            defer { if access { url.stopAccessingSecurityScopedResource() } }
-            if let data = try? Data(contentsOf: url) {
-                items += TakeoutParser.parse(data: data, fileName: url.lastPathComponent)
+    /// Seçilen ya da paylaşılan dosyaları açar (.zip dahil) ve aktarır.
+    private func importURLs(_ urls: [URL]) async {
+        loading = true
+        let files = await Task.detached { ExportFiles.load(urls) }.value
+        loading = false
+        await importLoaded(files)
+    }
+
+    /// Bağlı klasörde yeni indirilmiş veri dosyası varsa kendiliğinden aktarır.
+    private func checkFolder(manual: Bool) async {
+        guard ExportFolder.isLinked, !isBusy else { return }
+        loading = true
+        let found = await Task.detached { ExportFolder.loadNewest() }.value
+        loading = false
+        guard let found else {
+            if manual {
+                resultText = String(localized: "İndirilenler'de yeni Instagram ya da TikTok dosyası yok.")
+                notFound = []
             }
-        }
-        guard !items.isEmpty else {
-            resultText = String(localized: "Bu dosyalarda yer bulunamadı.")
-            notFound = []
             return
         }
-        let result = await importer.resolve(items, knownCities: store.cities)
-        let added = store.importPlaces(result.added)
-        resultText = String(localized: "\(added) yer eklendi · \(result.notFound.count) bulunamadı")
-        notFound = result.notFound
+        await importLoaded(found.files)
+        ExportFolder.markSeen(found)
+        resultText = [String(localized: "\(found.name) bulundu ve aktarıldı"), resultText]
+            .compactMap { $0 }
+            .joined(separator: "\n")
+    }
+
+    /// Okunan dosyalardaki Instagram/TikTok gönderilerini ve Google Haritalar
+    /// yerlerini aktarır.
+    private func importLoaded(_ files: [ExportFiles.File]) async {
+        notFound = []
+        let posts = SocialExport.posts(in: files)
+        var items: [TakeoutParser.Item] = []
+        for file in files {
+            items += TakeoutParser.parse(data: file.data, fileName: file.name)
+        }
+        guard !posts.isEmpty || !items.isEmpty else {
+            resultText = String(localized: "Bu dosyalarda kayıtlı yer ya da gönderi bulunamadı.")
+            return
+        }
+        var lines: [String] = []
+        if !items.isEmpty {
+            let result = await importer.resolve(items, knownCities: store.cities)
+            let added = store.importPlaces(result.added)
+            lines.append(String(localized: "\(added) yer eklendi · \(result.notFound.count) bulunamadı"))
+            notFound = result.notFound
+        }
+        if !posts.isEmpty {
+            let fresh = posts.filter { !store.isKnown($0) }
+            if fresh.isEmpty {
+                lines.append(String(localized: "Bu gönderiler zaten aktarılmış."))
+            } else {
+                let result = await social.resolve(fresh, knownCities: store.cities, importer: importer)
+                let added = store.importPlaces(result.places)
+                store.addPending(result.pending)
+                lines.append(String(localized: "\(added) yer eklendi · \(result.pending.count) gönderi \"Yeri belirle\" listesinde"))
+            }
+        }
+        resultText = lines.joined(separator: "\n")
     }
 
     private func pasteText() async {

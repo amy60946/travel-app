@@ -13,6 +13,7 @@ enum RootTab: Hashable {
 /// Alt çubuk (beyaz hap) + siyah "+" ve sekmeler.
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var path: [Route] = []
     @State private var tab: RootTab = .explore
     @State private var sheet: AddSheet?
@@ -50,7 +51,25 @@ struct RootView: View {
         .sheet(item: $sheet) { sheet in
             sheet.view
         }
-        .task { openLaunchScreen() }
+        .task {
+            openLaunchScreen()
+            await openImportIfNewExport()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await openImportIfNewExport() } }
+        }
+        // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
+        .onOpenURL { url in
+            if url.isFileURL { sheet = .importFile(url) }
+        }
+    }
+
+    /// İndirilenler'e yeni bir Instagram/TikTok/Google dosyası indiyse
+    /// aktarma ekranını açar; ekran dosyayı kendisi aktarır.
+    private func openImportIfNewExport() async {
+        guard sheet == nil, ImportView.openCount == 0, ExportFolder.isLinked else { return }
+        let hasNew = await Task.detached { ExportFolder.hasNew() }.value
+        if hasNew, sheet == nil, ImportView.openCount == 0 { sheet = .importData }
     }
 
     /// Yalnızca geliştirme sürümünde: `-screen city` gibi bir açılış
@@ -81,6 +100,7 @@ enum AddSheet: Identifiable {
     case addPlace(city: String)
     case customPlace(city: String)
     case importData
+    case importFile(URL)
     case camera
 
     var id: String {
@@ -88,6 +108,7 @@ enum AddSheet: Identifiable {
         case .addPlace(let city): "add-\(city)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
+        case .importFile(let url): "import-\(url.lastPathComponent)"
         case .camera: "camera"
         }
     }
@@ -97,6 +118,7 @@ enum AddSheet: Identifiable {
         case .addPlace(let city): AddPlaceView(city: city)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
+        case .importFile(let url): ImportView(initialFile: url)
         case .camera: CameraAddView()
         }
     }
