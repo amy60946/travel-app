@@ -7,6 +7,7 @@ struct SavedPlacesView: View {
     @Binding var path: [Route]
     @State private var filter: PlaceSource?
     @State private var selection: Set<UUID> = []
+    @State private var showImport = false
 
     private let filters: [PlaceSource] = [.instagram, .tiktok, .googleMaps]
 
@@ -18,10 +19,13 @@ struct SavedPlacesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Kayıtlarım")
-                .font(Theme.title)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+            HStack {
+                Text("Kayıtlarım").font(Theme.title)
+                Spacer()
+                SecondaryButton(title: "Veri aktar", systemImage: "square.and.arrow.down") { showImport = true }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -47,6 +51,7 @@ struct SavedPlacesView: View {
                 .padding(.bottom, 140)
             }
         }
+        .sheet(isPresented: $showImport) { ImportView() }
         .overlay(alignment: .bottom) {
             if !selection.isEmpty {
                 PrimaryButton(title: "Rotaya ekle (\(selection.count))", systemImage: "plus") {

@@ -31,7 +31,7 @@ struct RootView: View {
 
                 VStack(spacing: 10) {
                     UndoToast()
-                    TabBar(tab: $tab, onAdd: { sheet = .addPlace(city: store.cities.first?.name ?? "Tokyo") })
+                    TabBar(tab: $tab, city: store.cities.first?.name ?? "Tokyo", sheet: $sheet)
                 }
                 .padding(.bottom, 8)
                 .animation(.snappy, value: store.undoMessage)
@@ -57,11 +57,13 @@ struct RootView: View {
 enum AddSheet: Identifiable {
     case addPlace(city: String)
     case customPlace(city: String)
+    case importData
 
     var id: String {
         switch self {
         case .addPlace(let city): "add-\(city)"
         case .customPlace(let city): "custom-\(city)"
+        case .importData: "import"
         }
     }
 
@@ -69,13 +71,15 @@ enum AddSheet: Identifiable {
         switch self {
         case .addPlace(let city): AddPlaceView(city: city)
         case .customPlace(let city): CustomPlaceView(city: city)
+        case .importData: ImportView()
         }
     }
 }
 
 private struct TabBar: View {
     @Binding var tab: RootTab
-    let onAdd: () -> Void
+    let city: String
+    @Binding var sheet: AddSheet?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -88,7 +92,11 @@ private struct TabBar: View {
             .background(.white, in: Capsule())
             .softShadow()
 
-            Button(action: onAdd) {
+            Menu {
+                Button { sheet = .addPlace(city: city) } label: { Label("Yer ekle", systemImage: "magnifyingglass") }
+                Button { sheet = .importData } label: { Label("Veri dosyası ya da link aktar", systemImage: "square.and.arrow.down") }
+                Button { sheet = .customPlace(city: city) } label: { Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse") }
+            } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)

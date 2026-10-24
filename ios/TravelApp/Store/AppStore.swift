@@ -133,6 +133,23 @@ final class AppStore: ObservableObject {
         save()
     }
 
+    /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
+    /// Eklenen sayısını döndürür.
+    @discardableResult
+    func importPlaces(_ newPlaces: [Place]) -> Int {
+        let fresh = newPlaces.filter { candidate in
+            !places.contains { existing in
+                existing.name.caseInsensitiveCompare(candidate.name) == .orderedSame
+                    && existing.location.distance(from: candidate.location) < 200
+            }
+        }
+        guard !fresh.isEmpty else { return 0 }
+        snapshot(String(localized: "\(fresh.count) yer aktarıldı"))
+        places.append(contentsOf: fresh)
+        save()
+        return fresh.count
+    }
+
     // MARK: - Geri al
 
     func undo() {

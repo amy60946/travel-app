@@ -104,3 +104,28 @@
 "Yaklaşınca anlatım kendiliğinden başlar" = "Narration starts as you approach";
 "Sıradaki" = "Next";
 "Yaklaştın, anlatım başladı" = "You're close, narration started";
+
+/* Veri aktar */
+"Veri aktar" = "Import";
+"Veri dosyası ya da link aktar" = "Import data file or link";
+"%lld yer aktarıldı" = "%lld places imported";
+"1. Bilgisayarda ya da telefonda takeout.google.com adresine gir." = "1. Go to takeout.google.com on your computer or phone.";
+"2. \"Tümünün seçimini kaldır\" de, sonra yalnızca **Haritalar (yerleriniz)** ve **Kaydedilenler**'i seç." = "2. Tap \"Deselect all\", then select only **Maps (your places)** and **Saved**.";
+"3. Dışa aktarımı oluştur, gelen e-postadaki dosyayı indir." = "3. Create the export and download the file from the email.";
+"4. Dosyalar uygulamasında .zip'e dokunup aç; içindeki .json ve .csv dosyalarını burada seç." = "4. In the Files app, tap the .zip to unpack it, then pick the .json and .csv files here.";
+"Dosya seç" = "Choose files";
+"Google Maps listelerin" = "Your Google Maps lists";
+"Yıldızlı yerler, Favoriler, \"Gitmek istiyorum\" ve kendi listelerin. Koordinatı olmayan yerler Apple Haritalar'da aranır ve \"Tahmini\" diye işaretlenir." = "Starred places, Favorites, \"Want to go\" and your own lists. Places without coordinates are looked up in Apple Maps and marked \"Estimated\".";
+"Yerler bulunuyor: %lld / %lld" = "Finding places: %lld / %lld";
+"Sonuç" = "Result";
+"Bu dosyalarda yer bulunamadı." = "No places found in these files.";
+"%lld yer eklendi · %lld bulunamadı" = "%lld places added · %lld not found";
+"Kopyaladığın linki ekle" = "Add copied link";
+"Link" = "Link";
+"Google Maps'te yeri paylaş → Kopyala, sonra buraya dön." = "In Google Maps, share the place → Copy, then come back here.";
+"Instagram ve TikTok veri dosyası" = "Instagram and TikTok data file";
+"Sonraki adımda geliyor. Bu dosyalarda yer bilgisi olmadığı için önce gerçek bir dosyayla deneyeceğiz." = "Coming next. These files don't include locations, so we'll test with a real file first.";
+"Panoda link yok." = "No link on the clipboard.";
+"Şimdilik yalnızca Google Maps linkleri ekleniyor." = "Only Google Maps links are supported for now.";
+"%@ → %@ eklendi" = "%@ → %@ added";
+"Yer bulunamadı ya da zaten kayıtlı." = "Place not found or already saved.";
