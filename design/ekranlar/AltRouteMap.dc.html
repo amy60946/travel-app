@@ -14,13 +14,33 @@ a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
 </style>
 </helmet>
 <div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #E7EAE3; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
-<div aria-hidden="true" style="position: absolute; left: -40px; right: -40px; top: 250px; height: 16px; background: #FFFFFF; transform: rotate(-9deg)"></div>
-<div aria-hidden="true" style="position: absolute; left: -40px; right: -40px; top: 520px; height: 12px; background: #FFFFFF; transform: rotate(6deg)"></div>
-<div aria-hidden="true" style="position: absolute; top: -40px; bottom: -40px; left: 210px; width: 14px; background: #FFFFFF; transform: rotate(10deg)"></div>
-<div aria-hidden="true" style="position: absolute; right: -60px; top: 100px; width: 140px; height: 700px; background: #CFE0EA; transform: rotate(12deg)"></div>
-<div aria-hidden="true" style="position: absolute; left: 20px; top: 340px; width: 130px; height: 100px; border-radius: 40px; background: #D3E3C8"></div>
 <svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
-<polyline points="{{routePoints}}" fill="none" stroke="#C2381E" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round" stroke-linejoin="round"></polyline>
+<rect x="66" y="216" width="98" height="108" rx="6" fill="#CFE2C2"></rect>
+<rect x="296" y="396" width="56" height="48" rx="6" fill="#CFE2C2"></rect>
+<g>
+<line x1="20" y1="0" x2="20" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="60" y1="0" x2="60" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="110" y1="0" x2="110" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="170" y1="0" x2="170" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="230" y1="0" x2="230" y2="844" stroke="#FFFFFF" stroke-width="12"></line>
+<line x1="290" y1="0" x2="290" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="340" y1="0" x2="340" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="90" x2="390" y2="90" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="150" x2="390" y2="150" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="210" x2="390" y2="210" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="270" x2="390" y2="270" stroke="#FFFFFF" stroke-width="12"></line>
+<line x1="0" y1="330" x2="390" y2="330" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="390" x2="390" y2="390" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="450" x2="390" y2="450" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="500" x2="390" y2="500" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="560" x2="390" y2="560" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="620" x2="390" y2="620" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="680" x2="390" y2="680" stroke="#FFFFFF" stroke-width="7"></line>
+</g>
+<path d="M362 0 C 352 220, 380 420, 358 844 L 390 844 L 390 0 Z" fill="#CFE0EA"></path>
+<text x="70" y="244" font-size="10" fill="#4E6B45" font-family="system-ui, sans-serif">Ueno Parkı</text>
+<path d="{{routePath}}" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="{{routePath}}" fill="none" stroke="#C2381E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
 </svg>
 <sc-for list="{{stops}}" as="s" hint-placeholder-count="5">
 <button type="button" onClick="{{s.pick}}" aria-label="{{s.name}}" style="position: absolute; left: {{s.left}}; top: {{s.top}}; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px">
@@ -83,21 +103,21 @@ class Component extends DCLogic {
     super(props);
     this.days = [
       { title: '1. Gün', stops: [
-        { name: 'Sensō-ji', leg: '45 dk · başlangıç', color: '#9B3A2A', x: 250, y: 130 },
-        { name: 'Kappabashi', leg: '18 dk yürüyüş', color: '#7D6B55', x: 140, y: 190 },
-        { name: 'Ueno Parkı', leg: '12 dk yürüyüş', color: '#4F7A4A', x: 50, y: 280 },
-        { name: 'Yanaka Ginza', leg: '10 dk yürüyüş', color: '#6B6A4A', x: 160, y: 350 },
-        { name: 'Nezu', leg: '8 dk yürüyüş', color: '#A2452E', x: 60, y: 440 }
+        { name: 'Sensō-ji', leg: '45 dk · başlangıç', color: '#9B3A2A', x: 290, y: 150 },
+        { name: 'Kappabashi', leg: '18 dk yürüyüş', color: '#7D6B55', x: 170, y: 210 },
+        { name: 'Ueno Parkı', leg: '12 dk yürüyüş', color: '#4F7A4A', x: 110, y: 270 },
+        { name: 'Yanaka Ginza', leg: '10 dk yürüyüş', color: '#6B6A4A', x: 170, y: 390 },
+        { name: 'Nezu', leg: '8 dk yürüyüş', color: '#A2452E', x: 60, y: 450 }
       ] },
       { title: '2. Gün', stops: [
-        { name: 'Meiji Jingū', leg: '50 dk · başlangıç', color: '#3F5E3A', x: 70, y: 150 },
-        { name: 'Takeshita', leg: '15 dk yürüyüş', color: '#8A4C7A', x: 200, y: 220 },
-        { name: 'Shibuya', leg: 'Tren · 7 dk', color: '#39415A', x: 110, y: 320 },
-        { name: 'Omoide Y.', leg: '20 dk yürüyüş', color: '#7A3B2E', x: 230, y: 410 }
+        { name: 'Meiji Jingū', leg: '50 dk · başlangıç', color: '#3F5E3A', x: 110, y: 150 },
+        { name: 'Takeshita', leg: '15 dk yürüyüş', color: '#8A4C7A', x: 230, y: 210 },
+        { name: 'Shibuya', leg: 'Tren · 7 dk', color: '#39415A', x: 110, y: 330 },
+        { name: 'Omoide Y.', leg: '20 dk yürüyüş', color: '#7A3B2E', x: 230, y: 450 }
       ] },
       { title: '3. Gün', stops: [
-        { name: 'Tsukiji', leg: '60 dk · başlangıç', color: '#8C5A3C', x: 120, y: 200 },
-        { name: 'Hama-rikyū', leg: '15 dk yürüyüş', color: '#4F7A4A', x: 220, y: 380 }
+        { name: 'Tsukiji', leg: '60 dk · başlangıç', color: '#8C5A3C', x: 170, y: 210 },
+        { name: 'Hama-rikyū', leg: '15 dk yürüyüş', color: '#4F7A4A', x: 290, y: 390 }
       ] }
     ];
     this.state = { day: 0, sel: 0, removed: [], undoText: '' };
@@ -112,10 +132,10 @@ class Component extends DCLogic {
         bg: i === s.day ? '#1D2740' : '#FFFFFF', fg: i === s.day ? '#FFFFFF' : '#15171C',
         pick: () => this.setState({ day: i, sel: 0, undoText: '' })
       })),
-      routePoints: live.map((st) => (st.x + 28) + ',' + (st.y + 28)).join(' '),
+      routePath: live.map((st, i) => i === 0 ? 'M' + st.x + ' ' + st.y : (i % 2 ? 'H' + st.x + ' V' + st.y : 'V' + st.y + ' H' + st.x)).join(' '),
       stops: live.map((st, i) => ({
         name: st.name, leg: st.leg, color: st.color, n: i + 1,
-        left: st.x + 'px', top: st.y + 'px',
+        left: (st.x - (i === s.sel ? 32 : 28)) + 'px', top: (st.y - (i === s.sel ? 32 : 28)) + 'px',
         size: i === s.sel ? '64px' : '56px',
         ring: i === s.sel ? '#C2381E' : '#FFFFFF',
         cardRing: i === s.sel ? '#C2381E' : 'transparent',
