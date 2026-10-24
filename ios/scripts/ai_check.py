@@ -6,6 +6,7 @@ istemine ne cevap veriyor. Anahtarlar asla yazdırılmaz.
 """
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -48,6 +49,15 @@ SEARCH_PROMPT = (
     "(restaurant, cafe, shop, attraction). If it is, give the venue name and city. Accounts: "
     "@afuri_official, @ichiran_official, @shibuya_sky, @tokyofoodie, @timeouttokyo."
 )
+
+# Gemini'nin "linki oku" (url_context) aracı için Instagram gönderisi linki
+# bulunan, gönderi gömen makaleler.
+ARTICLE_PAGES = [
+    "https://www.timeout.com/tokyo/restaurants/best-ramen-in-tokyo",
+    "https://www.timeout.com/tokyo/restaurants/best-restaurants-in-tokyo",
+    "https://www.timeout.com/tokyo/things-to-do/best-things-to-do-in-tokyo",
+]
+POST_LINK = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+/?")
 
 RATE_HEADERS = ["retry-after", "x-ratelimit-limit-requests", "x-ratelimit-limit-tokens",
                 "x-ratelimit-remaining-requests", "x-ratelimit-remaining-tokens"]
@@ -102,6 +112,47 @@ def gemini(key):
         show(f"Gemini {model} + Google Arama", *call(url, headers, body))
 
 
+def instagram_post_links():
+    """Makalelere gömülü Instagram gönderi linkleri (gönderinin kendisi açılmaz)."""
+    links = []
+    for page in ARTICLE_PAGES:
+        request = urllib.request.Request(page, headers={"User-Agent": "Mozilla/5.0 (Macintosh) TravelApp-check"})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                html = response.read().decode("utf-8", "replace")
+        except Exception as error:
+            print(f"   {page}: {error!r}")
+            continue
+        for link in POST_LINK.findall(html):
+            if link not in links:
+                links.append(link)
+    print(f"\n===== Makalelerde bulunan Instagram gönderi linkleri: {len(links)}")
+    print("\n".join(links[:5]))
+    return links
+
+
+def url_context(key):
+    headers = {"x-goog-api-key": key, "Content-Type": "application/json"}
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    tests = [("Vikipedi (kota denemesi)",
+              "Read https://en.wikipedia.org/wiki/Ichiran and say in one line what it is and where it started.")]
+    for link in instagram_post_links()[:3]:
+        tests.append((f"Instagram {link}",
+                      f"Read this Instagram post: {link} . Which specific place (restaurant, cafe, bar, shop, "
+                      "museum, temple, landmark) does it show or mention, and in which city? Reply in one line, "
+                      "or say you could not read it."))
+    for title, prompt in tests:
+        body = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"url_context": {}}]}
+        status, text = call(url, headers, body)
+        summary = text
+        if status == 200:
+            data = json.loads(text)
+            candidate = (data.get("candidates") or [{}])[0]
+            answer = "".join(p.get("text", "") for p in candidate.get("content", {}).get("parts", []))
+            summary = f"cevap: {answer}\nurl_context_metadata: {json.dumps(candidate.get('urlContextMetadata'))}"
+        show(f"Gemini {GEMINI_MODEL} + linki oku: {title}", status, summary)
+
+
 def groq(key):
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     status, text = call("https://api.groq.com/openai/v1/models", headers)
@@ -124,6 +175,7 @@ def main():
     print("GROQ_API_KEY var mı:", bool(groq_key))
     if gemini_key:
         gemini(gemini_key)
+        url_context(gemini_key)
     if groq_key:
         groq(groq_key)
 
