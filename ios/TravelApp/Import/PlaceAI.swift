@@ -98,6 +98,26 @@ enum PlaceAI {
         return found.prefix(4).map(\.name)
     }
 
+    /// Kaydedilen bir gönderinin ekran görüntüsündeki yerler: konum etiketi,
+    /// açıklama ve görünen tabelalar. Resim ve telefonun okuduğu yazı birlikte gider.
+    static func places(inScreenshot image: UIImage, readText: [String], account: String?) async -> [Found] {
+        guard isAvailable, let jpeg = resized(image, maxSide: 1600).jpegData(compressionQuality: 0.7) else { return [] }
+        var prompt = "This is a screenshot of a social media post (Instagram or TikTok) that a traveller saved"
+        if let account { prompt += ", posted by @\(account)" }
+        prompt += ". "
+        if !readText.isEmpty {
+            prompt += "Text read on the screenshot: \(readText.prefix(60).joined(separator: " | ").prefix(3000)). "
+        }
+        prompt += """
+        Find the specific places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) \
+        the post shows or mentions. The location tag under the account name, the caption, hashtags and visible \
+        signs are the best clues; ignore app buttons and the names of people. Reply only with JSON like \
+        {"places": [{"name": "place name as on maps", "city": "city or null"}]}. Use an empty list if there are none.
+        """
+        let found = await askAll(prompt: prompt, jpeg: jpeg)
+        return Array(found.prefix(5))
+    }
+
     /// Yapıştırılan yazıdaki (ör. Instagram açıklaması, mesaj, liste) yerler.
     static func places(inText text: String) async -> [Found] {
         guard isAvailable else { return [] }
