@@ -144,6 +144,7 @@ final class AppStore: ObservableObject {
     }
 
     /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
+    /// Yeri böylece bulunan gönderiler "Yeri belirle" listesinden çıkar.
     /// Eklenen sayısını döndürür.
     @discardableResult
     func importPlaces(_ newPlaces: [Place]) -> Int {
@@ -153,10 +154,14 @@ final class AppStore: ObservableObject {
                     && existing.location.distance(from: candidate.location) < 200
             }
         }
-        guard !fresh.isEmpty else { return 0 }
-        snapshot(String(localized: "\(fresh.count) yer aktarıldı"))
-        places.append(contentsOf: fresh)
-        save()
+        let resolved = Set(newPlaces.compactMap { $0.sourceURL.map(SocialExport.canonical) })
+        let pendingCount = pendingPosts.count
+        if !fresh.isEmpty {
+            snapshot(String(localized: "\(fresh.count) yer aktarıldı"))
+            places.append(contentsOf: fresh)
+        }
+        pendingPosts.removeAll { resolved.contains(SocialExport.canonical($0.url)) }
+        if !fresh.isEmpty || pendingPosts.count != pendingCount { save() }
         return fresh.count
     }
 
@@ -181,11 +186,11 @@ final class AppStore: ObservableObject {
         save()
     }
 
-    /// Daha önce aktarılmış gönderiler (yeniden aktarımda atlanır).
-    func isKnown(_ post: SocialExport.Post) -> Bool {
+    /// Yeri daha önce bulunmuş gönderi (yeniden aktarımda atlanır;
+    /// "Yeri belirle" listesindekiler yeniden denenir).
+    func hasPlace(_ post: SocialExport.Post) -> Bool {
         let key = SocialExport.canonical(post.url)
-        return pendingPosts.contains { SocialExport.canonical($0.url) == key }
-            || places.contains { $0.sourceURL.map(SocialExport.canonical) == key }
+        return places.contains { $0.sourceURL.map(SocialExport.canonical) == key }
     }
 
     // MARK: - Geri al

@@ -8,8 +8,10 @@ struct PendingPostsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @StateObject private var importer = PlaceImporter()
+    @StateObject private var social = SocialImporter()
 
     @State private var working: String?
+    @State private var retrying = false
     @State private var message: String?
 
     var body: some View {
@@ -19,6 +21,20 @@ struct PendingPostsView: View {
                     Text("Gönderiyi aç, açıklamayı ya da konum adını kopyala, buraya dönüp Yapıştır'a dokun.")
                         .font(Theme.font(14))
                         .foregroundStyle(Theme.muted)
+                    if PlaceAI.isAvailable, !store.pendingPosts.isEmpty {
+                        SecondaryButton(title: "Yapay zekâyla yeniden ara", systemImage: "sparkles") {
+                            Task { await retryAll() }
+                        }
+                        .disabled(retrying || working != nil)
+                    }
+                    if retrying {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text(social.status ?? String(localized: "Aranıyor…"))
+                                .font(Theme.font(14))
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
                     if let message {
                         Text(message).font(Theme.font(14, .semibold))
                     }
@@ -73,6 +89,18 @@ struct PendingPostsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// Listedeki bütün gönderiler için yapay zekâya yeniden sorar (ör. bir
+    /// servis o an sınıra takıldıysa).
+    private func retryAll() async {
+        retrying = true
+        defer { retrying = false }
+        message = nil
+        let result = await social.resolve(store.pendingPosts, knownCities: store.cities, importer: importer)
+        let added = store.importPlaces(result.places)
+        message = ([String(localized: "\(added) yer eklendi · \(result.pending.count) gönderi \"Yeri belirle\" listesinde")]
+            + [result.summary].compactMap { $0 }).joined(separator: "\n")
     }
 
     private func paste(for post: SocialExport.Post) async {

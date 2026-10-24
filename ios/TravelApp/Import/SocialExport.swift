@@ -25,7 +25,9 @@ enum SocialExport {
         if let json = try? JSONSerialization.jsonObject(with: data) {
             walk(json, path: fileName.lowercased(), collection: nil, into: &posts)
         } else if isSavedSection(fileName.lowercased()) {
-            // HTML ya da TXT: yalnızca kayıt/favori dosyasındaki linkler.
+            // HTML ya da TXT: yalnızca kayıt/favori dosyasındaki linkler;
+            // HTML'de hesap adları da okunur.
+            posts = htmlPosts(text)
             for url in links(in: text) {
                 posts.append(Post(url: url, source: source(of: url)))
             }
@@ -131,6 +133,45 @@ enum SocialExport {
             result += allStrings(in: value, key: name)
         }
         return result
+    }
+
+    // MARK: - HTML (Instagram)
+
+    /// Instagram HTML dosyasında her kayıt bir başlık (<h2>hesap adı</h2>) ve
+    /// altında gönderi linkinden oluşur. Hesap adı linkin kendi yazısından,
+    /// o yoksa hemen önündeki başlıktan alınır.
+    private static func htmlPosts(_ html: String) -> [Post] {
+        let pattern = #"<h2[^>]*>(.*?)</h2>|<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern,
+                                                   options: [.caseInsensitive, .dotMatchesLineSeparators])
+        else { return [] }
+        let text = html as NSString
+        var heading: String?
+        var posts: [Post] = []
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: text.length)) {
+            if match.range(at: 1).location != NSNotFound {
+                heading = username(fromHTML: text.substring(with: match.range(at: 1)))
+            } else if match.range(at: 2).location != NSNotFound,
+                      let url = post(from: decodedEntities(text.substring(with: match.range(at: 2)))) {
+                let label = username(fromHTML: text.substring(with: match.range(at: 3)))
+                posts.append(Post(url: url, source: source(of: url), author: label ?? heading))
+                heading = nil
+            }
+        }
+        return posts
+    }
+
+    /// Metin bir Instagram kullanıcı adıysa o ad (harf, rakam, "." ve "_").
+    private static func username(fromHTML fragment: String) -> String? {
+        let plain = decodedEntities(fragment.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let isUsername = plain.range(of: #"^@?[A-Za-z0-9._]{1,30}$"#, options: .regularExpression) != nil
+        return isUsername ? String(plain.drop { $0 == "@" }) : nil
+    }
+
+    private static func decodedEntities(_ text: String) -> String {
+        [("&amp;", "&"), ("&quot;", "\""), ("&#039;", "'"), ("&#39;", "'"), ("&lt;", "<"), ("&gt;", ">")]
+            .reduce(text) { $0.replacingOccurrences(of: $1.0, with: $1.1) }
     }
 
     // MARK: - TXT (TikTok)

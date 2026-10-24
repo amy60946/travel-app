@@ -32,7 +32,42 @@ enum PlaceAI {
         var city: String?
     }
 
-    private static let geminiModel = "gemini-flash-latest"
+    /// Toplu aramada bir servisin durumu; sonuç ekranında kısaca gösterilir.
+    struct Report: Equatable {
+        var provider: Provider
+        var places = 0
+        var requests = 0
+        var failures = 0
+        /// Son hata (ör. "HTTP 429", "zaman aşımı").
+        var error: String?
+
+        mutating func add(_ other: Report) {
+            places += other.places
+            requests += other.requests
+            failures += other.failures
+            error = other.error ?? error
+        }
+
+        var summary: String {
+            if requests > 0, failures == requests {
+                return String(localized: "\(provider.name): hata (\(error ?? "?"))")
+            }
+            if failures > 0 {
+                return String(localized: "\(provider.name): \(places) yer, \(failures) istek hata verdi (\(error ?? "?"))")
+            }
+            return String(localized: "\(provider.name): \(places) yer")
+        }
+    }
+
+    /// Toplu aramanın sonucu: her gönderi için yerler ve servislerin durumu.
+    struct PostResults {
+        var places: [[Found]]
+        var reports: [Report]
+    }
+
+    /// "gemini-flash-latest" 60 sn'de cevap veriyordu (uygulama 30 sn bekliyordu);
+    /// bu model aynı cevabı 1-2 sn'de veriyor ve resim de okuyor.
+    private static let geminiModel = "gemini-flash-lite-latest"
     /// Groq'ta resim de okuyabilen ücretsiz model (console.groq.com/docs/vision).
     private static let groqModel = "qwen/qwen3.8-27b"
 
@@ -81,40 +116,48 @@ enum PlaceAI {
 
     /// Kaydedilen gönderiler (TikTok açıklaması, Instagram hesap ve koleksiyon
     /// adı) için yerler. Sonuç, gönderilerle aynı sırada ve uzunlukta.
-    static func places(inPosts entries: [String]) async -> [[Found]] {
+    static func places(inPosts entries: [String]) async -> PostResults {
         let empty = Array(repeating: [Found](), count: entries.count)
-        guard isAvailable, !entries.isEmpty else { return empty }
+        guard isAvailable, !entries.isEmpty else { return PostResults(places: empty, reports: []) }
         var lines: [String] = []
         for (index, entry) in entries.enumerated() {
             lines.append("\(index). \(entry.prefix(600).replacingOccurrences(of: "\n", with: " "))")
         }
         let prompt = """
-        Each numbered line below is a social media post a traveller saved. For each line, list the specific \
-        places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) it clearly refers to. \
-        An account name counts only if it is clearly the venue's own account; ignore people, bloggers and guides. \
-        Reply only with JSON like {"results": [{"index": 0, "places": [{"name": "place name as on maps", \
-        "city": "city or null"}]}]}. Leave "places" empty when unsure.
+        Each numbered line below is a social media post a traveller saved: the account that posted it, \
+        the traveller's own collection name and, for TikTok, the caption. For each line, list the specific \
+        places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) it refers to. \
+        Use the caption when there is one. An account name counts when it is the own account of a venue, \
+        a chain or an attraction; ignore personal, blogger, guide and media accounts. For "city" give the \
+        place's city; if you do not know it, the city that the collection or account name points to; \
+        otherwise null. Reply only with JSON like {"results": [{"index": 0, "places": [{"name": \
+        "place name as on maps", "city": "city or null"}]}]}. Leave "places" empty when unsure.
 
         \(lines.joined(separator: "\n"))
         """
         let providers = self.providers
         var answers = Array(repeating: empty, count: providers.count)
-        await withTaskGroup(of: (Int, [[Found]]).self) { group in
+        var reports = providers.map { Report(provider: $0, requests: 1) }
+        await withTaskGroup(of: (Int, Reply).self) { group in
             for (index, provider) in providers.enumerated() {
-                group.addTask {
-                    let text = await askText(provider, prompt: prompt, jpeg: nil)
-                    return (index, parse(results: text ?? "", count: entries.count))
-                }
+                group.addTask { (index, await askText(provider, prompt: prompt, jpeg: nil)) }
             }
-            for await result in group {
-                answers[result.0] = result.1
+            for await (index, reply) in group {
+                switch reply {
+                case .text(let text):
+                    answers[index] = parse(results: text, count: entries.count)
+                    reports[index].places = answers[index].reduce(0) { $0 + $1.count }
+                case .failure(let error):
+                    reports[index].failures = 1
+                    reports[index].error = error
+                }
             }
         }
         var merged: [[Found]] = []
         for index in entries.indices {
             merged.append(Array(merge(answers.map { $0[index] }).prefix(3)))
         }
-        return merged
+        return PostResults(places: merged, reports: reports)
     }
 
     /// Yapay zekâ yokken: her kısa satır bir yer adı sayılır.
@@ -140,20 +183,59 @@ enum PlaceAI {
     }
 
     private static func ask(_ provider: Provider, prompt: String, jpeg: Data?) async -> [Found] {
-        guard let text = await askText(provider, prompt: prompt, jpeg: jpeg) else { return [] }
+        guard case .text(let text) = await askText(provider, prompt: prompt, jpeg: jpeg) else { return [] }
         return parse(text: text)
     }
 
-    /// Modelin cevap metni; hata ya da sınır aşımında nil.
-    private static func askText(_ provider: Provider, prompt: String, jpeg: Data?) async -> String? {
+    /// Bir servisin cevabı: modelin metni ya da kısa hata açıklaması.
+    private enum Reply {
+        case text(String)
+        case failure(String)
+    }
+
+    /// Modelin cevap metni. Ücretsiz katmanın dakikalık sınırına takılınca
+    /// servisin söylediği kadar bekleyip en fazla iki kez yeniden dener.
+    private static func askText(_ provider: Provider, prompt: String, jpeg: Data?) async -> Reply {
         guard let key = apiKey(for: provider),
-              let request = makeRequest(provider, key: key, prompt: prompt, jpeg: jpeg),
-              let result = try? await URLSession.shared.data(for: request),
-              (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        switch provider {
-        case .gemini: return text(geminiResponse: result.0)
-        case .groq: return text(groqResponse: result.0)
+              let request = makeRequest(provider, key: key, prompt: prompt, jpeg: jpeg)
+        else { return .failure(String(localized: "anahtar yok")) }
+        for attempt in 1...3 {
+            let data: Data
+            let response: HTTPURLResponse?
+            do {
+                let result = try await URLSession.shared.data(for: request)
+                data = result.0
+                response = result.1 as? HTTPURLResponse
+            } catch {
+                let timedOut = (error as? URLError)?.code == .timedOut
+                return .failure(timedOut ? String(localized: "zaman aşımı") : String(localized: "bağlantı yok"))
+            }
+            let status = response?.statusCode ?? 0
+            if status == 200 {
+                let content = provider == .gemini ? text(geminiResponse: data) : text(groqResponse: data)
+                return content.map(Reply.text) ?? .failure(String(localized: "boş cevap"))
+            }
+            let wait = retryDelay(header: response?.value(forHTTPHeaderField: "Retry-After"), body: data)
+            guard status == 429 || status == 503, attempt < 3, wait <= 45 else {
+                return .failure("HTTP \(status)")
+            }
+            try? await Task.sleep(for: .seconds(wait))
         }
+        return .failure("HTTP 429")
+    }
+
+    /// Sınır aşımında beklenecek saniye: "Retry-After" başlığı ya da
+    /// Gemini cevabındaki "retryDelay": "23s"; ikisi de yoksa 5 sn.
+    static func retryDelay(header: String?, body: Data) -> Double {
+        if let header, let seconds = Double(header.trimmingCharacters(in: .whitespaces)) {
+            return seconds
+        }
+        let text = String(decoding: body, as: UTF8.self)
+        if let range = text.range(of: #""retryDelay"\s*:\s*"[0-9.]+s""#, options: .regularExpression),
+           let seconds = Double(text[range].filter { $0.isNumber || $0 == "." }) {
+            return seconds
+        }
+        return 5
     }
 
     private static func makeRequest(_ provider: Provider, key: String, prompt: String, jpeg: Data?) -> URLRequest? {
@@ -193,7 +275,7 @@ enum PlaceAI {
         case .groq: request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 60
         return request
     }
 

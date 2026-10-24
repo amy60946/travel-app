@@ -11,6 +11,8 @@ final class SocialImporter: ObservableObject {
     struct Result {
         var places: [Place] = []
         var pending: [SocialExport.Post] = []
+        /// Kısa rapor: kaç gönderide hesap adı vardı, her servis kaç yer buldu.
+        var summary: String?
     }
 
     @Published private(set) var status: String?
@@ -35,12 +37,20 @@ final class SocialImporter: ObservableObject {
 
         status = String(localized: "Yapay zekâ yerleri arıyor…")
         var found = Array(repeating: [PlaceAI.Found](), count: posts.count)
+        var reports: [PlaceAI.Report] = []
         for start in stride(from: 0, to: posts.count, by: batchSize) {
             progress = (start, posts.count)
             let end = min(start + batchSize, posts.count)
             let batch = await PlaceAI.places(inPosts: Array(entries[start..<end]))
-            for (offset, list) in batch.enumerated() {
+            for (offset, list) in batch.places.enumerated() {
                 found[start + offset] = list
+            }
+            for report in batch.reports {
+                if let index = reports.firstIndex(where: { $0.provider == report.provider }) {
+                    reports[index].add(report)
+                } else {
+                    reports.append(report)
+                }
             }
         }
 
@@ -59,7 +69,11 @@ final class SocialImporter: ObservableObject {
         }
         let resolved = await importer.resolve(items, knownCities: knownCities)
         let foundURLs = Set(resolved.added.compactMap(\.sourceURL))
-        return Result(places: resolved.added, pending: posts.filter { !foundURLs.contains($0.url) })
+        let withAccount = posts.filter { $0.author != nil }.count
+        let summary = [String(localized: "\(posts.count) gönderi · \(withAccount) tanesinde hesap adı var")]
+            + reports.map(\.summary)
+        return Result(places: resolved.added, pending: posts.filter { !foundURLs.contains($0.url) },
+                      summary: summary.joined(separator: "\n"))
     }
 
     /// Yapay zekâya gidecek tek satırlık özet.

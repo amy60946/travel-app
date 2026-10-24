@@ -88,6 +88,36 @@ final class SocialExportTests: XCTestCase {
         XCTAssertEqual(posts.count, 1)
     }
 
+    func testHTMLSavedPostsKeepAccountNames() {
+        let html = """
+        <div class="pam"><h2 class="_a6-h">afuri_official</h2><table><tr><td>Saved on<div><div>
+        <a target="_blank" href="https://www.instagram.com/p/AAA/">https://www.instagram.com/p/AAA/</a></div>
+        <div>Jul 01, 2025 10:00 am</div></div></td></tr></table></div>
+        <div class="pam"><h2 class="_a6-h">shibuya&#039;s guide</h2><table><tr><td>Saved on<div>
+        <a href="https://www.instagram.com/reel/BBB/">https://www.instagram.com/reel/BBB/</a></div></td></tr></table></div>
+        <div class="pam"><table><tr><td>Name<div><a href="https://www.instagram.com/p/CCC/">ichiran_official</a></div></td></tr></table></div>
+        """
+        let posts = parse(html, "your_instagram_activity/saved/saved_posts.html")
+        XCTAssertEqual(posts.map { SocialExport.canonical($0.url) }, ["instagram:AAA", "instagram:BBB", "instagram:CCC"])
+        XCTAssertEqual(posts.map(\.author), ["afuri_official", nil, "ichiran_official"])
+    }
+
+    func testRetryDelay() {
+        XCTAssertEqual(PlaceAI.retryDelay(header: "12", body: Data()), 12)
+        let gemini = #"{"error": {"code": 429, "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "23s"}]}}"#
+        XCTAssertEqual(PlaceAI.retryDelay(header: nil, body: Data(gemini.utf8)), 23)
+        XCTAssertEqual(PlaceAI.retryDelay(header: nil, body: Data("error code: 1010".utf8)), 5)
+    }
+
+    func testReportsAddUp() {
+        var total = PlaceAI.Report(provider: .groq, places: 2, requests: 1)
+        total.add(PlaceAI.Report(provider: .groq, places: 0, requests: 1, failures: 1, error: "HTTP 429"))
+        XCTAssertEqual(total.places, 2)
+        XCTAssertEqual(total.requests, 2)
+        XCTAssertEqual(total.failures, 1)
+        XCTAssertEqual(total.error, "HTTP 429")
+    }
+
     func testBatchResultsParse() {
         let text = #"{"results": [{"index": 1, "places": [{"name": "Afuri Ebisu", "city": "Tokyo"}]}, {"index": 9, "places": [{"name": "x"}]}]}"#
         let results = PlaceAI.parse(results: text, count: 2)
