@@ -26,8 +26,8 @@ struct CameraAddView: View {
                     Text("Tabelanın ya da girişin fotoğrafını çek. Yazıyı telefonun kendisi okur, konumunla yakındaki yeri bulur.")
                         .font(Theme.body)
                         .foregroundStyle(Theme.muted)
-                    if GeminiVision.isAvailable {
-                        Text("Yazı okunamazsa fotoğraf yeri tanımak için Google Gemini'ye gönderilir.")
+                    if PlaceAI.isAvailable {
+                        Text("Fotoğraf ve okunan yazı, yeri daha iyi tanımak için yapay zekâya da gönderilir: \(PlaceAI.providers.map(\.name).joined(separator: ", "))")
                             .font(Theme.caption)
                             .foregroundStyle(Theme.muted)
                     }
@@ -140,16 +140,15 @@ struct CameraAddView: View {
         }
         status = "Yazı okunuyor…"
         readLines = await SignReader.readText(from: picked)
-        if !readLines.isEmpty {
-            status = "Yakındaki yerler aranıyor…"
-            candidates = await SignReader.candidates(for: readLines, near: location)
-        }
-        // Yazı yoksa ya da eşleşmediyse bulut yapay zekâya sor.
-        if candidates.isEmpty, GeminiVision.isAvailable {
-            status = "Fotoğraf yapay zekâya soruluyor…"
-            let names = await GeminiVision.placeNames(in: picked, near: location)
-            candidates = await SignReader.candidates(for: names, near: location)
-        }
+        status = PlaceAI.isAvailable
+            ? LocalizedStringKey("Yakındaki yerler aranıyor, yapay zekâya soruluyor…")
+            : LocalizedStringKey("Yakındaki yerler aranıyor…")
+        // Okunan yazıyla arama ve yapay zekâ (resim + yazı) aynı anda çalışır.
+        let lines = readLines
+        async let fromText = SignReader.candidates(for: lines, near: location)
+        let names = await PlaceAI.placeNames(in: picked, readText: lines, near: location)
+        let fromAI = await SignReader.candidates(for: names, near: location, keepOrder: true)
+        candidates = SignReader.merge(fromAI, await fromText)
         guard let best = candidates.first else {
             status = readLines.isEmpty
                 ? LocalizedStringKey("Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene.")

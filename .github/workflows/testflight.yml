@@ -22,8 +22,10 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # İsteğe bağlı: fotoğrafla eklemede bulut yapay zekâ (boşsa kapalı).
+      # İsteğe bağlı: fotoğraftan ve yazıdan yer bulmada ücretsiz bulut
+      # yapay zekâlar (boş olan kapalı kalır).
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,32 +56,92 @@ jobs:
           command -v xcodegen || brew install xcodegen
           xcodegen generate
 
+      # Apple'ın bulut sertifikasıyla yapılan imza reddedildiği için her
+      # yüklemede geçici bir dağıtım sertifikası ve profili oluşturulur,
+      # sonunda silinir (bkz. scripts/asc_signing.py).
+      - name: Geçici dağıtım imzasını hazırla
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/keys/AuthKey.p8
+          BUNDLE_ID: io.travelapp.ios
+          PROFILE_NAME: TravelApp CI ${{ github.run_id }}-${{ github.run_attempt }}
+          SIGN_DIR: ${{ runner.temp }}/signing
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyjwt cryptography
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc_signing.py setup "$SIGN_DIR"
+
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          curl -fsSL -o "$SIGN_DIR/AppleWWDRCAG3.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          security import "$SIGN_DIR/AppleWWDRCAG3.cer" -k "$KEYCHAIN" -T /usr/bin/codesign || true
+          security import "$SIGN_DIR/dist.key.pem" -k "$KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security
+          security import "$SIGN_DIR/dist.cer" -k "$KEYCHAIN" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+          UUID=$(python3 -c "import json;print(json.load(open('$SIGN_DIR/state.json'))['profileUUID'])")
+          for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp "$SIGN_DIR/dist.mobileprovision" "$dir/$UUID.mobileprovision"
+          done
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+
       - name: Arşivle (imzalı)
         run: |
           xcodebuild archive \
             -project TravelApp.xcodeproj -scheme TravelApp \
             -configuration Release -destination generic/platform=iOS \
             -archivePath build/TravelApp.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             GEMINI_API_KEY="$GEMINI_API_KEY" \
+            GROQ_API_KEY="$GROQ_API_KEY" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}"
 
       - name: TestFlight'a yükle
         run: |
-          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" ExportOptions.plist
+          plist=ExportOptions.plist
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" $plist
+          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" $plist
+          /usr/libexec/PlistBuddy -c "Add :signingCertificate string Apple Distribution" $plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" $plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:io.travelapp.ios string $PROFILE_NAME" $plist
           xcodebuild -exportArchive \
             -archivePath build/TravelApp.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
+            -exportOptionsPlist $plist \
             -exportPath build/export \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: İmza bilgisi (yükleme başarısızsa)
+        if: failure()
+        run: |
+          echo "== Arşivdeki imza"
+          codesign -dvv build/TravelApp.xcarchive/Products/Applications/TravelApp.app 2>&1 | grep -E "Authority|TeamIdentifier|Identifier" || true
+          for dir in "${TMPDIR:-/tmp}"/TravelApp_*.xcdistributionlogs; do
+            [ -d "$dir" ] || continue
+            echo "== $dir"
+            grep -h -i -E "signing identity|certificate|codesign|profile|error" "$dir"/*.log 2>/dev/null | cut -c1-400 | tail -80 || true
+          done
+
+      - name: Geçici sertifikayı ve profili sil
+        if: always()
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/keys/AuthKey.p8
+        run: |
+          if [ -x "$RUNNER_TEMP/venv/bin/python" ]; then
+            "$RUNNER_TEMP/venv/bin/python" scripts/asc_signing.py cleanup "$RUNNER_TEMP/signing"
+          fi
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/signing"
 
       - name: Anahtarı sil
         if: always()

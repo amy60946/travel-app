@@ -30,8 +30,10 @@ enum SignReader {
         }.value
     }
 
-    /// Okunan yazılarla 1 km içinde arar; en yakından uzağa en fazla 3 aday.
-    static func candidates(for lines: [String], near location: CLLocation) async -> [Candidate] {
+    /// Okunan yazılarla 1 km içinde arar; en fazla 3 aday. `keepOrder`
+    /// açıksa sorgu sırası korunur (yapay zekânın en olası tahmini önde),
+    /// değilse en yakından uzağa sıralanır.
+    static func candidates(for lines: [String], near location: CLLocation, keepOrder: Bool = false) async -> [Candidate] {
         var found: [Candidate] = []
         for line in lines.prefix(4) {
             let request = MKLocalSearch.Request()
@@ -47,7 +49,21 @@ enum SignReader {
                 found.append(Candidate(item: item, distance: distance))
             }
         }
+        if keepOrder {
+            return Array(found.prefix(3))
+        }
         return Array(found.sorted { $0.distance < $1.distance }.prefix(3))
+    }
+
+    /// İki aday listesini birleştirir: ikisinde de olan yer öne geçer,
+    /// sonra ilk listenin sırası gelir. En fazla 4 aday.
+    static func merge(_ first: [Candidate], _ second: [Candidate]) -> [Candidate] {
+        let secondNames = Set(second.compactMap { $0.item.name })
+        var merged = first.filter { secondNames.contains($0.item.name ?? "") }
+        for candidate in first + second where !merged.contains(where: { $0.item.name == candidate.item.name }) {
+            merged.append(candidate)
+        }
+        return Array(merged.prefix(4))
     }
 }
 

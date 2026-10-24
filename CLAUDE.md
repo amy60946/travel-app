@@ -70,3 +70,4 @@ cevapları.
 | 2026-10-24 | Bundle ID (uygulama kimliği): `io.travelapp.ios`. |
 | 2026-10-24 | Fotoğrafla ekleme: **ikisi birden**. Önce iPhone yazı tanıma + konum (ücretsiz, internetsiz); yazı okunamaz ya da eşleşmezse Google Gemini ücretsiz katmanı (anahtar `GEMINI_API_KEY`, GitHub Secrets). |
 | 2026-10-24 | Testler yeşil olunca PR'ları **Claude birleştirir** ve TestFlight yüklemesini başlatır; Oguz telefonda dener. |
+| 2026-10-24 | Yapay zekâ yalnızca yedek değil: fotoğrafla eklemede resim + okunan yazı her seferinde **Gemini ve Groq ücretsiz katmanlarına** birlikte sorulur; kopyalanan yazıdan (ör. Instagram açıklaması) yer bulma da bu iki servisi kullanır. Anahtarlar `GEMINI_API_KEY`, `GROQ_API_KEY` (GitHub Secrets). DeepSeek ücretli olduğu için kullanılmaz. |

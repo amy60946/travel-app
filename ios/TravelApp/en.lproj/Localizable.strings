@@ -152,6 +152,14 @@
 "Konumun alınamadı. Konum iznini kontrol et ve tekrar dene." = "Couldn't get your location. Check location permission and try again.";
 "Yakındaki yerler aranıyor…" = "Searching nearby places…";
 "Yakında bu yazıyla eşleşen yer bulunamadı." = "No nearby place matches this text.";
-"Yazı okunamazsa fotoğraf yeri tanımak için Google Gemini'ye gönderilir." = "If no text can be read, the photo is sent to Google Gemini to recognise the place.";
-"Fotoğraf yapay zekâya soruluyor…" = "Asking AI about the photo…";
+"Fotoğraf ve okunan yazı, yeri daha iyi tanımak için yapay zekâya da gönderilir: %@" = "The photo and the text read from it are also sent to AI to recognise the place better: %@";
+"Yakındaki yerler aranıyor, yapay zekâya soruluyor…" = "Searching nearby places and asking AI…";
+"Yazıdan" = "From text";
+"Kopyaladığın yazıdan yer bul" = "Find places in copied text";
+"Yazıdaki yerler bulunuyor…" = "Finding places in the text…";
+"Yazı" = "Text";
+"Instagram ya da TikTok açıklaması, mesaj veya liste kopyala. Yazıdaki yerleri yapay zekâ bulur." = "Copy an Instagram or TikTok caption, a message or a list. AI finds the places in it.";
+"Her satır bir yer adı olarak aranır. Yapay zekâ anahtarı eklenince açıklamalardaki yerler de bulunur." = "Each line is searched as a place name. Once an AI key is added, places inside captions are found too.";
+"Panoda yazı yok." = "No text on the clipboard.";
+"Yazıda yer bulunamadı." = "No places found in the text.";
 "Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";
