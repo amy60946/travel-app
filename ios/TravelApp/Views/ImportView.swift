@@ -178,13 +178,22 @@ struct ImportView: View {
     private var socialSection: some View {
         Section {
             Button {
-                openURL(ExportFiles.instagramExportPage)
+                // Önce Instagram uygulaması; yüklü değilse tarayıcıdaki sayfa.
+                openURL(ExportFiles.instagramAppSettings) { opened in
+                    if !opened { openURL(ExportFiles.instagramExportPage) }
+                }
             } label: {
                 Label("Instagram'dan al", systemImage: "arrow.up.forward.app")
             }
-            Text("Açılan sayfada yalnızca **Kaydedilenler**'i (Saved) seç, biçim **JSON** → **Dışa aktarmayı başlat**. Hazır olunca Instagram e-posta gönderir; bağlantıdan dosyayı indir.")
+            Text("Instagram'ın ayarları açılır: en üstte **Meta Hesabı** → **Bilgilerin ve izinlerin** → **Bilgilerini dışa aktar** → **Dışa aktarma oluştur**. Yalnızca **Kaydedilenler**'i ve **JSON**'u seç, başlat. Hazır olunca Instagram e-posta gönderir; bağlantıdan dosyayı indir.")
                 .font(Theme.font(13))
                 .foregroundStyle(Theme.muted)
+            Button {
+                openURL(ExportFiles.instagramExportPage)
+            } label: {
+                Label("Tarayıcıda aç", systemImage: "safari")
+            }
+            .font(Theme.font(14))
             if folderName == nil {
                 Button {
                     pick(.folder)
