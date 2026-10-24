@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yürüyüş modu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#FFB4A3;text-decoration:none}a:hover{color:#FFD3C8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121829; color: #FFFFFF; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; gap: 22px; padding: 60px 22px 44px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<a href="Route.dc.html" style="font-size: 16px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Bitir</a>
+<span style="font-size: 14px; color: #C9CEDB">1. Gün · Durak 1 / 5</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 15px; background: rgba(255,255,255,0.1); font-size: 13px; color: #E3E6EE">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect></svg>Tek kulaklık · mono</span>
+<span style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 15px; background: rgba(255,255,255,0.1); font-size: 13px; color: #E3E6EE">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Çevrimdışı hazır</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 15px; color: #C9CEDB">Sıradaki durak</span>
+<span style="font-size: 36px; font-weight: 700; letter-spacing: -0.5px">Sensō-ji</span>
+<div style="display: flex; align-items: baseline; gap: 10px">
+<span style="font-size: 56px; font-weight: 700; letter-spacing: -1px">350 m</span>
+<span style="font-size: 20px; color: #C9CEDB">5 dk</span>
+</div>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; padding: 16px; border-radius: 18px; background: #C2381E">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20V11a3 3 0 0 1 3-3h8"></path><path d="M14 4l4 4-4 4"></path></svg>
+<span style="font-size: 18px; font-weight: 600; line-height: 1.3">80 m sonra sağa dön, Kaminarimon kapısına doğru</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.08)">
+<span style="font-size: 13px; font-weight: 600; color: #FFB4A3">{{statusLabel}}</span>
+<span style="font-size: 16px; line-height: 1.45; color: #F1F3F8">Rivayete göre 628 yılında iki balıkçı kardeş, Sumida Nehri'nde ağlarına takılan küçük bir Kannon heykeli buldu. Sensō-ji bu heykel için kuruldu…</span>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="font-size: 12px; color: #B5BBCB">Kaynak: Wikipedia, Sensō-ji resmî sitesi</span>
+<a href="#" style="font-size: 12px; font-weight: 600; white-space: nowrap">Yanlış bilgi bildir</a>
+</div>
+</div>
+<div style="flex: 1"></div>
+<div style="display: flex; align-items: center; justify-content: center; gap: 36px">
+<button type="button" aria-label="Tekrar dinlet" style="width: 56px; height: 56px; border-radius: 28px; border: none; background: rgba(255,255,255,0.1); color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"></path><path d="M4 4v4h4"></path></svg>
+</button>
+<button type="button" onClick="{{toggle}}" aria-label="{{toggleLabel}}" style="width: 88px; height: 88px; border-radius: 44px; border: none; background: #FFFFFF; color: #121829; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"></path></svg>
+</sc-if>
+</button>
+<button type="button" aria-label="Sonraki durağa geç" style="width: 56px; height: 56px; border-radius: 28px; border: none; background: rgba(255,255,255,0.1); color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5l9 7-9 7z"></path><path d="M18 5v14"></path></svg>
+</button>
+</div>
+<span style="font-size: 13px; color: #B5BBCB; text-align: center">Telefonu cebine koyabilirsin; yön ve anlatım sesle gelir.</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const paused = !!(this.state && this.state.paused);
+    return {
+      playing: !paused,
+      paused: paused,
+      statusLabel: paused ? 'DURAKLATILDI · Kaminarimon' : 'ŞİMDİ ANLATILIYOR · Kaminarimon',
+      toggleLabel: paused ? 'Devam et' : 'Duraklat',
+      toggle: () => this.setState({ paused: !paused })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yürü (sesli rehber)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#222222;text-decoration:none}a:hover{color:#222222}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #F2F0EB; color: #222222; font-family: 'Figtree', system-ui, sans-serif; overflow: hidden">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<path d="M362 0 C 352 220, 380 420, 358 844 L 390 844 L 390 0 Z" fill="#C9DDE6"></path>
+<rect x="66" y="456" width="98" height="108" rx="10" fill="#DCE8D2"></rect>
+<g stroke="#FFFFFF">
+<line x1="20" y1="0" x2="20" y2="844" stroke-width="5"></line>
+<line x1="60" y1="0" x2="60" y2="844" stroke-width="5"></line>
+<line x1="110" y1="0" x2="110" y2="844" stroke-width="5"></line>
+<line x1="170" y1="0" x2="170" y2="844" stroke-width="5"></line>
+<line x1="230" y1="0" x2="230" y2="844" stroke-width="10"></line>
+<line x1="290" y1="0" x2="290" y2="844" stroke-width="5"></line>
+<line x1="340" y1="0" x2="340" y2="844" stroke-width="5"></line>
+<line x1="0" y1="210" x2="390" y2="210" stroke-width="5"></line>
+<line x1="0" y1="270" x2="390" y2="270" stroke-width="10"></line>
+<line x1="0" y1="330" x2="390" y2="330" stroke-width="5"></line>
+<line x1="0" y1="390" x2="390" y2="390" stroke-width="5"></line>
+<line x1="0" y1="450" x2="390" y2="450" stroke-width="5"></line>
+<line x1="0" y1="510" x2="390" y2="510" stroke-width="5"></line>
+<line x1="0" y1="570" x2="390" y2="570" stroke-width="5"></line>
+</g>
+<path d="M290 330 V270 H170 V210" fill="none" stroke="#C94A2B" stroke-width="3" stroke-dasharray="1 8" stroke-linecap="round" opacity="0.6"></path>
+<path d="M170 510 V450 H230 V390 H290 V330" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M170 510 V450 H230 V390 H290 V330" fill="none" stroke="#C94A2B" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+<circle cx="290" cy="330" r="46" fill="#222222" opacity="0.06"></circle>
+<circle cx="170" cy="510" r="22" fill="#222222" opacity="0.1"></circle>
+<circle cx="170" cy="510" r="8" fill="#222222" stroke="#FFFFFF" stroke-width="3"></circle>
+</svg>
+<span style="position: absolute; left: 290px; top: 330px; transform: translate(-50%, -50%); height: 34px; padding: 0 12px 0 4px; border-radius: 999px; background: #222222; color: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25)"><span style="width: 26px; height: 26px; border-radius: 13px; background: #9B3A2A"></span>Sensō-ji</span>
+<span style="position: absolute; left: 170px; top: 210px; transform: translate(-50%, -50%); height: 34px; padding: 0 12px 0 4px; border-radius: 999px; background: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.16)"><span style="width: 26px; height: 26px; border-radius: 13px; background: #7D6B55"></span>Kappabashi</span>
+<div style="position: absolute; left: 16px; right: 16px; top: 56px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 3px 12px rgba(0,0,0,0.14)">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#222222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20V11a3 3 0 0 1 3-3h8"></path><path d="M14 4l4 4-4 4"></path></svg>
+<div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1">80 m</span><span style="font-size: 13px; color: #6A6A6A">sonra sağa, Kaminarimon'a doğru</span></div>
+</div>
+<sc-if value="{{showToast}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: #222222; color: #FFFFFF">
+<span style="font-size: 14px">Sensō-ji'ye yaklaştın, anlatım başladı</span>
+<button type="button" onClick="{{dismiss}}" style="height: 32px; padding: 0 12px; border-radius: 999px; border: none; background: #FFFFFF; color: #222222; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Tamam</button>
+</div>
+</sc-if>
+</div>
+<div style="position: absolute; left: 16px; right: 16px; bottom: 100px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; height: 30px; padding: 0 12px; border-radius: 999px; background: #FFFFFF; font-size: 13px; font-weight: 600; display: flex; align-items: center; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.1)">Sıradaki: Kappabashi · 18 dk</span>
+<div style="padding: 12px; border-radius: 18px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.06), 0 6px 14px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="P-Yer.dc.html" style="flex: 1; display: flex; align-items: center; gap: 12px">
+<span style="width: 52px; height: 52px; flex: none; border-radius: 12px; background: #9B3A2A"></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 800">Sensō-ji · Kaminarimon</span><span style="font-size: 13px; color: #6A6A6A">{{audioSub}}</span></span>
+</a>
+<button type="button" onClick="{{toggle}}" aria-label="{{playLabel}}" style="width: 48px; height: 48px; flex: none; border-radius: 24px; border: none; background: #C94A2B; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{playing}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+</button>
+</div>
+<div aria-hidden="true" style="height: 3px; border-radius: 2px; background: #EBEBEB; overflow: hidden"><div style="height: 3px; width: 39%; background: #222222"></div></div>
+</div>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center">
+<div role="tablist" aria-label="Mod" style="display: grid; grid-template-columns: 1fr 1fr; width: 200px; padding: 4px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.06), 0 6px 14px rgba(0,0,0,0.08)">
+<a role="tab" aria-selected="false" href="P-Plan.dc.html" style="height: 40px; border-radius: 999px; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center">Planla</a>
+<span role="tab" aria-selected="true" style="height: 40px; border-radius: 999px; background: #222222; color: #FFFFFF; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center">Yürü</span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const playing = s.playing !== false;
+    return {
+      showToast: !s.dismissed,
+      dismiss: () => this.setState({ dismissed: true }),
+      playing: playing,
+      paused: !playing,
+      playLabel: playing ? 'Duraklat' : 'Dinle',
+      audioSub: playing ? 'Anlatım çalıyor · 1:12 / 3:05' : 'Duraklatıldı · 1:12 / 3:05',
+      toggle: () => this.setState({ playing: !playing })
+    };
+  }
+}
+</script>
+</body>
+</html>

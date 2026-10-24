@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Fotoğraf çekerek ekle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#FFB4A3;text-decoration:none}a:hover{color:#FFD3C8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #000000; color: #FFFFFF; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 640px; background: #3B3530; display: flex; align-items: center; justify-content: center">
+<span style="font-size: 13px; color: #CFC6BD">[kamera görüntüsü: Kaminarimon kapısı]</span>
+</div>
+<div aria-hidden="true" style="position: absolute; left: 70px; top: 220px; width: 250px; height: 200px; border: 3px solid #FFFFFF; border-radius: 22px; opacity: 0.8"></div>
+<div style="position: absolute; left: 16px; right: 16px; top: 56px; display: flex; justify-content: space-between; align-items: center">
+<a href="AltAddPlace.dc.html" style="height: 40px; padding: 0 14px; border-radius: 20px; background: rgba(0,0,0,0.45); font-size: 15px; font-weight: 600; display: flex; align-items: center">Kapat</a>
+<span style="height: 32px; padding: 0 12px; border-radius: 16px; background: rgba(0,0,0,0.45); font-size: 13px; color: #E3E6EE; display: flex; align-items: center">Konumun da kullanılır</span>
+</div>
+<sc-if value="{{aiming}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 204px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px">
+<span style="font-size: 15px; color: #E3E6EE">Tabelayı ya da binayı çerçeveye al</span>
+<button type="button" onClick="{{shoot}}" aria-label="Fotoğraf çek" style="width: 76px; height: 76px; border-radius: 38px; border: 5px solid #FFFFFF; background: transparent; padding: 5px; cursor: pointer">
+<span style="display: block; width: 100%; height: 100%; border-radius: 50%; background: #FFFFFF"></span>
+</button>
+</div>
+</sc-if>
+<sc-if value="{{found}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; color: #15171C; border-radius: 28px 28px 0 0; padding: 22px 20px 40px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="width: 56px; height: 56px; flex: none; border-radius: 28px; background: #E4F3EA; color: #1E7A45; display: flex; align-items: center; justify-content: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 20px; font-weight: 700">Tokyo'ya eklendi</span>
+<span style="font-size: 15px; color: #5B6070">Kaminarimon · Sensō-ji girişi</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<button type="button" onClick="{{again}}" style="height: 50px; border-radius: 14px; border: 1px solid #D5D8DE; background: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; color: #15171C; cursor: pointer">Geri al</button>
+<button type="button" onClick="{{again}}" style="height: 50px; border-radius: 14px; border: none; background: #C2381E; font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; cursor: pointer">Bir tane daha</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const found = !!(this.state && this.state.found);
+    return {
+      aiming: !found,
+      found: found,
+      shoot: () => this.setState({ found: true }),
+      again: () => this.setState({ found: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

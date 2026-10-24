@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kendi yerin</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#222222;text-decoration:none}a:hover{color:#222222}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #FFFFFF; color: #222222; font-family: 'Figtree', system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column">
+<div style="padding: 56px 20px 8px; display: grid; grid-template-columns: 40px 1fr 40px; align-items: center">
+<a href="P-YerEkle.dc.html" aria-label="Geri" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #DDDDDD; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<span style="text-align: center; font-size: 17px; font-weight: 700">Kendi yerin</span>
+<span></span>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+
+<button type="button" style="flex: none; height: 110px; border-radius: 14px; border: 1.5px dashed #B0B0B0; background: #FFFFFF; color: #222222; font: inherit; font-size: 15px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Fotoğraf ekle</button>
+<label style="display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 12px; border: 1px solid #B0B0B0">
+<span style="font-size: 12px; color: #6A6A6A">Yer adı</span>
+<input type="text" value="Koffee Mameya" style="border: none; outline: none; padding: 0; font: inherit; font-size: 16px; font-weight: 600; color: #222222">
+</label>
+<div style="flex: none; border-radius: 12px; border: 1px solid #B0B0B0; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 16px">
+<span style="font-size: 12px; color: #6A6A6A">Adres</span>
+<span style="font-size: 16px; font-weight: 600">Omotesandō 4-15-3, Shibuya</span>
+</div>
+<div style="position: relative; height: 120px; background: #F2F0EB; border-top: 1px solid #EBEBEB">
+<svg aria-hidden="true" width="100%" height="120" viewBox="0 0 350 120" preserveAspectRatio="none" style="position: absolute; left: 0; top: 0">
+<g stroke="#FFFFFF"><line x1="60" y1="0" x2="60" y2="120" stroke-width="5"></line><line x1="150" y1="0" x2="150" y2="120" stroke-width="9"></line><line x1="250" y1="0" x2="250" y2="120" stroke-width="5"></line><line x1="0" y1="40" x2="350" y2="40" stroke-width="5"></line><line x1="0" y1="88" x2="350" y2="88" stroke-width="9"></line></g>
+</svg>
+<span style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #222222; border: 4px solid #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,0.3)"></span>
+<span style="position: absolute; left: 10px; bottom: 8px; height: 26px; padding: 0 10px; border-radius: 999px; background: #FFFFFF; font-size: 12px; font-weight: 600; display: flex; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.12)">Pini sürükleyerek düzelt</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 15px; font-weight: 700">Tür</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="5">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 36px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: {{t.border}}; background: {{t.bg}}; color: {{t.fg}}">{{t.name}}</button>
+</sc-for>
+</div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 12px; border: 1px solid #B0B0B0">
+<span style="font-size: 12px; color: #6A6A6A">Not (isteğe bağlı)</span>
+<input type="text" value="Filtre kahve, akşamüstü sakin" style="border: none; outline: none; padding: 0; font: inherit; font-size: 16px; color: #222222">
+</label>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 15px; font-weight: 700">Hangi gün?</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="4">
+<button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="height: 36px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: {{d.border}}; background: {{d.bg}}; color: {{d.fg}}">{{d.name}}</button>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #6A6A6A">{{dayHint}}</span>
+</div>
+</div>
+<div style="height: 92px; flex: none; box-sizing: border-box; padding: 14px 24px 30px; background: #FFFFFF; border-top: 1px solid #EBEBEB; display: flex; align-items: center; justify-content: space-between">
+<a href="P-Plan.dc.html" style="font-size: 15px; font-weight: 700; text-decoration: underline">Vazgeç</a>
+<a href="P-Plan.dc.html" style="height: 48px; padding: 0 22px; border-radius: 8px; background: #C94A2B; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center">Rotaya ekle</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const type = s.type || 'kafe';
+    const day = s.day || 'auto';
+    const chip = (on) => ({ border: on ? '1px solid #222222' : '1px solid #DDDDDD', bg: on ? '#222222' : '#FFFFFF', fg: on ? '#FFFFFF' : '#222222' });
+    return {
+      types: [
+        { id: 'restoran', name: 'Restoran' },
+        { id: 'kafe', name: 'Kafe' },
+        { id: 'gezilecek', name: 'Gezilecek yer' },
+        { id: 'alisveris', name: 'Alışveriş' },
+        { id: 'diger', name: 'Diğer' }
+      ].map((t) => ({ ...t, on: t.id === type, ...chip(t.id === type), pick: () => this.setState({ type: t.id }) })),
+      days: [
+        { id: 'auto', name: 'Otomatik' },
+        { id: '1', name: '1. Gün' },
+        { id: '2', name: '2. Gün' },
+        { id: '3', name: '3. Gün' }
+      ].map((d) => ({ ...d, on: d.id === day, ...chip(d.id === day), pick: () => this.setState({ day: d.id }) })),
+      dayHint: day === 'auto' ? 'En yakın güne koyarız: 2. Gün, Shibuya ve Harajuku' : day + '. Güne eklenecek'
+    };
+  }
+}
+</script>
+</body>
+</html>

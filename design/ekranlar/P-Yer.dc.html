@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yer sayfası</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#222222;text-decoration:none}a:hover{color:#222222}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #8C8B87; color: #222222; font-family: 'Figtree', system-ui, sans-serif; overflow: hidden">
+<div style="position: absolute; left: 0; right: 0; top: 50px; bottom: 0; background: #FFFFFF; border-radius: 24px 24px 0 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px 0 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="padding: 0 20px; display: flex; justify-content: space-between">
+<a href="P-YerEkle.dc.html" aria-label="Kapat" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #DDDDDD; display: flex; align-items: center; justify-content: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</a>
+<span aria-label="Kayıtlı" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #DDDDDD; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="#222222" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"></path></svg>
+</span>
+</div>
+<div style="padding: 0 20px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.6px">Sensō-ji</h1>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6A6A6A"><span>Asakusa, Tokyo</span><span aria-hidden="true">·</span><span style="height: 22px; padding: 0 8px; border-radius: 999px; background: #F2F2F2; color: #222222; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; display: flex; align-items: center">TAPINAK</span></div>
+</div>
+<div style="display: flex; gap: 10px; overflow-x: auto; padding: 0 20px">
+<div style="flex: none; width: 290px; height: 196px; border-radius: 14px; background: #9B3A2A"></div>
+<div style="flex: none; width: 290px; height: 196px; border-radius: 14px; background: #C9A27E"></div>
+</div>
+<div style="padding: 0 20px; display: flex; gap: 8px; flex-wrap: wrap">
+<span aria-label="Tripadvisor puanı 4,5, 38 bin yorum" style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #DDDDDD; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px"><span>4,5</span><span aria-hidden="true" style="display: flex; gap: 2px"><span style="width: 9px; height: 9px; border-radius: 5px; background: #222222"></span><span style="width: 9px; height: 9px; border-radius: 5px; background: #222222"></span><span style="width: 9px; height: 9px; border-radius: 5px; background: #222222"></span><span style="width: 9px; height: 9px; border-radius: 5px; background: #222222"></span><span style="width: 9px; height: 9px; border-radius: 5px; background: linear-gradient(90deg, #222222 50%, #DDDDDD 50%)"></span></span><span style="color: #6A6A6A; font-weight: 500">Tripadvisor</span></span>
+<span style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #DDDDDD; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #3E8E5A"></span>Açık · 06:00–17:00</span>
+<span style="height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #DDDDDD; font-size: 13px; font-weight: 600; display: flex; align-items: center">Ortalama 45 dk</span>
+</div>
+<div style="margin: 0 20px; padding: 16px; border-radius: 14px; background: #F7F7F7; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px">
+<button type="button" onClick="{{toggle}}" aria-label="{{playLabel}}" style="width: 52px; height: 52px; flex: none; border-radius: 26px; border: none; background: #222222; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+</button>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 800">Dinle</span>
+<span style="font-size: 13px; color: #6A6A6A">{{audioSub}}</span>
+</div>
+</div>
+<div aria-hidden="true" style="height: 4px; border-radius: 2px; background: #DDDDDD; overflow: hidden"><div style="height: 4px; background: #222222; width: {{progress}}"></div></div>
+<span style="font-size: 13px; color: #6A6A6A">Yürürken buraya yaklaşınca kendiliğinden başlar.</span>
+</div>
+<div style="padding: 0 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6A6A6A">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6A6A6A" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle></svg>
+<span>12 Eylül'de Instagram'da kaydettin</span>
+</div>
+<div style="padding: 0 20px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 16px; line-height: 1.5">Tokyo'nun en eski tapınağı. Rivayete göre 628 yılında iki balıkçı kardeş, Sumida Nehri'nde ağlarına takılan küçük bir Kannon heykeli buldu ve tapınak bu heykel için kuruldu.</span>
+<span style="font-size: 13px; color: #6A6A6A">Kaynak: Wikipedia (CC BY-SA)</span>
+</div>
+<div style="padding: 0 20px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.3px">İpuçları</h2>
+<div style="display: flex; gap: 10px; overflow-x: auto; margin: 0 -20px; padding: 0 20px">
+<div style="flex: none; width: 240px; padding: 14px; border-radius: 14px; border: 1px solid #EBEBEB; font-size: 14px; line-height: 1.45">Sabah 8'den önce git; Nakamise Sokağı henüz sakin olur.</div>
+<div style="flex: none; width: 240px; padding: 14px; border-radius: 14px; border: 1px solid #EBEBEB; font-size: 14px; line-height: 1.45">Akşam ışıklandırma yanınca tapınak bambaşka görünür.</div>
+</div>
+<span style="font-size: 13px; color: #6A6A6A">Kaynak: Wikivoyage (CC BY-SA)</span>
+</div>
+<div style="padding: 0 20px; display: flex; flex-direction: column">
+<h2 style="margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -0.3px">Bilgiler</h2>
+<div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #EBEBEB; font-size: 15px"><span>Ana salon</span><span style="font-weight: 600">06:00–17:00</span></div>
+<div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #EBEBEB; font-size: 15px"><span>Web sitesi</span><span style="font-weight: 600; text-decoration: underline">senso-ji.jp</span></div>
+<div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px"><span>Adres</span><span style="font-weight: 600">2-3-1 Asakusa, Taitō</span></div>
+<span style="font-size: 13px; color: #6A6A6A">Kaynak: Apple Haritalar</span>
+</div>
+</div>
+<div style="height: 92px; flex: none; box-sizing: border-box; padding: 14px 24px 30px; background: #FFFFFF; border-top: 1px solid #EBEBEB; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 16px; font-weight: 700">{{barTitle}}</span>
+<span style="font-size: 13px; color: #6A6A6A">{{barSub}}</span>
+</div>
+<sc-if value="{{added}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{toggleAdd}}" style="height: 48px; padding: 0 22px; border-radius: 8px; border: 1px solid #222222; background: #FFFFFF; color: #222222; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer">Çıkar</button>
+</sc-if>
+<sc-if value="{{notAdded}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{toggleAdd}}" style="height: 48px; padding: 0 22px; border-radius: 8px; border: none; background: #C94A2B; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer">Rotaya ekle</button>
+</sc-if>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const playing = !!s.playing;
+    const added = s.added !== false;
+    return {
+      playing: playing,
+      paused: !playing,
+      playLabel: playing ? 'Duraklat' : 'Dinle',
+      audioSub: playing ? 'Çalıyor · 0:42 / 3:05 · Türkçe' : '3 dk · Türkçe anlatım',
+      progress: playing ? '23%' : '0%',
+      toggle: () => this.setState({ playing: !playing }),
+      added: added,
+      notAdded: !added,
+      barTitle: added ? 'Rotada' : 'Rotada değil',
+      barSub: added ? 'Asakusa ve Ueno · 1. durak' : 'Gün otomatik seçilir',
+      toggleAdd: () => this.setState({ added: !added })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Paylaş: aday seç</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #0E1018; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; inset: 0; padding: 60px 16px 0; display: flex; flex-direction: column; gap: 12px; opacity: 0.45">
+<div style="height: 300px; border-radius: 4px; background: #3A2F4A; display: flex; align-items: center; justify-content: center; color: #D9D0E6; font-size: 13px">[TikTok videosu]</div>
+<span style="font-size: 14px; color: #FFFFFF">Tokyo'nun en eski sokağında akşam yemeği #shinjuku #yokocho</span>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 28px 28px 0 0; padding: 10px 20px 40px; display: flex; flex-direction: column; gap: 16px">
+<div aria-hidden="true" style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #D5D8DE"></div>
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 15px; font-weight: 600; color: #5B6070">TravelApp</span>
+<a href="Main.dc.html" style="font-size: 16px; font-weight: 600">Bitti</a>
+</div>
+<sc-if value="{{choosing}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 20px; font-weight: 700">Bu yer hangisi?</span>
+<span style="font-size: 15px; color: #5B6070; line-height: 1.35">Videoda konum etiketi yok. Açıklama ve hashtag'lerden 3 aday bulduk, birine dokun.</span>
+</div>
+<sc-for list="{{candidates}}" as="c" hint-placeholder-count="3">
+<button type="button" onClick="{{c.pick}}" style="display: flex; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 10px 12px; border-radius: 14px; border: 1px solid #E3E5EA; background: #FFFFFF; font: inherit; text-align: left; color: #15171C; cursor: pointer">
+<div style="width: 44px; height: 44px; flex: none; border-radius: 10px; background: {{c.color}}"></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 16px; font-weight: 600">{{c.name}}</span>
+<span style="font-size: 13px; color: #5B6070">{{c.area}}</span>
+</div>
+<span style="font-size: 13px; font-weight: 600; color: #5B6070">{{c.match}}</span>
+</button>
+</sc-for>
+<button type="button" onClick="{{later}}" style="height: 48px; border-radius: 14px; border: none; background: #F3F4F6; font: inherit; font-size: 15px; font-weight: 600; color: #15171C; cursor: pointer">Hiçbiri değil, sonra belirlerim</button>
+</div>
+</sc-if>
+<sc-if value="{{picked}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="width: 56px; height: 56px; flex: none; border-radius: 28px; background: #E4F3EA; color: #1E7A45; display: flex; align-items: center; justify-content: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 20px; font-weight: 700">Tokyo'ya eklendi</span>
+<span style="font-size: 15px; color: #5B6070">{{pickedName}}</span>
+</div>
+</div>
+<button type="button" onClick="{{reset}}" style="height: 50px; border-radius: 14px; border: 1px solid #D5D8DE; background: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; color: #15171C; cursor: pointer">Geri al</button>
+</div>
+</sc-if>
+<sc-if value="{{waiting}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 20px; font-weight: 700">Tokyo listesine kondu</span>
+<span style="font-size: 15px; color: #5B6070; line-height: 1.35">Yer <b style="color: #9E2C15">“Yeri belirle”</b> etiketiyle bekliyor. Uygulamayı açınca haritadan tek dokunuşla seçebilirsin.</span>
+</div>
+<button type="button" onClick="{{reset}}" style="height: 50px; border-radius: 14px; border: 1px solid #D5D8DE; background: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; color: #15171C; cursor: pointer">Geri al</button>
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = (this.state && this.state.mode) || 'choose';
+    const list = [
+      { name: 'Omoide Yokochō', area: 'Shinjuku · dar yemek sokağı', match: 'En olası', color: '#7A3B2E' },
+      { name: 'Shinjuku Golden Gai', area: 'Shinjuku · küçük barlar', match: 'Olası', color: '#4A3A5E' },
+      { name: 'Ebisu Yokochō', area: 'Shibuya · yemek sokağı', match: 'Zayıf', color: '#5E5A3A' }
+    ];
+    return {
+      choosing: mode === 'choose',
+      picked: mode === 'picked',
+      waiting: mode === 'waiting',
+      pickedName: (this.state && this.state.name) || '',
+      candidates: list.map((c) => ({ ...c, pick: () => this.setState({ mode: 'picked', name: c.name }) })),
+      later: () => this.setState({ mode: 'waiting' }),
+      reset: () => this.setState({ mode: 'choose' })
+    };
+  }
+}
+</script>
+</body>
+</html>

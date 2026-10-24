@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Tasarım dili kartı</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1280px; height: 844px; box-sizing: border-box; background: #FFFFFF; color: #222222; font-family: 'Figtree', system-ui, sans-serif; padding: 56px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<span style="font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #C94A2B">TASARIM DİLİ</span>
+<h1 style="margin: 0; font-size: 48px; font-weight: 800; letter-spacing: -1px; line-height: 1.02">Airbnb gibi: ölçülü, sıcak, fotoğraf önde.</h1>
+<p style="margin: 0; font-size: 17px; line-height: 1.5; color: #3F3F3F">Airbnb'nin kurallarını alıyoruz, kimliğini değil. Renk ve yazı bize ait. Zemin beyaz kalıyor, işi fotoğraflar ve harita yapıyor.</p>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 16px; line-height: 1.45; color: #222222">
+<li><b>Tek vurgu rengi</b>, ekranda en fazla iki yerde: rota çizgisi ve ana düğme.</li>
+<li><b>Fotoğraf önde.</b> Her yer bir fotoğrafla görünür, yazı onun altında kısa kalır.</li>
+<li><b>Yumuşak köşeler.</b> Kartlar 14, düğmeler 8, etiketler tam yuvarlak.</li>
+<li><b>Neredeyse düz.</b> Tek bir hafif gölge; derinliği fotoğraf verir.</li>
+<li><b>Tek yüksek ses:</b> yürürken mesafe, büyük ve kalın.</li>
+</ol>
+</div>
+<div style="display: flex; flex-direction: column; gap: 26px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #6A6A6A">RENKLER</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #C94A2B"></div><span style="font-size: 14px; font-weight: 700">Kiremit</span><span style="font-size: 12px; color: #6A6A6A">#C94A2B · tek vurgu</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #222222"></div><span style="font-size: 14px; font-weight: 700">Mürekkep</span><span style="font-size: 12px; color: #6A6A6A">#222222 · yazı, seçili</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #6A6A6A"></div><span style="font-size: 14px; font-weight: 700">Gri</span><span style="font-size: 12px; color: #6A6A6A">#6A6A6A · ikincil yazı</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #FFFFFF; border: 1px solid #DDDDDD"></div><span style="font-size: 14px; font-weight: 700">Beyaz</span><span style="font-size: 12px; color: #6A6A6A">#FFFFFF · zemin</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #F7F7F7; border: 1px solid #EBEBEB"></div><span style="font-size: 14px; font-weight: 700">Kum</span><span style="font-size: 12px; color: #6A6A6A">#F7F7F7 · alanlar</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 12px; background: #DDDDDD"></div><span style="font-size: 14px; font-weight: 700">Çizgi</span><span style="font-size: 12px; color: #6A6A6A">#DDDDDD · ayırıcı</span></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #6A6A6A">YAZI</span>
+<div style="display: flex; align-items: baseline; gap: 16px">
+<span style="font-size: 80px; font-weight: 800; letter-spacing: -2px; line-height: 1">Aa</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 18px; font-weight: 700">Figtree</span>
+<span style="font-size: 14px; color: #6A6A6A">Tek yazı karakteri, ağırlıklarla hiyerarşi</span>
+<span style="font-size: 12px; color: #6A6A6A">Ücretsiz, açık lisans (Google Fonts)</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px">
+<span style="font-size: 26px; font-weight: 700; letter-spacing: -0.4px">Başlık 26 · kalın</span>
+<span style="font-size: 16px">Metin 16 · normal</span>
+<span style="font-size: 14px; color: #6A6A6A">Ek bilgi 14 · gri</span>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 22px">
+<span style="font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #6A6A6A">PARÇALAR</span>
+<div style="display: flex; flex-direction: column; gap: 8px; width: 220px">
+<div style="height: 160px; border-radius: 14px; background: #9B3A2A"></div>
+<span style="font-size: 15px; font-weight: 700">Sensō-ji</span>
+<span style="font-size: 14px; color: #6A6A6A">Tapınak · Asakusa</span>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="height: 40px; padding: 0 18px; border-radius: 8px; background: #C94A2B; color: #FFFFFF; font-size: 16px; font-weight: 600; display: flex; align-items: center">Ana düğme</span>
+<span style="height: 40px; padding: 0 18px; border-radius: 8px; border: 1px solid #222222; font-size: 16px; font-weight: 600; display: flex; align-items: center">İkincil</span>
+<span style="height: 36px; padding: 0 16px; border-radius: 999px; background: #222222; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center">Harita</span>
+</div>
+<div style="display: flex; gap: 10px; align-items: center">
+<span style="height: 34px; padding: 0 12px 0 4px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700"><span style="width: 26px; height: 26px; border-radius: 13px; background: #7D6B55"></span>Kappabashi</span>
+<span style="height: 34px; padding: 0 12px 0 4px; border-radius: 999px; background: #222222; color: #FFFFFF; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700"><span style="width: 26px; height: 26px; border-radius: 13px; background: #9B3A2A"></span>Sensō-ji</span>
+</div>
+<span style="font-size: 14px; line-height: 1.45; color: #6A6A6A">Haritadaki yer işaretleri beyaz etiketlerdir, içinde küçük bir fotoğraf ve adı olur. Seçili ya da sıradaki yer siyaha döner.</span>
+<svg aria-hidden="true" width="300" height="60" viewBox="0 0 300 60"><path d="M10 50 H90 V12 H200 V50 H290" fill="none" stroke="#C94A2B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span style="font-size: 14px; line-height: 1.45; color: #6A6A6A">Rota çizgisi kiremit renginde ve düz. Markanın imzası bu çizgi.</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

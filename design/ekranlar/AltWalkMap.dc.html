@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yürüyüş: harita ve açılır pencere</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #E7EAE3; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<g>
+<line x1="20" y1="0" x2="20" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="60" y1="0" x2="60" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="110" y1="0" x2="110" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="170" y1="0" x2="170" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="230" y1="0" x2="230" y2="844" stroke="#FFFFFF" stroke-width="12"></line>
+<line x1="290" y1="0" x2="290" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="340" y1="0" x2="340" y2="844" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="90" x2="390" y2="90" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="150" x2="390" y2="150" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="210" x2="390" y2="210" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="270" x2="390" y2="270" stroke="#FFFFFF" stroke-width="12"></line>
+<line x1="0" y1="330" x2="390" y2="330" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="390" x2="390" y2="390" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="450" x2="390" y2="450" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="500" x2="390" y2="500" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="560" x2="390" y2="560" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="620" x2="390" y2="620" stroke="#FFFFFF" stroke-width="7"></line>
+<line x1="0" y1="680" x2="390" y2="680" stroke="#FFFFFF" stroke-width="7"></line>
+</g>
+<path d="M362 0 C 352 220, 380 420, 358 844 L 390 844 L 390 0 Z" fill="#CFE0EA"></path>
+<path d="M290 210 V150 H170" fill="none" stroke="#C2381E" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"></path>
+<path d="M170 560 V450 H230 V270 H290 V210" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M170 560 V450 H230 V270 H290 V210" fill="none" stroke="#C2381E" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+<circle cx="170" cy="560" r="20" fill="#2A5BB8" opacity="0.18"></circle>
+<circle cx="170" cy="560" r="9" fill="#2A5BB8" stroke="#FFFFFF" stroke-width="3"></circle>
+</svg>
+<div style="position: absolute; left: 264px; top: 184px; display: flex; flex-direction: column; align-items: center; gap: 3px">
+<div style="width: 52px; height: 52px; border-radius: 14px; border: 3px solid #C2381E; box-sizing: border-box; background: #9B3A2A; box-shadow: 0 3px 10px rgba(0,0,0,0.25)"></div>
+<span style="font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 7px; border-radius: 8px">Sensō-ji</span>
+</div>
+<div style="position: absolute; left: 148px; top: 128px; display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0.85">
+<div style="width: 44px; height: 44px; border-radius: 12px; border: 3px solid #FFFFFF; box-sizing: border-box; background: #7D6B55"></div>
+<span style="font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 7px; border-radius: 8px">Kappabashi</span>
+</div>
+<div style="position: absolute; left: 16px; right: 16px; top: 56px; display: flex; gap: 10px; align-items: center">
+<div style="flex: 1; display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 16px; background: #1D2740; color: #FFFFFF; box-shadow: 0 3px 12px rgba(0,0,0,0.2)">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20V11a3 3 0 0 1 3-3h8"></path><path d="M14 4l4 4-4 4"></path></svg>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 18px; font-weight: 700">80 m · sağa dön</span>
+<span style="font-size: 13px; color: #C9CEDB">Kaminarimon'a doğru</span>
+</div>
+</div>
+<a href="AltRouteMap.dc.html" style="height: 52px; padding: 0 14px; border-radius: 16px; background: #FFFFFF; color: #15171C; font-size: 15px; font-weight: 600; display: flex; align-items: center; box-shadow: 0 3px 12px rgba(0,0,0,0.15)">Bitir</a>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: {{sheetH}}; box-sizing: border-box; background: #FFFFFF; border-radius: 26px 26px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,0.15); padding: 8px 20px 34px; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+<button type="button" onClick="{{toggleSheet}}" aria-label="{{sheetLabel}}" style="align-self: center; width: 80px; height: 24px; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: #C5C9D2"></span>
+</button>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 56px; height: 56px; flex: none; border-radius: 14px; background: #9B3A2A"></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 20px; font-weight: 700">Sensō-ji</span>
+<span style="font-size: 14px; color: #5B6070">350 m · 5 dk · Durak 1 / 5</span>
+</div>
+<button type="button" onClick="{{toggle}}" aria-label="{{toggleLabel}}" style="width: 56px; height: 56px; flex: none; border-radius: 28px; border: none; background: #1D2740; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l11 7-11 7z"></path></svg>
+</sc-if>
+</button>
+</div>
+<button type="button" onClick="{{toggleSheet}}" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: none; background: #F3F4F6; font: inherit; text-align: left; color: #15171C; cursor: pointer">
+<span style="width: 8px; height: 8px; flex: none; border-radius: 4px; background: #C2381E"></span>
+<span style="flex: 1; font-size: 14px; font-weight: 600">{{statusLabel}}</span>
+<span style="font-size: 13px; font-weight: 600; color: #9E2C15">{{moreLabel}}</span>
+</button>
+<sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="height: 150px; border-radius: 16px; background: #9B3A2A; display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box"><span style="font-size: 12px; color: #F3D6CF">[Kaminarimon fotoğrafı]</span></div>
+<span style="font-size: 16px; line-height: 1.5">Rivayete göre 628 yılında iki balıkçı kardeş, Sumida Nehri'nde ağlarına takılan küçük bir Kannon heykeli buldu. Sensō-ji bu heykel için kuruldu. Önündeki Kaminarimon, yani "Gök Gürültüsü Kapısı", tapınağın simgesidir.</span>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="font-size: 12px; color: #5B6070">Kaynak: Wikipedia, Sensō-ji resmî sitesi</span>
+<a href="#" style="font-size: 12px; font-weight: 600; white-space: nowrap">Yanlış bilgi bildir</a>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const open = !!s.open;
+    const paused = !!s.paused;
+    return {
+      open: open,
+      sheetH: open ? '640px' : '236px',
+      sheetLabel: open ? 'Pencereyi küçült' : 'Pencereyi büyüt',
+      moreLabel: open ? 'Küçült' : 'Oku',
+      toggleSheet: () => this.setState({ open: !open }),
+      playing: !paused,
+      paused: paused,
+      statusLabel: paused ? 'Duraklatıldı · Kaminarimon' : 'Şimdi anlatılıyor · Kaminarimon',
+      toggleLabel: paused ? 'Devam et' : 'Duraklat',
+      toggle: () => this.setState({ paused: !paused })
+    };
+  }
+}
+</script>
+</body>
+</html>

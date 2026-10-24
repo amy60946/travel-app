@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Rota: harita ağırlıklı</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: {{mapBg}}; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
+<svg aria-hidden="true" width="390" height="844" viewBox="0 0 390 844" style="position: absolute; left: 0; top: 0">
+<rect x="66" y="216" width="98" height="108" rx="6" fill="{{parkFill}}"></rect>
+<rect x="296" y="396" width="56" height="48" rx="6" fill="{{parkFill}}"></rect>
+<g stroke="{{streetColor}}" opacity="{{streetOpacity}}">
+<line x1="20" y1="0" x2="20" y2="844" stroke-width="7"></line>
+<line x1="60" y1="0" x2="60" y2="844" stroke-width="7"></line>
+<line x1="110" y1="0" x2="110" y2="844" stroke-width="7"></line>
+<line x1="170" y1="0" x2="170" y2="844" stroke-width="7"></line>
+<line x1="230" y1="0" x2="230" y2="844" stroke-width="12"></line>
+<line x1="290" y1="0" x2="290" y2="844" stroke-width="7"></line>
+<line x1="340" y1="0" x2="340" y2="844" stroke-width="7"></line>
+<line x1="0" y1="90" x2="390" y2="90" stroke-width="7"></line>
+<line x1="0" y1="150" x2="390" y2="150" stroke-width="7"></line>
+<line x1="0" y1="210" x2="390" y2="210" stroke-width="7"></line>
+<line x1="0" y1="270" x2="390" y2="270" stroke-width="12"></line>
+<line x1="0" y1="330" x2="390" y2="330" stroke-width="7"></line>
+<line x1="0" y1="390" x2="390" y2="390" stroke-width="7"></line>
+<line x1="0" y1="450" x2="390" y2="450" stroke-width="7"></line>
+<line x1="0" y1="500" x2="390" y2="500" stroke-width="7"></line>
+<line x1="0" y1="560" x2="390" y2="560" stroke-width="7"></line>
+<line x1="0" y1="620" x2="390" y2="620" stroke-width="7"></line>
+<line x1="0" y1="680" x2="390" y2="680" stroke-width="7"></line>
+</g>
+<path d="M362 0 C 352 220, 380 420, 358 844 L 390 844 L 390 0 Z" fill="{{riverFill}}"></path>
+<text x="70" y="244" font-size="10" fill="{{parkText}}" font-family="system-ui, sans-serif">Ueno Parkı</text>
+<path d="{{routePath}}" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="{{routePath}}" fill="none" stroke="#C2381E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<sc-for list="{{stops}}" as="s" hint-placeholder-count="5">
+<button type="button" onClick="{{s.pick}}" aria-label="{{s.name}}" style="position: absolute; left: {{s.left}}; top: {{s.top}}; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px">
+<div style="position: relative; width: {{s.size}}; height: {{s.size}}; border-radius: 14px; border: 3px solid {{s.ring}}; box-sizing: border-box; background: {{s.color}}; box-shadow: 0 3px 10px rgba(0,0,0,0.25)">
+<span style="position: absolute; left: -8px; top: -8px; width: 22px; height: 22px; border-radius: 11px; background: #1D2740; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{s.n}}</span>
+</div>
+<span style="font-size: 12px; font-weight: 700; color: #15171C; background: rgba(255,255,255,0.92); padding: 2px 7px; border-radius: 8px; white-space: nowrap">{{s.name}}</span>
+</button>
+</sc-for>
+<div style="position: absolute; left: 16px; right: 16px; top: 56px; display: flex; gap: 8px; align-items: center">
+<sc-for list="{{dayTabs}}" as="d" hint-placeholder-count="3">
+<button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="height: 40px; padding: 0 14px; border-radius: 20px; border: none; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: {{d.bg}}; color: {{d.fg}}">{{d.title}}</button>
+</sc-for>
+<div style="flex: 1"></div>
+<button type="button" onClick="{{toggleLayers}}" aria-label="Harita türü" aria-expanded="{{layersOpen}}" style="width: 40px; height: 40px; border-radius: 20px; border: none; background: #FFFFFF; color: #15171C; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>
+</button>
+<a href="Route.dc.html" aria-label="Liste görünümü" style="width: 40px; height: 40px; border-radius: 20px; background: #FFFFFF; color: #15171C; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"></path></svg>
+</a>
+</div>
+<sc-if value="{{layersOpen}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Harita türü" style="position: absolute; right: 16px; top: 106px; width: 200px; padding: 6px; border-radius: 16px; background: #FFFFFF; box-shadow: 0 6px 20px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{mapTypes}}" as="m" hint-placeholder-count="3">
+<button type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 10px; border: none; font: inherit; font-size: 15px; font-weight: 600; color: #15171C; text-align: left; cursor: pointer; background: {{m.bg}}">
+<span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: {{m.swatch}}"></span>{{m.name}}</button>
+</sc-for>
+</div>
+</sc-if>
+<div style="position: absolute; left: 0; right: 0; bottom: 84px; display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px">
+<sc-if value="{{showUndo}}" hint-placeholder-val="{{ false }}">
+<div style="margin: 0 16px; display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 14px; border-radius: 14px; background: #15171C; color: #FFFFFF">
+<span style="font-size: 14px">{{undoText}}</span>
+<button type="button" onClick="{{undo}}" style="height: 34px; padding: 0 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.14); color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Geri al</button>
+</div>
+</sc-if>
+<div style="display: flex; gap: 10px; overflow-x: auto; padding: 0 16px">
+<sc-for list="{{stops}}" as="s" hint-placeholder-count="5">
+<div style="flex: none; width: 150px; border-radius: 16px; background: #FFFFFF; overflow: hidden; box-shadow: 0 3px 12px rgba(0,0,0,0.15); border: 2px solid {{s.cardRing}}">
+<button type="button" onClick="{{s.pick}}" style="display: block; width: 100%; padding: 0; border: none; background: transparent; font: inherit; text-align: left; color: #15171C; cursor: pointer">
+<div style="height: 72px; background: {{s.color}}"></div>
+<div style="padding: 8px 10px 4px; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 14px; font-weight: 700">{{s.n}}. {{s.name}}</span>
+<span style="font-size: 12px; color: #5B6070">{{s.leg}}</span>
+</div>
+</button>
+<button type="button" onClick="{{s.remove}}" style="margin: 0 6px 6px; height: 30px; padding: 0 8px; border: none; border-radius: 8px; background: #F3F4F6; font: inherit; font-size: 12px; font-weight: 600; color: #5B6070; cursor: pointer">Çıkar</button>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 10px; padding: 0 16px">
+<button type="button" onClick="{{lighten}}" style="height: 50px; padding: 0 16px; border-radius: 16px; border: none; background: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; color: #15171C; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12)">Günü hafiflet</button>
+<a href="AltWalkMap.dc.html" style="flex: 1; height: 50px; border-radius: 16px; background: #C2381E; color: #FFFFFF; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center">Yürüyüşe başla</a>
+</div>
+</div>
+<nav aria-label="Sekmeler" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 8px 26px; background: #FFFFFF; border-top: 1px solid #E3E5EA; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>Gezim</a>
+<a href="AltRouteMap.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #C2381E; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="5" r="2"></circle><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"></path></svg>Rota</a>
+<a href="AltWalkMap.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></svg>Yürüyüş</a>
+<a href="Download.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #5B6070; font-size: 11px; font-weight: 600">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg>İndirilenler</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.days = [
+      { title: '1. Gün', stops: [
+        { name: 'Sensō-ji', leg: '45 dk · başlangıç', color: '#9B3A2A', x: 290, y: 150 },
+        { name: 'Kappabashi', leg: '18 dk yürüyüş', color: '#7D6B55', x: 170, y: 210 },
+        { name: 'Ueno Parkı', leg: '12 dk yürüyüş', color: '#4F7A4A', x: 110, y: 270 },
+        { name: 'Yanaka Ginza', leg: '10 dk yürüyüş', color: '#6B6A4A', x: 170, y: 390 },
+        { name: 'Nezu', leg: '8 dk yürüyüş', color: '#A2452E', x: 60, y: 450 }
+      ] },
+      { title: '2. Gün', stops: [
+        { name: 'Meiji Jingū', leg: '50 dk · başlangıç', color: '#3F5E3A', x: 110, y: 150 },
+        { name: 'Takeshita', leg: '15 dk yürüyüş', color: '#8A4C7A', x: 230, y: 210 },
+        { name: 'Shibuya', leg: 'Tren · 7 dk', color: '#39415A', x: 110, y: 330 },
+        { name: 'Omoide Y.', leg: '20 dk yürüyüş', color: '#7A3B2E', x: 230, y: 450 }
+      ] },
+      { title: '3. Gün', stops: [
+        { name: 'Tsukiji', leg: '60 dk · başlangıç', color: '#8C5A3C', x: 170, y: 210 },
+        { name: 'Hama-rikyū', leg: '15 dk yürüyüş', color: '#4F7A4A', x: 290, y: 390 }
+      ] }
+    ];
+    this.state = { day: 0, sel: 0, removed: [], undoText: '' };
+  }
+  renderVals() {
+    const s = this.state;
+    const live = this.days[s.day].stops.filter((st) => s.removed.indexOf(s.day + ':' + st.name) < 0);
+    const removeOne = (name, text) => this.setState({ removed: s.removed.concat([s.day + ':' + name]), last: s.day + ':' + name, undoText: text, sel: 0 });
+    const types = {
+      std: { name: 'Standart', swatch: '#E7EAE3', bg: '#E7EAE3', park: '#CFE2C2', river: '#CFE0EA', street: '#FFFFFF', op: '1', ptext: '#4E6B45' },
+      sat: { name: 'Uydu', swatch: '#3E4A35', bg: '#3E4A35', park: '#2F4A2A', river: '#1F3A4D', street: '#8A8778', op: '0.45', ptext: '#3E4A35' },
+      hyb: { name: 'Uydu + sokak adları', swatch: '#55604A', bg: '#3E4A35', park: '#2F4A2A', river: '#1F3A4D', street: '#F2EDE0', op: '0.8', ptext: '#E3EBD9' }
+    };
+    const mt = types[s.mapType || 'std'];
+    return {
+      mapBg: mt.bg, parkFill: mt.park, riverFill: mt.river, streetColor: mt.street, streetOpacity: mt.op, parkText: mt.ptext,
+      layersOpen: !!s.layers,
+      toggleLayers: () => this.setState({ layers: !s.layers }),
+      mapTypes: Object.keys(types).map((k) => ({ name: types[k].name, swatch: types[k].swatch, on: (s.mapType || 'std') === k, bg: (s.mapType || 'std') === k ? '#FBE9E4' : 'transparent', pick: () => this.setState({ mapType: k, layers: false }) })),
+      dayTabs: this.days.map((d, i) => ({
+        title: d.title, on: i === s.day,
+        bg: i === s.day ? '#1D2740' : '#FFFFFF', fg: i === s.day ? '#FFFFFF' : '#15171C',
+        pick: () => this.setState({ day: i, sel: 0, undoText: '' })
+      })),
+      routePath: live.map((st, i) => i === 0 ? 'M' + st.x + ' ' + st.y : (i % 2 ? 'H' + st.x + ' V' + st.y : 'V' + st.y + ' H' + st.x)).join(' '),
+      stops: live.map((st, i) => ({
+        name: st.name, leg: st.leg, color: st.color, n: i + 1,
+        left: (st.x - (i === s.sel ? 32 : 28)) + 'px', top: (st.y - (i === s.sel ? 32 : 28)) + 'px',
+        size: i === s.sel ? '64px' : '56px',
+        ring: i === s.sel ? '#C2381E' : '#FFFFFF',
+        cardRing: i === s.sel ? '#C2381E' : 'transparent',
+        pick: () => this.setState({ sel: i }),
+        remove: () => removeOne(st.name, st.name + ' çıkarıldı')
+      })),
+      lighten: () => { if (live.length > 1) removeOne(live[live.length - 1].name, 'Gün hafifletildi'); },
+      showUndo: !!s.undoText,
+      undoText: s.undoText,
+      undo: () => this.setState({ removed: s.removed.filter((r) => r !== s.last), undoText: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

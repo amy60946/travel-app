@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Paylaş: sormadan tahmin et</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #0E1018; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; inset: 0; padding: 60px 16px 0; display: flex; flex-direction: column; gap: 12px; opacity: 0.45">
+<div style="height: 300px; border-radius: 4px; background: #3A2F4A; display: flex; align-items: center; justify-content: center; color: #D9D0E6; font-size: 13px">[TikTok videosu]</div>
+<span style="font-size: 14px; color: #FFFFFF">Tokyo'nun en eski sokağında akşam yemeği #shinjuku #yokocho</span>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 28px 28px 0 0; padding: 10px 20px 40px; display: flex; flex-direction: column; gap: 16px">
+<div aria-hidden="true" style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #D5D8DE"></div>
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 15px; font-weight: 600; color: #5B6070">TravelApp</span>
+<a href="Main.dc.html" style="font-size: 16px; font-weight: 600">Bitti</a>
+</div>
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="width: 56px; height: 56px; flex: none; border-radius: 28px; background: #E4F3EA; color: #1E7A45; display: flex; align-items: center; justify-content: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 20px; font-weight: 700">Tokyo'ya eklendi</span>
+<span style="font-size: 15px; color: #5B6070">{{chosen}} · Shinjuku</span>
+</div>
+</div>
+<div style="display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: #F3F4F6">
+<div style="width: 64px; height: 64px; flex: none; border-radius: 10px; background: #7A3B2E"></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 15px; font-weight: 600">{{chosen}}</span>
+<span style="align-self: flex-start; font-size: 12px; font-weight: 700; color: #8A5A00; background: #FFF1D6; padding: 3px 8px; border-radius: 8px">Tahmini konum</span>
+</div>
+</div>
+<sc-if value="{{closed}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openAlt}}" style="height: 46px; border-radius: 14px; border: none; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #9E2C15; cursor: pointer">Doğru değil mi? Değiştir</button>
+</sc-if>
+<sc-if value="{{opened}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; color: #5B6070">Diğer olasılıklar</span>
+<sc-for list="{{others}}" as="o" hint-placeholder-count="2">
+<button type="button" onClick="{{o.pick}}" style="display: flex; justify-content: space-between; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #E3E5EA; background: #FFFFFF; font: inherit; font-size: 15px; color: #15171C; cursor: pointer">{{o.name}}<span style="font-size: 13px; color: #5B6070">{{o.area}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+<span style="font-size: 13px; color: #5B6070; line-height: 1.4; text-align: center">Hiçbir şey yapmana gerek yok. Tahmini yerler rotada sarı işaretle görünür; istersen sonra düzeltirsin.</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const all = [
+      { name: 'Omoide Yokochō', area: 'Shinjuku' },
+      { name: 'Shinjuku Golden Gai', area: 'Shinjuku' },
+      { name: 'Ebisu Yokochō', area: 'Shibuya' }
+    ];
+    const chosen = s.chosen || all[0].name;
+    return {
+      chosen: chosen,
+      closed: !s.open,
+      opened: !!s.open,
+      openAlt: () => this.setState({ open: true }),
+      others: all.filter((o) => o.name !== chosen).map((o) => ({ ...o, pick: () => this.setState({ chosen: o.name, open: false }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

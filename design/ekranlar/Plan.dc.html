@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Gün ve tempo seç</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; gap: 18px; padding: 56px 20px 36px; overflow: hidden">
+<a href="City.dc.html" style="font-size: 17px; display: flex; align-items: center; gap: 2px; min-height: 44px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Tokyo</a>
+<h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.4px">Gezini ayarla</h1>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border-radius: 18px; background: #FFFFFF">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 600">Kaç gün?</span>
+<span style="font-size: 13px; color: #5B6070">Tokyo'da</span>
+</div>
+<div style="display: flex; align-items: center; gap: 14px">
+<button type="button" onClick="{{minus}}" aria-label="Bir gün azalt" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #D5D8DE; background: #FFFFFF; font: inherit; font-size: 22px; color: #15171C; cursor: pointer">−</button>
+<span style="font-size: 26px; font-weight: 700; min-width: 28px; text-align: center">{{days}}</span>
+<button type="button" onClick="{{plus}}" aria-label="Bir gün artır" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #D5D8DE; background: #FFFFFF; font: inherit; font-size: 22px; color: #15171C; cursor: pointer">+</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 17px; font-weight: 600">Tempo</span>
+<sc-for list="{{paces}}" as="p" hint-placeholder-count="3">
+<button type="button" onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="display: flex; gap: 14px; align-items: center; width: 100%; padding: 14px 16px; border-radius: 16px; background: #FFFFFF; font: inherit; text-align: left; color: #15171C; cursor: pointer; border: {{p.border}}">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 17px; font-weight: 700">{{p.name}}</span>
+<span style="font-size: 14px; color: #5B6070">{{p.desc}}</span>
+</div>
+<span style="font-size: 14px; font-weight: 700; color: #9E2C15">{{p.stops}}</span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; background: #FFFFFF">
+<span style="font-size: 16px; font-weight: 600">Anlatım dili</span>
+<div role="group" aria-label="Anlatım dili" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 3px; border-radius: 10px; background: #E3E5EA; width: 150px">
+<button type="button" onClick="{{setTr}}" aria-pressed="{{trOn}}" style="height: 34px; border: none; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; color: #15171C; cursor: pointer; background: {{trBg}}">Türkçe</button>
+<button type="button" onClick="{{setEn}}" aria-pressed="{{enOn}}" style="height: 34px; border: none; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; color: #15171C; cursor: pointer; background: {{enBg}}">English</button>
+</div>
+</div>
+<div style="flex: 1"></div>
+<span style="font-size: 14px; color: #5B6070; text-align: center">{{summary}}</span>
+<a href="Route.dc.html" style="height: 54px; border-radius: 16px; background: #C2381E; color: #FFFFFF; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center">Rotayı hazırla</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const days = s.days || 3;
+    const pace = s.pace || 'normal';
+    const en = !!s.en;
+    const list = [
+      { id: 'rahat', name: 'Rahat', desc: 'Az yürüyüş, içeri girmeye zaman, 2 mola', stops: '3-4 durak', per: 4 },
+      { id: 'normal', name: 'Normal', desc: 'Orta yürüyüş, 1-2 mola', stops: '5-6 durak', per: 6 },
+      { id: 'tempolu', name: 'Tempolu', desc: 'Uzun yürüyüş, dışarıdan görüp geç', stops: '7+ durak', per: 8 }
+    ];
+    const cur = list.find((p) => p.id === pace);
+    const fit = Math.min(24, days * cur.per);
+    return {
+      days: days,
+      minus: () => this.setState({ days: Math.max(1, days - 1) }),
+      plus: () => this.setState({ days: Math.min(14, days + 1) }),
+      paces: list.map((p) => ({
+        ...p,
+        on: p.id === pace,
+        border: p.id === pace ? '2px solid #C2381E' : '2px solid transparent',
+        pick: () => this.setState({ pace: p.id })
+      })),
+      trOn: !en,
+      enOn: en,
+      trBg: en ? 'transparent' : '#FFFFFF',
+      enBg: en ? '#FFFFFF' : 'transparent',
+      setTr: () => this.setState({ en: false }),
+      setEn: () => this.setState({ en: true }),
+      summary: '24 yerinden yaklaşık ' + fit + ' tanesi ' + days + ' güne sığar.'
+    };
+  }
+}
+</script>
+</body>
+</html>

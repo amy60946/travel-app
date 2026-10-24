@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Yer ekle: yeni seçenekler</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#C2381E;text-decoration:none}a:hover{color:#9E2C15}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; color: #15171C; font-family: -apple-system, 'SF Pro Text', system-ui, 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; gap: 14px; padding: 56px 20px 28px; overflow: hidden">
+<a href="Main.dc.html" style="font-size: 17px; display: flex; align-items: center; gap: 2px; min-height: 44px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Gezim</a>
+<h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.4px">Yer ekle</h1>
+<sc-if value="{{clipShow}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border-radius: 16px; background: #1D2740; color: #FFFFFF">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4h6v3H9z"></path></svg>
+<span style="flex: 1; font-size: 14px; line-height: 1.35">Az önce bir Instagram linki kopyaladın. Eklensin mi?</span>
+<button type="button" onClick="{{clipAdd}}" style="height: 38px; padding: 0 14px; border-radius: 19px; border: none; background: #FFFFFF; color: #1D2740; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Ekle</button>
+</div>
+</sc-if>
+<sc-if value="{{clipDone}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px; border-radius: 16px; background: #E4F3EA; color: #14532F; font-size: 14px; font-weight: 600">Tsukiji Dış Pazarı Tokyo'ya eklendi.</div>
+</sc-if>
+<a href="AltCamera.dc.html" style="display: flex; gap: 14px; align-items: center; padding: 16px; border-radius: 18px; background: #C2381E; color: #FFFFFF">
+<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 700">Fotoğraf çek</span>
+<span style="font-size: 13px; color: #FBE0D9">Tabelayı, binayı ya da afişi çek, yeri biz bulalım</span>
+</div>
+</a>
+<span style="font-size: 13px; font-weight: 700; color: #5B6070; margin-top: 4px">KAYDETTİKLERİNİ TOPLUCA GETİR</span>
+<div style="display: flex; flex-direction: column; border-radius: 18px; background: #FFFFFF; overflow: hidden">
+<sc-for list="{{sources}}" as="src" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; border-bottom: 1px solid #EEF0F3">
+<button type="button" onClick="{{src.toggle}}" aria-expanded="{{src.open}}" style="display: flex; gap: 12px; align-items: center; min-height: 60px; padding: 8px 14px; border: none; background: transparent; font: inherit; text-align: left; color: #15171C; cursor: pointer">
+<span style="width: 36px; height: 36px; flex: none; border-radius: 10px; background: {{src.color}}; color: #FFFFFF; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{src.short}}</span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 16px; font-weight: 600">{{src.name}}</span>
+<span style="font-size: 13px; color: #5B6070">{{src.what}}</span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A8F9C" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{src.open}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 14px 14px 62px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 14px; line-height: 1.45; color: #2E323C">{{src.steps}}</span>
+<button type="button" style="align-self: flex-start; height: 40px; padding: 0 14px; border-radius: 12px; border: none; background: #1D2740; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Dosyayı seç</button>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 10px">
+<button type="button" style="flex: 1; height: 46px; border-radius: 14px; border: none; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; color: #15171C; cursor: pointer">Link yapıştır</button>
+<button type="button" style="flex: 1; height: 46px; border-radius: 14px; border: none; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; color: #15171C; cursor: pointer">Ekran görüntüsü</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const list = [
+      { id: 'ig', short: 'IG', name: 'Instagram kaydedilenler', what: 'Kaydettiğin tüm gönderiler', color: '#B3368A',
+        steps: 'Instagram → Ayarlar → Hesap Merkezi → Bilgilerini indir → yalnızca “Kaydedilenler”i seç. Gelen dosyayı burada seç.' },
+      { id: 'tt', short: 'TT', name: 'TikTok favoriler', what: 'Favorilere eklediğin videolar', color: '#15171C',
+        steps: 'TikTok → Ayarlar → Hesap → Verilerini indir → JSON seç. Gelen dosyayı burada seç.' },
+      { id: 'gm', short: 'GM', name: 'Google Maps listeleri', what: 'Yıldızlı, Favoriler, Gitmek istiyorum', color: '#2A5BB8',
+        steps: 'takeout.google.com → yalnızca “Kaydedilenler” ve “Haritalar (yerleriniz)”. Gelen dosyayı burada seç.' }
+    ];
+    return {
+      clipShow: !s.clip,
+      clipDone: !!s.clip,
+      clipAdd: () => this.setState({ clip: true }),
+      sources: list.map((x) => ({ ...x, open: s.open === x.id, toggle: () => this.setState({ open: s.open === x.id ? null : x.id }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
