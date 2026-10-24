@@ -43,3 +43,17 @@ ekranlar o stile geçirilecek.
 | A | A-Rota, A-Yuruyus, A-YerEkle | Açık zemin, tek mavi vurgu |
 | B | B-Rota, B-Yuruyus, B-YerEkle | Açık zemin, tamamen siyah-beyaz |
 | C | C-Rota, C-Yuruyus, C-YerEkle | Koyu zemin, tek yeşil vurgu |
+
+### Marka dili (24 Eki, sayfa: "Marka dili (yeni)")
+
+Büyük seyahat uygulamalarının (Airbnb, Tripadvisor, Komoot, Polarsteps,
+Citymapper, GetYourGuide, Booking.com) tasarım dilleri incelendi
+(`Referanslar.dc.html`). Üç marka yönü çıkarıldı; her biri marka kartı +
+Rota + Yürüyüş ekranıyla gösterildi. Yazı karakterleri Google Fonts'tan,
+ücretsiz ve açık lisanslı.
+
+| Yön | Dosyalar | Yazı | Renk | İmza öğe |
+|---|---|---|---|---|
+| 1 · Defter | M1-* | Fraunces + Source Sans 3 | Kâğıt, mürekkep lacivert, damga kırmızısı | Kesik çizgili rota, pul gibi yer işaretleri |
+| 2 · İz | M2-* | Outfit | Beyaz, çam yeşili, iz yeşili | Kalın düz yeşil rota |
+| 3 · Ses | M3-* | Space Grotesk + Inter + DM Mono | Koyu gece, kehribar | Anlatılan yerde ses halkaları |

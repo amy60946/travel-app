@@ -67,3 +67,4 @@ cevapları.
 | 2026-10-23 | Aşama 0-1 için ücretsiz Apple hesabı yeterli (uygulama Oguz'un telefonuna kısa süreli kurulur); ücretli Apple Developer hesabı şimdilik alınmayacak. |
 | 2026-10-24 | Arayüz taslağında Oguz'un notlarına göre yapılan ekranlar esas alınır: harita ağırlıklı rota, harita + açılır pencereli yürüyüş, sormadan tahmin edip "Değiştir" ile düzeltme, fotoğraf çekerek ekleme, Instagram/TikTok/Google veri dosyası aktarımı. Yazılıma geçmeden alternatiflere yeniden bakılır. |
 | 2026-10-24 | Tasarım dili: Apple'ın tasarım dili gibi; sakin, az renkli, işlevsel. Sonunda tek bir tasarım seçilecek. |
+| 2026-10-24 | Hazır iOS görünümü yetmez: markaya özgü bir tasarım dili kurulacak (büyük seyahat uygulamaları referans alınarak). Sakin, az renkli, işlevsel kalır; telefonun alışılmış düzeni bozulmaz. |
