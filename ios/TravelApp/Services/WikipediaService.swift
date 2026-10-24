@@ -5,7 +5,7 @@ import Foundation
 actor WikipediaService {
     static let shared = WikipediaService()
 
-    struct Summary: Equatable {
+    struct Summary: Equatable, Codable {
         var title: String
         var extract: String
         var pageURL: URL?
@@ -27,7 +27,8 @@ actor WikipediaService {
         Locale.current.language.languageCode?.identifier == "tr" ? "tr" : "en"
     }
 
-    private var summaries: [String: Summary] = [:]
+    /// Bir kez okunan özet telefonda saklanır; internetsiz de açılır.
+    private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = ["User-Agent": "TravelApp/0.1 (https://github.com/amy60946/travel-app)"]

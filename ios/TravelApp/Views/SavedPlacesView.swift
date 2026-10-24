@@ -119,19 +119,3 @@ private struct SavedCard: View {
         }
     }
 }
-
-/// İndirilenler: internetsiz yürüyüş için harita ve anlatımlar.
-struct DownloadsView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("İndirilenler").font(Theme.title)
-            Text("Yürüyüşten önce harita, anlatım ve yön seslerini telefona indireceğiz. Bu bölüm sonraki adımda gelecek.")
-                .font(Theme.body)
-                .foregroundStyle(Theme.muted)
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}

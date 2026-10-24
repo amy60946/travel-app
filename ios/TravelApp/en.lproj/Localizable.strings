@@ -17,7 +17,6 @@
 "Rotaya eklendi" = "Added to route";
 "%@ rotadan çıkarıldı" = "%@ removed from route";
 "%@ eklendi" = "%@ added";
-"Yürüyüşten önce harita, anlatım ve yön seslerini telefona indireceğiz. Bu bölüm sonraki adımda gelecek." = "Maps, narrations and directions will be downloaded before your walk. This section comes in the next step.";
 
 /* Kaynak ve tür */
 "Kendi yerin" = "Your place";
@@ -129,3 +128,15 @@
 "Şimdilik yalnızca Google Maps linkleri ekleniyor." = "Only Google Maps links are supported for now.";
 "%@ → %@ eklendi" = "%@ → %@ added";
 "Yer bulunamadı ya da zaten kayıtlı." = "Place not found or already saved.";
+
+/* İndirilenler */
+"Yürüyüşten önce anlatımları ve yürüyüş yollarını telefona indir; yolda internet olmasa da çalışır." = "Download narrations and walking routes before your walk; they work without internet.";
+"Yalnızca Wi-Fi ile indir" = "Download on Wi-Fi only";
+"Şu an mobil veridesin. İndirmek için Wi-Fi'ye bağlan ya da üstteki ayarı kapat." = "You're on mobile data. Connect to Wi-Fi or turn off the setting above.";
+"Henüz planlı bir gezin yok." = "You have no planned trips yet.";
+"Haritayı da indir" = "Download the map too";
+"Harita görüntüsü Apple Haritalar'dan gelir. İnternetsiz harita için: Apple Haritalar → sağ üstte profil resmin → Çevrimdışı Haritalar → Yeni Harita İndir → şehri seç." = "The map comes from Apple Maps. For offline maps: Apple Maps → your profile picture → Offline Maps → Download New Map → choose the city.";
+"%lld gün · %lld anlatım" = "%lld days · %lld narrations";
+"İndirildi: %@" = "Downloaded: %@";
+"İndir" = "Download";
+"Güncelle" = "Update";
