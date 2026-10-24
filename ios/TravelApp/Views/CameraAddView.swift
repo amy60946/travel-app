@@ -26,6 +26,11 @@ struct CameraAddView: View {
                     Text("Tabelanın ya da girişin fotoğrafını çek. Yazıyı telefonun kendisi okur, konumunla yakındaki yeri bulur.")
                         .font(Theme.body)
                         .foregroundStyle(Theme.muted)
+                    if GeminiVision.isAvailable {
+                        Text("Yazı okunamazsa fotoğraf yeri tanımak için Google Gemini'ye gönderilir.")
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.muted)
+                    }
 
                     if let image {
                         Image(uiImage: image)
@@ -129,20 +134,26 @@ struct CameraAddView: View {
         image = picked
         addedPlace = nil
         candidates = []
-        status = "Yazı okunuyor…"
-        readLines = await SignReader.readText(from: picked)
-        guard !readLines.isEmpty else {
-            status = "Fotoğrafta okunabilir yazı bulunamadı. Tabelaya daha yakından dene."
-            return
-        }
         guard let location = tracker.location else {
             status = "Konumun alınamadı. Konum iznini kontrol et ve tekrar dene."
             return
         }
-        status = "Yakındaki yerler aranıyor…"
-        candidates = await SignReader.candidates(for: readLines, near: location)
+        status = "Yazı okunuyor…"
+        readLines = await SignReader.readText(from: picked)
+        if !readLines.isEmpty {
+            status = "Yakındaki yerler aranıyor…"
+            candidates = await SignReader.candidates(for: readLines, near: location)
+        }
+        // Yazı yoksa ya da eşleşmediyse bulut yapay zekâya sor.
+        if candidates.isEmpty, GeminiVision.isAvailable {
+            status = "Fotoğraf yapay zekâya soruluyor…"
+            let names = await GeminiVision.placeNames(in: picked, near: location)
+            candidates = await SignReader.candidates(for: names, near: location)
+        }
         guard let best = candidates.first else {
-            status = "Yakında bu yazıyla eşleşen yer bulunamadı."
+            status = readLines.isEmpty
+                ? LocalizedStringKey("Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene.")
+                : LocalizedStringKey("Yakında bu yazıyla eşleşen yer bulunamadı.")
             return
         }
         let place = await makePlace(from: best)

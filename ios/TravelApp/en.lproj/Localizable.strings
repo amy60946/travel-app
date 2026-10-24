@@ -149,7 +149,9 @@
 "Eklendi · %@" = "Added · %@";
 "Yanlış yer mi? Değiştir:" = "Wrong place? Change:";
 "Yazı okunuyor…" = "Reading text…";
-"Fotoğrafta okunabilir yazı bulunamadı. Tabelaya daha yakından dene." = "No readable text in the photo. Try closer to the sign.";
 "Konumun alınamadı. Konum iznini kontrol et ve tekrar dene." = "Couldn't get your location. Check location permission and try again.";
 "Yakındaki yerler aranıyor…" = "Searching nearby places…";
 "Yakında bu yazıyla eşleşen yer bulunamadı." = "No nearby place matches this text.";
+"Yazı okunamazsa fotoğraf yeri tanımak için Google Gemini'ye gönderilir." = "If no text can be read, the photo is sent to Google Gemini to recognise the place.";
+"Fotoğraf yapay zekâya soruluyor…" = "Asking AI about the photo…";
+"Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";

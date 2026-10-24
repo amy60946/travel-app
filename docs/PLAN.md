@@ -126,4 +126,10 @@ kurulum yapılır.
 
 ## 10. Öneriler / notlar
 
-Onay bekleyen öneriler buraya yazılır (henüz yok).
+Onay bekleyen öneriler buraya yazılır.
+
+- 2026-10-24: Gemini anahtarı şimdilik derleme sırasında uygulamanın içine
+  konuyor (test aşamasında yalnızca Oguz kullanıyor). App Store'a çıkmadan
+  önce anahtarı ücretsiz bir sunucu katmanına (ör. Cloudflare Workers
+  ücretsiz katmanı) taşımak gerekir; aksi halde anahtar uygulamadan
+  okunabilir. Oguz'a sorulacak.
