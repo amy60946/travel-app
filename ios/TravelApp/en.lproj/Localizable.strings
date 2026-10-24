@@ -199,7 +199,7 @@
 "Dosya açılıyor…" = "Opening file…";
 "Klasör bağlanamadı. Dosyalar'da bir klasör seç." = "Couldn't link the folder. Pick a folder in Files.";
 "Instagram'dan al" = "Get from Instagram";
-"Açılan sayfada yalnızca **Kaydedilenler**'i (Saved) seç, biçim **JSON** → **Dışa aktarmayı başlat**. Hazır olunca Instagram e-posta gönderir; bağlantıdan dosyayı indir." = "On the page that opens, pick only **Saved**, format **JSON** → **Start export**. When it's ready Instagram emails you; download the file from the link.";
+"Instagram'ın ayarları açılır: en üstte **Meta Hesabı** → **Bilgilerin ve izinlerin** → **Bilgilerini dışa aktar** → **Dışa aktarma oluştur**. Yalnızca **Kaydedilenler**'i ve **JSON**'u seç, başlat. Hazır olunca Instagram e-posta gönderir; bağlantıdan dosyayı indir." = "Instagram settings open: at the top **Meta Account** → **Your information and permissions** → **Export your information** → **Create export**. Pick only **Saved** and **JSON**, then start. When it's ready Instagram emails you; download the file from the link.";
 "İndirilenler klasörüne izin ver" = "Allow access to Downloads";
 "İndirilenleri şimdi kontrol et" = "Check Downloads now";
 "Dosyayı kendim seçeyim" = "I'll pick the file myself";
@@ -209,3 +209,4 @@
 "İndirilenler'de yeni Instagram ya da TikTok dosyası yok." = "No new Instagram or TikTok file in Downloads.";
 "%@ bulundu ve aktarıldı" = "Found and imported %@";
 "Bu dosyalarda kayıtlı yer ya da gönderi bulunamadı." = "No saved places or posts found in these files.";
+"Tarayıcıda aç" = "Open in browser";

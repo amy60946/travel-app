@@ -9,7 +9,12 @@ enum ExportFiles {
         let data: Data
     }
 
-    /// Instagram'ın "Bilgilerini dışa aktar" sayfası (Meta'nın resmi bağlantısı).
+    /// Instagram uygulamasının ayarlar ekranı. Çoğu kişi Instagram'a yalnızca
+    /// uygulamadan girer; tarayıcıda yeniden giriş istemesin diye önce bu açılır.
+    static let instagramAppSettings = URL(string: "instagram://settings")!
+
+    /// Instagram'ın "Bilgilerini dışa aktar" sayfası (Meta'nın resmi bağlantısı);
+    /// uygulama yüklü değilse ya da tarayıcıyı tercih edene.
     static let instagramExportPage = URL(string: "https://accountscenter.instagram.com/info_and_permissions/dyi")!
 
     /// Dosyaları okur, .zip'leri açar. Yavaş olabilir; ana iş parçacığında çağırma.
