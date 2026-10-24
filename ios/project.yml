@@ -22,6 +22,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.amy60946.travelapp
         INFOPLIST_KEY_CFBundleDisplayName: TravelApp
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
