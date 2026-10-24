@@ -9,7 +9,7 @@ struct TravelAppApp: App {
             RootView()
                 .environmentObject(store)
                 .preferredColorScheme(.light)
-                .tint(Theme.accent)
+                .tint(Theme.ink)
         }
     }
 }

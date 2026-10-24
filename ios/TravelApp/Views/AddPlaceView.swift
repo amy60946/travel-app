@@ -28,13 +28,13 @@ struct AddPlaceView: View {
         NavigationStack {
             List {
                 Section {
-                    Button { showCustom = true } label: {
-                        Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse")
-                    }
-                    Button { showCamera = true } label: {
-                        Label("Fotoğrafla ekle", systemImage: "camera")
+                    HStack(spacing: 10) {
+                        optionCard("Kendi yerini oluştur", systemImage: "mappin.and.ellipse") { showCustom = true }
+                        optionCard("Fotoğrafla ekle", systemImage: "camera") { showCamera = true }
                     }
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
 
                 if !results.isEmpty {
                     Section("Arama sonuçları") {
@@ -74,7 +74,8 @@ struct AddPlaceView: View {
                     Text("Sıralama: Wikipedia okunma sayısı. Arama: Apple Haritalar.")
                 }
             }
-            .searchable(text: $query, prompt: Text("\(city) içinde ara"))
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: Text("Yer, restoran veya kafe ara"))
             .onSubmit(of: .search) { Task { await search() } }
             .navigationTitle("Yer ekle")
             .navigationBarTitleDisplayMode(.inline)
@@ -88,6 +89,25 @@ struct AddPlaceView: View {
             .animation(.snappy, value: store.undoMessage)
         }
         .font(Theme.body)
+    }
+
+    /// Üstteki iki seçenek: çerçeveli kart düğme.
+    private func optionCard(_ title: LocalizedStringKey, systemImage: String,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                Text(title).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .font(Theme.font(14, .semibold))
+            .foregroundStyle(Theme.ink)
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.hairline))
+        }
+        .buttonStyle(.plain)
     }
 
     private func row(title: String, subtitle: String, onAdd: @escaping () -> Void) -> some View {

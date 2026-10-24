@@ -128,21 +128,23 @@ struct PlaceThumbnail: View {
     @State private var url: URL?
 
     var body: some View {
-        ZStack {
-            Theme.surface
-            if let url {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Theme.surface
+        // Zemin verilen boyutu alır, fotoğraf onun üstüne sığdırılıp kırpılır;
+        // böylece geniş fotoğraf hücresinden taşmaz.
+        Theme.surface
+            .overlay {
+                if let url {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Theme.surface
+                    }
+                } else {
+                    Image(systemName: place.category.symbol)
+                        .font(.system(size: 22))
+                        .foregroundStyle(Theme.muted)
                 }
-            } else {
-                Image(systemName: place.category.symbol)
-                    .font(.system(size: 22))
-                    .foregroundStyle(Theme.muted)
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .task(id: place.wikipediaTitle) {
             guard let title = place.wikipediaTitle else { return }
             url = await WikipediaService.shared.summary(englishTitle: title)?.thumbnailURL

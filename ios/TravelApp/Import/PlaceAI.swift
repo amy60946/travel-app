@@ -79,6 +79,44 @@ enum PlaceAI {
         return Array(found.prefix(30))
     }
 
+    /// Kaydedilen gönderiler (TikTok açıklaması, Instagram hesap ve koleksiyon
+    /// adı) için yerler. Sonuç, gönderilerle aynı sırada ve uzunlukta.
+    static func places(inPosts entries: [String]) async -> [[Found]] {
+        let empty = Array(repeating: [Found](), count: entries.count)
+        guard isAvailable, !entries.isEmpty else { return empty }
+        var lines: [String] = []
+        for (index, entry) in entries.enumerated() {
+            lines.append("\(index). \(entry.prefix(600).replacingOccurrences(of: "\n", with: " "))")
+        }
+        let prompt = """
+        Each numbered line below is a social media post a traveller saved. For each line, list the specific \
+        places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) it clearly refers to. \
+        An account name counts only if it is clearly the venue's own account; ignore people, bloggers and guides. \
+        Reply only with JSON like {"results": [{"index": 0, "places": [{"name": "place name as on maps", \
+        "city": "city or null"}]}]}. Leave "places" empty when unsure.
+
+        \(lines.joined(separator: "\n"))
+        """
+        let providers = self.providers
+        var answers = Array(repeating: empty, count: providers.count)
+        await withTaskGroup(of: (Int, [[Found]]).self) { group in
+            for (index, provider) in providers.enumerated() {
+                group.addTask {
+                    let text = await askText(provider, prompt: prompt, jpeg: nil)
+                    return (index, parse(results: text ?? "", count: entries.count))
+                }
+            }
+            for await result in group {
+                answers[result.0] = result.1
+            }
+        }
+        var merged: [[Found]] = []
+        for index in entries.indices {
+            merged.append(Array(merge(answers.map { $0[index] }).prefix(3)))
+        }
+        return merged
+    }
+
     /// Yapay zekâ yokken: her kısa satır bir yer adı sayılır.
     static func lines(in text: String) -> [Found] {
         let lines = text.components(separatedBy: .newlines)
@@ -102,13 +140,19 @@ enum PlaceAI {
     }
 
     private static func ask(_ provider: Provider, prompt: String, jpeg: Data?) async -> [Found] {
+        guard let text = await askText(provider, prompt: prompt, jpeg: jpeg) else { return [] }
+        return parse(text: text)
+    }
+
+    /// Modelin cevap metni; hata ya da sınır aşımında nil.
+    private static func askText(_ provider: Provider, prompt: String, jpeg: Data?) async -> String? {
         guard let key = apiKey(for: provider),
               let request = makeRequest(provider, key: key, prompt: prompt, jpeg: jpeg),
               let result = try? await URLSession.shared.data(for: request),
-              (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return [] }
+              (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         switch provider {
-        case .gemini: return parse(geminiResponse: result.0)
-        case .groq: return parse(groqResponse: result.0)
+        case .gemini: return text(geminiResponse: result.0)
+        case .groq: return text(groqResponse: result.0)
         }
     }
 
@@ -156,6 +200,14 @@ enum PlaceAI {
     // MARK: - Cevapları okuma
 
     static func parse(geminiResponse data: Data) -> [Found] {
+        text(geminiResponse: data).map(parse(text:)) ?? []
+    }
+
+    static func parse(groqResponse data: Data) -> [Found] {
+        text(groqResponse: data).map(parse(text:)) ?? []
+    }
+
+    static func text(geminiResponse data: Data) -> String? {
         struct Response: Decodable {
             struct Candidate: Decodable {
                 struct Content: Decodable {
@@ -166,13 +218,11 @@ enum PlaceAI {
             }
             var candidates: [Candidate]?
         }
-        guard let response = try? JSONDecoder().decode(Response.self, from: data),
-              let text = response.candidates?.first?.content?.parts.compactMap(\.text).joined()
-        else { return [] }
-        return parse(text: text)
+        let response = try? JSONDecoder().decode(Response.self, from: data)
+        return response?.candidates?.first?.content?.parts.compactMap(\.text).joined()
     }
 
-    static func parse(groqResponse data: Data) -> [Found] {
+    static func text(groqResponse data: Data) -> String? {
         struct Response: Decodable {
             struct Choice: Decodable {
                 struct Message: Decodable { var content: String? }
@@ -180,10 +230,8 @@ enum PlaceAI {
             }
             var choices: [Choice]
         }
-        guard let response = try? JSONDecoder().decode(Response.self, from: data),
-              let text = response.choices.first?.message.content
-        else { return [] }
-        return parse(text: text)
+        let response = try? JSONDecoder().decode(Response.self, from: data)
+        return response?.choices.first?.message.content
     }
 
     /// Model metnindeki {"places": [...]} (ya da {"names": [...]}).
@@ -191,21 +239,47 @@ enum PlaceAI {
         struct Places: Decodable { var places: [Found] }
         struct Names: Decodable { var names: [String] }
 
-        // Düşünme bölümü varsa (<think>…</think>) sonrasına bak.
+        guard let json = jsonBody(in: text) else { return [] }
+        if let places = try? JSONDecoder().decode(Places.self, from: json) {
+            return cleaned(places.places)
+        }
+        if let names = try? JSONDecoder().decode(Names.self, from: json) {
+            return cleaned(names.names.map { Found(name: $0) })
+        }
+        return []
+    }
+
+    /// Toplu cevaptaki {"results": [{"index": 0, "places": [...]}]}.
+    static func parse(results text: String, count: Int) -> [[Found]] {
+        struct Results: Decodable {
+            struct Entry: Decodable {
+                var index: Int
+                var places: [Found]?
+            }
+            var results: [Entry]
+        }
+        var output = Array(repeating: [Found](), count: count)
+        guard let json = jsonBody(in: text),
+              let results = try? JSONDecoder().decode(Results.self, from: json) else { return output }
+        for entry in results.results where output.indices.contains(entry.index) {
+            output[entry.index] = cleaned(entry.places ?? [])
+        }
+        return output
+    }
+
+    /// Metindeki ilk "{" ile son "}" arası. Düşünme bölümü (<think>…</think>)
+    /// varsa sonrasına bakılır.
+    private static func jsonBody(in text: String) -> Data? {
         var body = Substring(text)
         if let thinkEnd = text.range(of: "</think>") {
             body = text[thinkEnd.upperBound...]
         }
-        guard let start = body.firstIndex(of: "{"), let end = body.lastIndex(of: "}") else { return [] }
-        let json = Data(body[start...end].utf8)
+        guard let start = body.firstIndex(of: "{"), let end = body.lastIndex(of: "}"), start < end else { return nil }
+        return Data(body[start...end].utf8)
+    }
 
-        var found: [Found] = []
-        if let places = try? JSONDecoder().decode(Places.self, from: json) {
-            found = places.places
-        } else if let names = try? JSONDecoder().decode(Names.self, from: json) {
-            found = names.names.map { Found(name: $0) }
-        }
-        return found.compactMap { item -> Found? in
+    private static func cleaned(_ found: [Found]) -> [Found] {
+        found.compactMap { item -> Found? in
             let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return nil }
             let city = item.city?.trimmingCharacters(in: .whitespacesAndNewlines)

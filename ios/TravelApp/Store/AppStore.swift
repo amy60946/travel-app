@@ -8,12 +8,15 @@ import SwiftUI
 final class AppStore: ObservableObject {
     @Published private(set) var places: [Place] = []
     @Published private(set) var trips: [Trip] = []
+    /// Yeri bulunamayan kayıtlı gönderiler ("Yeri belirle" listesi).
+    @Published private(set) var pendingPosts: [SocialExport.Post] = []
     /// Son işlem geri alınabiliyorsa gösterilecek mesaj.
     @Published private(set) var undoMessage: String?
 
     private struct Snapshot: Codable {
         var places: [Place]
         var trips: [Trip]
+        var pendingPosts: [SocialExport.Post]?
     }
 
     private var undoSnapshot: Snapshot?
@@ -157,12 +160,41 @@ final class AppStore: ObservableObject {
         return fresh.count
     }
 
+    // MARK: - Yeri belirlenecek gönderiler
+
+    /// Yeni gönderileri listeye ekler; listede olanları ve yeri zaten
+    /// bulunanları atlar.
+    func addPending(_ posts: [SocialExport.Post]) {
+        let known = Set(pendingPosts.map { SocialExport.canonical($0.url) })
+            .union(places.compactMap { $0.sourceURL.map(SocialExport.canonical) })
+        var added = Set<String>()
+        for post in posts {
+            let key = SocialExport.canonical(post.url)
+            guard !known.contains(key), added.insert(key).inserted else { continue }
+            pendingPosts.append(post)
+        }
+        save()
+    }
+
+    func removePending(_ post: SocialExport.Post) {
+        pendingPosts.removeAll { $0.id == post.id }
+        save()
+    }
+
+    /// Daha önce aktarılmış gönderiler (yeniden aktarımda atlanır).
+    func isKnown(_ post: SocialExport.Post) -> Bool {
+        let key = SocialExport.canonical(post.url)
+        return pendingPosts.contains { SocialExport.canonical($0.url) == key }
+            || places.contains { $0.sourceURL.map(SocialExport.canonical) == key }
+    }
+
     // MARK: - Geri al
 
     func undo() {
         guard let undoSnapshot else { return }
         places = undoSnapshot.places
         trips = undoSnapshot.trips
+        pendingPosts = undoSnapshot.pendingPosts ?? pendingPosts
         self.undoSnapshot = nil
         undoMessage = nil
         save()
@@ -191,7 +223,7 @@ final class AppStore: ObservableObject {
     }
 
     private func snapshot(_ message: String) {
-        undoSnapshot = Snapshot(places: places, trips: trips)
+        undoSnapshot = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts)
         undoMessage = message
     }
 
@@ -200,6 +232,7 @@ final class AppStore: ObservableObject {
            let state = try? JSONDecoder().decode(Snapshot.self, from: data) {
             places = state.places
             trips = state.trips
+            pendingPosts = state.pendingPosts ?? []
         } else {
             places = SampleData.places
             trips = SampleData.trips(for: places)
@@ -210,7 +243,8 @@ final class AppStore: ObservableObject {
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(Snapshot(places: places, trips: trips)).write(to: fileURL, options: .atomic)
+            let state = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts)
+            try JSONEncoder().encode(state).write(to: fileURL, options: .atomic)
         } catch {
             print("Kayıt yazılamadı: \(error)")
         }

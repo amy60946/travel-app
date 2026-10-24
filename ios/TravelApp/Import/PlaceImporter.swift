@@ -49,7 +49,8 @@ final class PlaceImporter: ObservableObject {
             result.added.append(Place(
                 name: item.name, city: city ?? String(localized: "Diğer"),
                 latitude: coordinate.latitude, longitude: coordinate.longitude,
-                category: .sight, source: item.source, isEstimated: estimated, note: item.note))
+                category: .sight, source: item.source, isEstimated: estimated, note: item.note,
+                sourceURL: item.url))
         }
         return result
     }

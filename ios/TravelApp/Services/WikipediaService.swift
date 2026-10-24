@@ -82,7 +82,7 @@ actor WikipediaService {
         let pages = try JSONDecoder().decode(Response.self, from: data).query?.pages ?? []
         return pages
             .compactMap { page -> PopularPlace? in
-                guard let c = page.coordinates?.first else { return nil }
+                guard let c = page.coordinates?.first, Self.isSight(page.title) else { return nil }
                 let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
                 return PopularPlace(title: page.title, latitude: c.lat, longitude: c.lon,
                                     monthlyViews: views, thumbnailURL: page.thumbnail?.source)
@@ -90,6 +90,17 @@ actor WikipediaService {
             .sorted { $0.monthlyViews > $1.monthlyViews }
             .prefix(limit)
             .map { $0 }
+    }
+
+    /// Gezilecek yer gibi görünmeyen sayfalar (üniversite, istasyon, bakanlık…)
+    /// popüler listesine alınmaz.
+    static func isSight(_ title: String) -> Bool {
+        let lower = title.lowercased()
+        let excluded = ["university", "college", "school", "station", "line", "railway", "hospital",
+                        "embassy", "ministry", "headquarters", "prefecture", "ward", "district",
+                        "company", "corporation", "bank", "court", "police", "office", "airport",
+                        "expressway", "highway", "route", "list of", "chongryon", "constituency"]
+        return !excluded.contains { lower.contains($0) }
     }
 
     // MARK: - İstekler

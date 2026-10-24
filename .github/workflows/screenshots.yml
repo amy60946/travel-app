@@ -1,0 +1,90 @@
+# Her ekranın iPhone simülatöründe ekran görüntüsünü alır ve
+# "ekran-goruntuleri" dalına koyar (tasarımla karşılaştırmak için).
+# macOS dakikası harcamamak için yalnızca commit mesajında "[ekran]"
+# geçen gönderimlerde ya da elle başlatılınca çalışır.
+name: Ekran görüntüleri
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ekran]')
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: En yeni Xcode'u seç
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Xcode projesini üret
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+
+      - name: Simülatör için derle
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in data if "iOS" in k), reverse=True)
+          names = ["iPhone 17 Pro", "iPhone 16 Pro", "iPhone 17", "iPhone 16"]
+          devices = [d for k in ios for d in data[k] if d["name"].startswith("iPhone")]
+          best = next((d for n in names for d in devices if d["name"] == n), devices[0])
+          print(best["udid"])
+          ')
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcodebuild build \
+            -project TravelApp.xcodeproj -scheme TravelApp \
+            -configuration Debug -destination "id=$DEVICE_ID" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+
+      - name: Ekranları çek
+        run: |
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl status_bar "$DEVICE_ID" override --time 9:41 --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl location "$DEVICE_ID" set 35.7148,139.7967 || true
+          APP=build/Build/Products/Debug-iphonesimulator/TravelApp.app
+          xcrun simctl install "$DEVICE_ID" "$APP"
+          xcrun simctl privacy "$DEVICE_ID" grant location io.travelapp.ios || true
+          OUT="$RUNNER_TEMP/shots"
+          mkdir -p "$OUT"
+          i=1
+          for screen in home saved downloads city place walk add import camera custom; do
+            xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
+            xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
+            sleep 8
+            xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png"
+            i=$((i+1))
+          done
+          ls -la "$OUT"
+
+      - name: Görüntüleri dala koy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/shots"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b ekran-goruntuleri
+          git add .
+          git commit -qm "Ekran görüntüleri: ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ekran-goruntuleri

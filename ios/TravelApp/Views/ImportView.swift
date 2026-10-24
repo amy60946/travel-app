@@ -1,14 +1,17 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Veri aktar: Google Maps (Takeout) dosyası, kopyalanan yazı ve link.
-/// Kazıma yok; yalnızca kullanıcının verdiği dosya ve link okunur.
+/// Veri aktar: Google Maps (Takeout) dosyası, Instagram/TikTok veri
+/// dosyası, kopyalanan yazı ve link. Kazıma yok; yalnızca kullanıcının
+/// verdiği dosya ve link okunur.
 struct ImportView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var importer = PlaceImporter()
+    @StateObject private var social = SocialImporter()
 
     @State private var showFilePicker = false
+    @State private var pickingSocial = false
     @State private var resultText: String?
     @State private var notFound: [String] = []
     @State private var linkMessage: String?
@@ -27,15 +30,30 @@ struct ImportView: View {
                     .font(Theme.font(14))
                     .padding(.vertical, 4)
                     Button {
+                        pickingSocial = false
                         showFilePicker = true
                     } label: {
                         Label("Dosya seç", systemImage: "doc.badge.plus")
                     }
-                    .disabled(importer.progress != nil)
+                    .disabled(isBusy)
                 } header: {
                     Text("Google Maps listelerin")
                 } footer: {
                     Text("Yıldızlı yerler, Favoriler, \"Gitmek istiyorum\" ve kendi listelerin. Koordinatı olmayan yerler Apple Haritalar'da aranır ve \"Tahmini\" diye işaretlenir.")
+                }
+
+                socialSection
+
+                if let status = social.status {
+                    Section {
+                        if let progress = social.progress {
+                            ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1))) {
+                                Text(status)
+                            }
+                        } else if importer.progress == nil {
+                            ProgressView(status)
+                        }
+                    }
                 }
 
                 if let progress = importer.progress {
@@ -61,7 +79,7 @@ struct ImportView: View {
                     } label: {
                         Label("Kopyaladığın yazıdan yer bul", systemImage: "text.quote")
                     }
-                    .disabled(importer.progress != nil || readingText)
+                    .disabled(isBusy)
                     if readingText {
                         ProgressView("Yazıdaki yerler bulunuyor…")
                     }
@@ -90,12 +108,6 @@ struct ImportView: View {
                     Text("Google Maps'te yeri paylaş → Kopyala, sonra buraya dön.")
                 }
 
-                Section {
-                    Label("Instagram ve TikTok veri dosyası", systemImage: "square.and.arrow.down")
-                        .foregroundStyle(Theme.muted)
-                } footer: {
-                    Text("Sonraki adımda geliyor. Bu dosyalarda yer bilgisi olmadığı için önce gerçek bir dosyayla deneyeceğiz.")
-                }
             }
             .navigationTitle("Veri aktar")
             .navigationBarTitleDisplayMode(.inline)
@@ -103,14 +115,99 @@ struct ImportView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Bitti") { dismiss() } }
             }
             .fileImporter(isPresented: $showFilePicker,
-                          allowedContentTypes: [.json, .commaSeparatedText, .plainText],
+                          allowedContentTypes: [.json, .commaSeparatedText, .plainText, .html],
                           allowsMultipleSelection: true) { result in
                 if case .success(let urls) = result {
-                    Task { await importFiles(urls) }
+                    Task {
+                        if pickingSocial {
+                            await importSocial(urls)
+                        } else {
+                            await importFiles(urls)
+                        }
+                    }
                 }
             }
         }
         .font(Theme.body)
+    }
+
+    private var isBusy: Bool {
+        importer.progress != nil || social.status != nil || readingText
+    }
+
+    private var socialSection: some View {
+        Section {
+            DisclosureGroup("Instagram'dan nasıl indirilir?") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("1. Instagram'da profiline gir → sağ üstte ☰ → **Hesaplar Merkezi**.")
+                    Text("2. **Bilgilerin ve izinlerin** → **Bilgilerini indir** → **Bilgileri indir veya aktar**.")
+                    Text("3. Instagram hesabını seç → **Bilgilerinin bir kısmı** → yalnızca **Kaydedilenler**.")
+                    Text("4. **Cihaza indir** → Biçim: **JSON**, Tarih aralığı: **Tüm zamanlar** → **Dosyaları oluştur**.")
+                    Text("5. Hazır olunca gelen e-postadaki .zip'i indir, Dosyalar'da aç; **saved_posts.json** ve **saved_collections.json** dosyalarını seç.")
+                }
+                .font(Theme.font(14))
+                .padding(.vertical, 4)
+            }
+            DisclosureGroup("TikTok'tan nasıl indirilir?") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("1. TikTok'ta profiline gir → ☰ → **Ayarlar ve gizlilik** → **Hesap** → **Verilerini indir**.")
+                    Text("2. Biçim: **JSON** → **Veri iste**.")
+                    Text("3. Hazır olunca **Verileri indir** sekmesinden indir, Dosyalar'da .zip'i aç; **user_data_tiktok.json** dosyasını seç.")
+                }
+                .font(Theme.font(14))
+                .padding(.vertical, 4)
+            }
+            Button {
+                pickingSocial = true
+                showFilePicker = true
+            } label: {
+                Label("Instagram / TikTok dosyası seç", systemImage: "doc.badge.plus")
+            }
+            .disabled(isBusy)
+        } header: {
+            Text("Instagram ve TikTok kayıtların")
+        } footer: {
+            if PlaceAI.isAvailable {
+                Text("Dosyada yer bilgisi yok. TikTok açıklaması TikTok'un resmi servisinden okunur, yerleri yapay zekâ bulur. Bulunamayan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
+            } else {
+                Text("Yapay zekâ anahtarı olmadan gönderiler Kayıtlarım'daki \"Yeri belirle\" listesine girer.")
+            }
+        }
+    }
+
+    private func importSocial(_ urls: [URL]) async {
+        var byKey: [String: SocialExport.Post] = [:]
+        var order: [String] = []
+        for url in urls {
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            for post in SocialExport.parse(data: data, fileName: url.lastPathComponent) {
+                let key = SocialExport.canonical(post.url)
+                if var existing = byKey[key] {
+                    // Aynı gönderi iki dosyada: koleksiyon ve hesap adını birleştir.
+                    existing.collection = existing.collection ?? post.collection
+                    existing.author = existing.author ?? post.author
+                    byKey[key] = existing
+                } else {
+                    byKey[key] = post
+                    order.append(key)
+                }
+            }
+        }
+        let posts = order.compactMap { byKey[$0] }
+        let fresh = posts.filter { !store.isKnown($0) }
+        notFound = []
+        guard !fresh.isEmpty else {
+            resultText = posts.isEmpty
+                ? String(localized: "Bu dosyalarda kayıtlı gönderi bulunamadı.")
+                : String(localized: "Bu gönderiler zaten aktarılmış.")
+            return
+        }
+        let result = await social.resolve(fresh, knownCities: store.cities, importer: importer)
+        let added = store.importPlaces(result.places)
+        store.addPending(result.pending)
+        resultText = String(localized: "\(added) yer eklendi · \(result.pending.count) gönderi \"Yeri belirle\" listesinde")
     }
 
     private func importFiles(_ urls: [URL]) async {
