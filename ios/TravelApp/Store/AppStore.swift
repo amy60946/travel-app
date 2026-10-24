@@ -41,18 +41,22 @@ final class AppStore: ObservableObject {
     }
 
     var cities: [CitySummary] {
-        Dictionary(grouping: places, by: \.city)
-            .map { name, list in
-                CitySummary(
-                    name: name,
-                    placeCount: list.count,
-                    latitude: list.map(\.latitude).reduce(0, +) / Double(list.count),
-                    longitude: list.map(\.longitude).reduce(0, +) / Double(list.count),
-                    hasTrip: trips.contains { $0.city == name },
-                    coverPlace: list.first { $0.wikipediaTitle != nil }
-                )
-            }
-            .sorted { ($0.hasTrip ? 0 : 1, $0.name) < ($1.hasTrip ? 0 : 1, $1.name) }
+        let grouped = Dictionary(grouping: places, by: \.city)
+        var result: [CitySummary] = []
+        for (name, list) in grouped {
+            let count = Double(list.count)
+            let latitude = list.reduce(0.0) { $0 + $1.latitude } / count
+            let longitude = list.reduce(0.0) { $0 + $1.longitude } / count
+            let hasTrip = trips.contains { $0.city == name }
+            let cover = list.first { $0.wikipediaTitle != nil }
+            result.append(CitySummary(name: name, placeCount: list.count, latitude: latitude,
+                                      longitude: longitude, hasTrip: hasTrip, coverPlace: cover))
+        }
+        // Gezisi olan şehirler önce, sonra ada göre.
+        return result.sorted { a, b in
+            if a.hasTrip != b.hasTrip { return a.hasTrip }
+            return a.name < b.name
+        }
     }
 
     func places(in city: String) -> [Place] {
