@@ -86,3 +86,5 @@ akış. Renk ve yazı Airbnb dilindeki gibi (Kiremit, Figtree). Dosyalar
 
 Küredeki kara şekilleri Natural Earth verisinden (kamu malı), `world-atlas`
 paketiyle çizildi.
+
+Bu akış esas alındı; birleşik ürün belgesi: `docs/URUN.md`.
