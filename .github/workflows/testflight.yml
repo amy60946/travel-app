@@ -84,6 +84,19 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
+      - name: İmza bilgisi (yükleme başarısızsa)
+        if: failure()
+        run: |
+          echo "== Arşivdeki imza"
+          codesign -dvv build/TravelApp.xcarchive/Products/Applications/TravelApp.app 2>&1 | grep -E "Authority|TeamIdentifier|Identifier" || true
+          security find-identity -v -p codesigning || true
+          for dir in "${TMPDIR:-/tmp}"/TravelApp_*.xcdistributionlogs; do
+            [ -d "$dir" ] || continue
+            echo "== $dir"
+            ls "$dir"
+            grep -h -i -E "signing identity|certificate|codesign|profile|cloud|managed|error" "$dir"/*.log 2>/dev/null | cut -c1-400 | head -150 || true
+          done
+
       - name: Anahtarı sil
         if: always()
         run: rm -rf "$RUNNER_TEMP/keys"
