@@ -57,3 +57,12 @@ Rota + Yürüyüş ekranıyla gösterildi. Yazı karakterleri Google Fonts'tan,
 | 1 · Defter | M1-* | Fraunces + Source Sans 3 | Kâğıt, mürekkep lacivert, damga kırmızısı | Kesik çizgili rota, pul gibi yer işaretleri |
 | 2 · İz | M2-* | Outfit | Beyaz, çam yeşili, iz yeşili | Kalın düz yeşil rota |
 | 3 · Ses | M3-* | Space Grotesk + Inter + DM Mono | Koyu gece, kehribar | Anlatılan yerde ses halkaları |
+
+### Güncel tasarım: Airbnb dili (24 Eki, sayfa: "Tasarım (Airbnb dili)")
+
+Oguz Airbnb'nin tasarım dilini seçti. Kurallar Airbnb'den, renk ve yazı
+bize ait: tek vurgu **Kiremit #C94A2B**, yazı **Figtree** (ücretsiz),
+beyaz zemin, mürekkep #222222, gri #6A6A6A, köşeler 14/8/tam yuvarlak,
+tek kat hafif gölge, fotoğraf önde. Dosyalar `N-*.dc.html`
+(N-Marka: tasarım dili kartı). Önceki denemeler (eski taslak, Apple
+stilleri, 3 marka yönü) karşılaştırma için duruyor.

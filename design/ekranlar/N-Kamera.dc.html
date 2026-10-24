@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Fotoğraf çekerek ekle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#FFFFFF;text-decoration:none}a:hover{color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; background: #000000; color: #FFFFFF; font-family: 'Figtree', system-ui, sans-serif; overflow: hidden">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 600px; background: #3B3530; display: flex; align-items: center; justify-content: center">
+<span style="font-size: 13px; color: #CFC6BD">[kamera görüntüsü: Kaminarimon kapısı]</span>
+</div>
+<div aria-hidden="true" style="position: absolute; left: 70px; top: 200px; width: 250px; height: 200px; border: 2px solid #FFFFFF; border-radius: 24px"></div>
+<div style="position: absolute; left: 20px; right: 20px; top: 56px; display: flex; justify-content: space-between; align-items: center">
+<a href="N-YerEkle.dc.html" aria-label="Kapat" style="width: 40px; height: 40px; border-radius: 20px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</a>
+<span style="height: 32px; padding: 0 12px; border-radius: 999px; background: rgba(0,0,0,0.5); font-size: 13px; font-weight: 600; display: flex; align-items: center">Konumun da kullanılır</span>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; color: #222222; border-radius: 24px 24px 0 0; padding: 24px 24px 40px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="width: 72px; height: 72px; flex: none; border-radius: 14px; background: #9B3A2A"></div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 13px; font-weight: 700; color: #C94A2B">BULUNDU</span>
+<span style="font-size: 19px; font-weight: 800; letter-spacing: -0.3px">Kaminarimon</span>
+<span style="font-size: 14px; color: #6A6A6A">Sensō-ji girişi · Tokyo'ya eklendi</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<button type="button" style="height: 48px; border-radius: 8px; border: 1px solid #222222; background: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; color: #222222">Geri al</button>
+<button type="button" style="height: 48px; border-radius: 8px; border: none; background: #C94A2B; font: inherit; font-size: 16px; font-weight: 700; color: #FFFFFF">Bir tane daha</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
