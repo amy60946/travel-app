@@ -214,7 +214,8 @@ enum PlaceAI {
     }
 
     /// Modelin cevap metni. Ücretsiz katmanın dakikalık sınırına takılınca
-    /// servisin söylediği kadar bekleyip en fazla iki kez yeniden dener.
+    /// servisin söylediği kadar, bağlantı koparsa 2 sn bekleyip en fazla iki
+    /// kez yeniden dener.
     private static func askText(_ provider: Provider, prompt: String, jpeg: Data?) async -> Reply {
         guard let key = apiKey(for: provider),
               let request = makeRequest(provider, key: key, prompt: prompt, jpeg: jpeg)
@@ -227,8 +228,12 @@ enum PlaceAI {
                 data = result.0
                 response = result.1 as? HTTPURLResponse
             } catch {
-                let timedOut = (error as? URLError)?.code == .timedOut
-                return .failure(timedOut ? String(localized: "zaman aşımı") : String(localized: "bağlantı yok"))
+                if (error as? URLError)?.code == .timedOut {
+                    return .failure(String(localized: "zaman aşımı"))
+                }
+                guard attempt < 3, !Task.isCancelled else { return .failure(String(localized: "bağlantı yok")) }
+                try? await Task.sleep(for: .seconds(2))
+                continue
             }
             let status = response?.statusCode ?? 0
             if status == 200 {
