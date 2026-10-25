@@ -19,4 +19,6 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Elle başlatınca eski ölçümler de (model listesi, Google Arama, link okuma) çalışır.
+          AI_CHECK_ALL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: python3 ios/scripts/ai_check.py
