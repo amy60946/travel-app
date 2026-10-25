@@ -31,18 +31,42 @@ ENTRIES = [
     "TikTok video by @tokyoeats: Best ramen in Shinjuku! Fuunji tsukemen is worth the line #tokyo #ramen",
 ]
 
-# Uygulamadaki PlaceAI.places(inPosts:) istemiyle aynı.
-PROMPT = (
-    "Each numbered line below is a social media post a traveller saved: the account that posted it, "
-    "the traveller's own collection name and, for TikTok, the caption. For each line, list the specific "
-    "places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) it refers to. "
-    "Use the caption when there is one. An account name counts when it is the own account of a venue, "
-    "a chain or an attraction; ignore personal, blogger, guide and media accounts. For \"city\" give the "
-    "place's city; if you do not know it, the city that the collection or account name points to; "
-    "otherwise null. Reply only with JSON like {\"results\": [{\"index\": 0, \"places\": [{\"name\": "
-    "\"place name as on maps\", \"city\": \"city or null\"}]}]}. Leave \"places\" empty when unsure.\n\n"
-    + "\n".join(f"{i}. {e}" for i, e in enumerate(ENTRIES))
-)
+# Gerçeğe yakın 15'lik grup: mekân hesapları ve blogger/rehber hesapları karışık.
+BATCH = [
+    "Instagram post from account @tokyofoodie, saved in collection \"Tokyo\"",
+    "Instagram post from account @teamlab",
+    "Instagram post from account @bluebottlejapan",
+    "Instagram post from account @gonpachi_nishiazabu",
+    "Instagram post from account @tokyo_cheapo",
+    "Instagram post from account @fuunji_tsukemen",
+    "Instagram post from account @japan_travel_guide",
+    "Instagram post from account @ramen_lover_jp",
+    "Instagram post from account @sushizanmai_official",
+    "Instagram post from account @visitjapanjp",
+    "Instagram post from account @mori_art_museum",
+    "Instagram post from account @kissa_tokyo_life",
+    "Instagram post from account @tsujihan_nihonbashi",
+    "Instagram post from account @onibus_coffee",
+    "Instagram post from account @thetravelingfoodie",
+]
+
+
+def prompt_for(entries):
+    """Uygulamadaki PlaceAI.places(inPosts:) istemiyle aynı."""
+    return (
+        "Each numbered line below is a social media post a traveller saved: the account that posted it, "
+        "the traveller's own collection name and, for TikTok, the caption. For each line, list the specific "
+        "places (restaurant, cafe, bar, shop, museum, temple, shrine, park, landmark, hotel) it refers to. "
+        "Use the caption when there is one. An account name counts when it is the own account of a venue, "
+        "a chain or an attraction; ignore personal, blogger, guide and media accounts. For \"city\" give the "
+        "place's city; if you do not know it, the city that the collection or account name points to; "
+        "otherwise null. Reply only with JSON like {\"results\": [{\"index\": 0, \"places\": [{\"name\": "
+        "\"place name as on maps\", \"city\": \"city or null\"}]}]}. Leave \"places\" empty when unsure.\n\n"
+        + "\n".join(f"{i}. {e}" for i, e in enumerate(entries))
+    )
+
+
+PROMPT = prompt_for(ENTRIES)
 
 SEARCH_PROMPT = (
     "Use Google Search. For each Instagram account below, tell whether it is the own account of a venue "
@@ -175,16 +199,59 @@ def groq(key):
                                                            headers, body))
 
 
+def summarize(provider, status, text):
+    """Toplu cevaptan satır başına bulunan yerleri yazar."""
+    if status != 200:
+        show(f"{provider} 15'lik grup", status, text)
+        return
+    data = json.loads(text)
+    if provider == "Gemini":
+        content = "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+    else:
+        content = data["choices"][0]["message"]["content"]
+    print(f"\n===== {provider} 15'lik grup: HTTP 200, ham cevabın başı: {content[:200]!r}")
+    body = content[content.find("{"):content.rfind("}") + 1]
+    try:
+        results = json.loads(body).get("results", [])
+    except json.JSONDecodeError as error:
+        print(f"   JSON okunamadı: {error}")
+        return
+    total = 0
+    for entry in results:
+        places = entry.get("places") or []
+        total += len(places)
+        if places:
+            print(f"   {entry.get('index')}. {BATCH[entry['index']] if isinstance(entry.get('index'), int) and entry['index'] < len(BATCH) else '?'} -> {places}")
+    print(f"   toplam {total} yer, {len(results)} satır cevap")
+
+
+def batch_test(gemini_key, groq_key):
+    prompt = prompt_for(BATCH)
+    if gemini_key:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+        body = {"contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"responseMimeType": "application/json"}}
+        summarize("Gemini", *call(url, {"x-goog-api-key": gemini_key, "Content-Type": "application/json"}, body))
+    if groq_key:
+        body = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+                "response_format": {"type": "json_object"}, "temperature": 0.2}
+        summarize("Groq", *call("https://api.groq.com/openai/v1/chat/completions",
+                                {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}, body))
+
+
 def main():
     gemini_key = os.environ.get("GEMINI_API_KEY", "")
     groq_key = os.environ.get("GROQ_API_KEY", "")
     print("GEMINI_API_KEY var mı:", bool(gemini_key))
     print("GROQ_API_KEY var mı:", bool(groq_key))
-    if gemini_key:
-        gemini(gemini_key)
-        url_context(gemini_key)
-    if groq_key:
-        groq(groq_key)
+    batch_test(gemini_key, groq_key)
+    # Daha önceki ölçümler (model listesi, Google Arama, link okuma) için:
+    if os.environ.get("AI_CHECK_ALL"):
+        if gemini_key:
+            gemini(gemini_key)
+            url_context(gemini_key)
+        if groq_key:
+            groq(groq_key)
 
 
 if __name__ == "__main__":
