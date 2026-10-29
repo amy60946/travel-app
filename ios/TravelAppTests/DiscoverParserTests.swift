@@ -27,6 +27,20 @@ final class DiscoverParserTests: XCTestCase {
         XCTAssertEqual(cities[2].summary, "ancient temples and deer")
     }
 
+    func testPlaceListIncludesOtherDestinations() {
+        let wikitext = """
+        ==Cities==
+        * [[Tokyo]] — the capital
+        ==Other destinations==
+        * [[Mount Fuji]] — the iconic volcano
+        ==Get in==
+        * [[Narita]]
+        """
+        let places = DiscoverService.cityList(fromWikitext: wikitext, includingOther: true)
+        XCTAssertEqual(places.map(\.name), ["Tokyo", "Mount Fuji"])
+        XCTAssertEqual(places[1].summary, "the iconic volcano")
+    }
+
     func testCityListFromCitylistTemplate() {
         let wikitext = """
         == Cities ==

@@ -8,7 +8,7 @@ struct Country: Identifiable, Hashable {
     let title: String
 
     var id: String { code }
-    var name: String { Locale.current.localizedString(forRegionCode: code) ?? title }
+    var name: String { AppLanguage.current.locale.localizedString(forRegionCode: code) ?? title }
     var flag: String { Country.flag(code) }
 
     /// "TR" → 🇹🇷
@@ -24,6 +24,19 @@ struct Country: Identifiable, Hashable {
         var seen = Set<String>()
         return Continent.all.flatMap(\.countries).filter { seen.insert($0.code).inserted }
     }()
+
+    /// Keşfet → "Senin için": önce gezilerindeki ülkeler, sonra dünyada en
+    /// çok gezilen ülkeler (BM Turizm listesi; elle seçilmiş içerik değil).
+    static func forYou(visited codes: [String], limit: Int = 12) -> [Country] {
+        let mostVisited = ["FR", "ES", "US", "IT", "TR", "MX", "GB", "DE", "GR", "AT", "JP", "TH",
+                           "PT", "NL", "HR", "MA", "AE", "EG", "KR", "VN"]
+        var seen = Set<String>()
+        return (codes + mostVisited)
+            .compactMap(find)
+            .filter { seen.insert($0.code).inserted }
+            .prefix(limit)
+            .map { $0 }
+    }
 
     static func find(_ code: String) -> Country? {
         all.first { $0.code == code.uppercased() }

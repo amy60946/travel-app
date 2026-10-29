@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 enum Route: Hashable {
@@ -8,6 +9,7 @@ enum Route: Hashable {
     case continent(String)
     case country(String)
     case cityGuide(CityChoice)
+    case collection(UUID)
 }
 
 enum RootTab: Hashable {
@@ -26,6 +28,7 @@ struct RootView: View {
     /// Büyütecin "Yer ekle"yi açacağı şehir (ana haritada ortaya en yakın şehir).
     @State private var searchCity = ""
     @State private var guidance: GuidanceDestination?
+    @State private var locationManager = CLLocationManager()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -67,6 +70,7 @@ struct RootView: View {
                             .narrationBarInset()
                     }
                 case .cityGuide(let city): CityGuideView(city: city, path: $path).narrationBarInset(hiding: city.name)
+                case .collection(let id): CollectionDetailView(collectionID: id, path: $path).narrationBarInset()
                 }
             }
         }
@@ -90,6 +94,7 @@ struct RootView: View {
         .translationHost()
         .task {
             openLaunchScreen()
+            askLocationOnce()
             await openImportIfNewExport()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -101,6 +106,16 @@ struct RootView: View {
         // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
         .onOpenURL { url in
             if url.isFileURL { sheet = .importFile(url) }
+        }
+    }
+
+    /// Haritalar her ekranda canlı konumu göstersin: ilk açılışta bir kez izin sorulur.
+    private func askLocationOnce() {
+        #if DEBUG
+        if UserDefaults.standard.string(forKey: "screen") != nil { return }
+        #endif
+        if locationManager.authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
         }
     }
 
@@ -123,7 +138,10 @@ struct RootView: View {
         case "trips": _ = demoJourney()
         case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
         case "newTrip": sheet = .newTrip
-        case "discover": tab = .discover
+        case "discover", "discoverTall", "newCollection": tab = .discover
+        case "collections": tab = .discover; _ = demoCollection()
+        case "collection": tab = .discover; path = [.collection(demoCollection())]
+        case "saveTo": tab = .discover; _ = demoCollection(); path = [.country("JP")]
         case "continent": tab = .discover; path = [.continent("asia")]
         case "country": tab = .discover; path = [.country("JP")]
         case "cityGuide", "addToPlan":
@@ -132,7 +150,8 @@ struct RootView: View {
                                           englishTitle: "Kyoto"))]
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
+        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins":
+            path = [.city(city)]
         case "player":
             path = [.city(city)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
@@ -145,7 +164,7 @@ struct RootView: View {
             }
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
-        case "add": sheet = .addPlace(city: city)
+        case "add", "addSearch": sheet = .addPlace(city: city)
         case "import": sheet = .importData
         case "camera": sheet = .camera
         case "custom": sheet = .customPlace(city: city)
@@ -155,6 +174,22 @@ struct RootView: View {
     }
 
     #if DEBUG
+    /// Ekran görüntüleri için örnek koleksiyonlar (yerler, şehir, ülkeler).
+    private func demoCollection() -> UUID {
+        if let existing = store.collections.first(where: { $0.name == "Tokyo favorileri" }) { return existing.id }
+        let europe = store.createCollection(name: "Avrupa hayalleri", emoji: "🏛️", color: 0)
+        for code in ["IT", "FR", "GR"] {
+            if let country = Country.find(code) { store.toggle(.country(country), in: europe) }
+        }
+        let id = store.createCollection(name: "Tokyo favorileri", emoji: "🍜", color: 2)
+        for place in store.places(in: "Tokyo").prefix(5) { store.toggle(.place(place), in: id) }
+        store.toggle(.city(CityChoice(name: "Kyoto", countryCode: "JP", latitude: 35.0116, longitude: 135.7681,
+                                      englishTitle: "Kyoto")), in: id)
+        if let japan = Country.find("JP") { store.toggle(.country(japan), in: id) }
+        store.dismissUndo()
+        return id
+    }
+
     /// Ekran görüntüleri için örnek çok şehirli gezi (Polarsteps'teki İstanbul → Ankara gibi).
     private func demoJourney() -> UUID {
         if let existing = store.journeys.first(where: { $0.name == "Türkiye" }) { return existing.id }

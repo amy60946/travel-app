@@ -42,11 +42,12 @@ actor DiscoverService {
         var id: String { heading }
     }
 
-    /// Uygulamanın dili; Türkçeyse şehir adları Türkçe Wikipedia'dan alınır.
-    static let language = Bundle.main.preferredLocalizations.first ?? "tr"
+    /// Uygulamanın dili (Ayarlar, varsayılan Türkçe); Türkçeyse şehir adları
+    /// Türkçe Wikipedia'dan alınır, açıklamalar Türkçeye çevrilir.
+    static var language: String { AppLanguage.current.rawValue }
 
     private let pages = DiskCache<PageInfo>(name: "discover-pages")
-    private let cityLists = DiskCache<[GuideCity]>(name: "wikivoyage-cities")
+    private let placeLists = DiskCache<[GuideCity]>(name: "wikivoyage-places")
     private let guides = DiskCache<[GuideSection]>(name: "wikivoyage-guides")
     private let translations = DiskCache<String>(name: "discover-translations")
     private let englishTitles = DiskCache<String>(name: "english-titles")
@@ -64,7 +65,7 @@ actor DiscoverService {
         var result: [String: PageInfo] = [:]
         var missing: [String] = []
         for title in Set(titles) where !title.isEmpty {
-            if let cached = pages["\(site.rawValue)|\(title)"] {
+            if let cached = pages[Self.pageKey(title, site)] {
                 result[title] = cached
             } else {
                 missing.append(title)
@@ -75,11 +76,16 @@ actor DiscoverService {
             guard let fetched = await fetchInfo(chunk, from: site) else { continue }
             for title in chunk {
                 let info = fetched[title] ?? PageInfo()
-                pages["\(site.rawValue)|\(title)"] = info
+                pages[Self.pageKey(title, site)] = info
                 result[title] = info
             }
         }
         return result
+    }
+
+    /// Wikipedia'daki yerel ad uygulamanın diline bağlı; saklarken dil de anahtarda.
+    private static func pageKey(_ title: String, _ site: Site) -> String {
+        site == .wikipedia && language != "en" ? "\(site.rawValue)|\(language)|\(title)" : "\(site.rawValue)|\(title)"
     }
 
     /// Şehrin ya da yerin fotoğrafı: önce Wikipedia, yoksa Wikivoyage manzarası.
@@ -124,12 +130,13 @@ actor DiscoverService {
 
     // MARK: - Ülkenin şehirleri
 
-    /// Ülkenin Wikivoyage sayfasındaki "Cities" listesi (en önemli 9-10 şehir).
-    func cities(countryTitle title: String) async -> [GuideCity] {
-        if let cached = cityLists[title] { return cached }
+    /// Ülkenin Wikivoyage sayfasındaki yerler: "Cities" (en önemli 9-10 şehir)
+    /// ve "Other destinations" (milli parklar, adalar…).
+    func places(countryTitle title: String) async -> [GuideCity] {
+        if let cached = placeLists[title] { return cached }
         guard let text = await wikitext(title) else { return [] }
-        let list = Self.cityList(fromWikitext: text)
-        if !list.isEmpty { cityLists[title] = list }
+        let list = Self.cityList(fromWikitext: text, includingOther: true)
+        if !list.isEmpty { placeLists[title] = list }
         return list
     }
 
@@ -314,9 +321,13 @@ actor DiscoverService {
     /// Ülke sayfasının "Cities" bölümündeki şehirler. Satırlar "* [[Paris]] —
     /// açıklama" ya da "{{marker|type=city|name=[[Paris]]|lat=..}} — açıklama"
     /// biçiminde, bazen Citylist şablonunda "| 1=..." diye.
-    static func cityList(fromWikitext text: String) -> [GuideCity] {
-        guard let body = section(["Cities", "Cities and towns", "Towns and cities", "Major cities"], in: text)
-        else { return [] }
+    /// `includingOther` doğruysa "Other destinations" (milli parklar, adalar…)
+    /// da eklenir; ülke sayfasındaki "yerler" listesi ve kartlardaki sayı için.
+    static func cityList(fromWikitext text: String, includingOther: Bool = false) -> [GuideCity] {
+        var bodies = [section(["Cities", "Cities and towns", "Towns and cities", "Major cities"], in: text)]
+        if includingOther { bodies.append(section(["Other destinations"], in: text)) }
+        let body = bodies.compactMap { $0 }.joined(separator: "\n")
+        guard !body.isEmpty else { return [] }
         var result: [GuideCity] = []
         for raw in body.components(separatedBy: .newlines) {
             var line = raw.trimmingCharacters(in: .whitespaces)

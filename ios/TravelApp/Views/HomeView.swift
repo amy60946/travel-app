@@ -44,6 +44,7 @@ struct HomeView: View {
     /// (tek gezi varsa altta boşluk kalmaz).
     @State private var listHeight: CGFloat = 160
     @State private var showLocationDenied = false
+    @State private var showSettings = false
 
     /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
     private enum Card: Equatable {
@@ -110,6 +111,7 @@ struct HomeView: View {
             }
         }
         .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("Konum izni kapalı", isPresented: $showLocationDenied) {
             Button("Ayarları aç") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -129,7 +131,7 @@ struct HomeView: View {
                 ForEach(visiblePlaces) { place in
                     Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
                         Button { select(place) } label: {
-                            CategoryPin(category: place.category, size: sheetPlaceID == place.id ? 42 : 32)
+                            PlaceMapPin(place: place, size: sheetPlaceID == place.id ? 42 : 32)
                         }
                         .buttonStyle(.plain)
                     }
@@ -165,9 +167,11 @@ struct HomeView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
     }
 
-    /// Sağdaki düğmeler: harita türü ve konumum.
+    /// Sağdaki düğmeler: ayarlar (dil), harita türü ve konumum.
     private var controls: some View {
         VStack(spacing: 10) {
+            CircleIconButton(systemImage: "gearshape") { showSettings = true }
+                .accessibilityLabel(Text("Ayarlar"))
             MapKindMenu(selection: $mapKind)
             CircleIconButton(systemImage: "location", action: showMyLocation)
                 .accessibilityLabel(Text("Konumum"))
@@ -362,6 +366,9 @@ struct HomeView: View {
             select(saved)
         } else {
             card = .item(item, PlaceCategory(item))
+            // Apple'ın yer kartı doğrudan açılır: puan, fotoğraflar, saatler
+            // (Oguz, 2026-10-29). Kapatınca altta Kaydet ve Yol tarifi kalır.
+            if #available(iOS 18.0, *) { detailItem = item }
         }
     }
 
@@ -422,6 +429,7 @@ struct HomeView: View {
     private func openLaunchScreen() async {
         #if DEBUG
         let screen = UserDefaults.standard.string(forKey: "screen")
+        if screen == "settings" { showSettings = true }
         guard screen == "map" || screen == "sheet",
               let city = store.cities.first(where: { $0.name == "Tokyo" }) ?? store.cities.first,
               let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))

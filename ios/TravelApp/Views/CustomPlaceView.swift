@@ -30,7 +30,7 @@ struct CustomPlaceView: View {
                     }
                 }
                 Section {
-                    Map(position: $position)
+                    Map(position: $position) { UserAnnotation() }
                         .mapStyle(.standard(pointsOfInterest: .excludingAll))
                         .onMapCameraChange { center = $0.region.center }
                         .overlay {

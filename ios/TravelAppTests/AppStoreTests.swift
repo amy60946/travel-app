@@ -136,4 +136,26 @@ final class AppStoreTests: XCTestCase {
         XCTAssertTrue(store.pendingPosts.isEmpty)
         XCTAssertTrue(store.hasPlace(post))
     }
+
+    func testCollections() throws {
+        let store = makeStore()
+        let place = try XCTUnwrap(store.places(in: "Tokyo").first)
+        let id = store.createCollection(name: "İstanbul", emoji: "🌴", color: 0, with: .place(place))
+        let city = CollectionItem.city(CityChoice(name: "Kyoto", countryCode: "JP", latitude: 35.0, longitude: 135.7,
+                                                  englishTitle: "Kyoto"))
+        store.toggle(city, in: id)
+        XCTAssertEqual(store.collection(id)?.items.count, 2)
+        XCTAssertEqual(store.collection(id)?.destinations.count, 1)
+        XCTAssertEqual(store.collection(id)?.spots.count, 1)
+        XCTAssertTrue(store.isCollected(.place(place)))
+
+        // Aynı şehir ikinci kez eklenmez, çıkarılır.
+        store.toggle(city, in: id)
+        XCTAssertFalse(store.contains(city, in: id))
+
+        store.deleteCollection(id)
+        XCTAssertNil(store.collection(id))
+        store.undo()
+        XCTAssertNotNil(store.collection(id))
+    }
 }

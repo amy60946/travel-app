@@ -111,10 +111,8 @@ struct NewTripView: View {
         ForEach(search.cities, id: \.self) { completion in
             Button { Task { await pick(completion) } } label: {
                 ResultRow(title: completion.title, subtitle: completion.subtitle) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 18))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Theme.surface)
+                    // Pin simgesi yerine şehrin fotoğrafı (Oguz, 2026-10-29).
+                    CityPhoto(name: completion.title.components(separatedBy: ",").first ?? completion.title)
                 } trailing: {
                     if resolving == completion.title {
                         ProgressView().frame(width: 40, height: 40)
@@ -285,6 +283,9 @@ struct AddToPlanSheet: View {
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
         .presentationDetents([.medium, .large])
+        // iOS 26'da yarım pencere cam gibi saydam; arkadaki yazı karışmasın.
+        .presentationBackground(.white)
+        .presentationCornerRadius(Theme.sheetRadius)
     }
 
     private func journeySubtitle(_ journey: Journey) -> String {

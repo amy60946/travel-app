@@ -3,6 +3,13 @@ import SwiftUI
 @main
 struct TravelAppApp: App {
     @StateObject private var store = AppStore(fileURL: TravelAppApp.launchScreenStateURL)
+    /// Ayarlar'dan seçilen dil (varsayılan Türkçe); değişince bütün ekranlar
+    /// o dilde yeniden çizilir.
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.turkish.rawValue
+
+    init() {
+        AppLanguage.activate()
+    }
 
     /// Yalnızca geliştirme sürümünde: ekran görüntüsü açılışları (`-screen`)
     /// her seferinde örnek verilerle başlasın, birinin değişikliği ötekine
@@ -21,6 +28,8 @@ struct TravelAppApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .id(language)
+                .environment(\.locale, AppLanguage.current.locale)
                 .environmentObject(store)
                 .preferredColorScheme(.light)
                 .tint(Theme.ink)

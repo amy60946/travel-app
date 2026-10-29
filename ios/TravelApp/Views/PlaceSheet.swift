@@ -13,6 +13,9 @@ struct PlaceSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var summary: WikipediaService.Summary?
+    /// Yazının tamamı (başlık başlık); özetten sonra gelir.
+    @State private var article: WikipediaService.Article?
+    @State private var isLoadingArticle = false
     @State private var photos: [URL] = []
     /// Fotoğraflar sayfadan değil, yakında çekilenlerden mi geldi?
     @State private var photosAreNearby = false
@@ -62,6 +65,7 @@ struct PlaceSheet: View {
                     .foregroundStyle(Theme.muted)
             }
             Spacer(minLength: 0)
+            CollectButton(item: .place(place), size: 30)
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
@@ -130,10 +134,19 @@ struct PlaceSheet: View {
     @ViewBuilder
     private func about(_ place: Place) -> some View {
         if let summary {
-            ListenCard(title: place.name, summary: summary)
+            ListenCard(title: place.name, summary: summary.adding(article))
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)
+                if let article {
+                    ArticleSections(article: article).padding(.top, 4)
+                } else if isLoadingArticle {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Yazının devamı hazırlanıyor").font(Theme.font(13)).foregroundStyle(Theme.muted)
+                    }
+                    .padding(.vertical, 6)
+                }
                 WikipediaCredit(summary: summary)
             }
         } else if isLoading {
@@ -157,6 +170,7 @@ struct PlaceSheet: View {
         isLoading = true
         isLoadingPhotos = true
         summary = nil
+        article = nil
         photos = []
         photosAreNearby = false
         defer { isLoading = false }
@@ -180,6 +194,12 @@ struct PlaceSheet: View {
         }
         isLoadingPhotos = false
         summary = await foundSummary
+        // Yazının tamamı (çevirisi sürebilir) özetten sonra.
+        if let englishTitle, summary != nil {
+            isLoadingArticle = true
+            article = await WikipediaService.shared.article(englishTitle: englishTitle)
+            isLoadingArticle = false
+        }
         #if DEBUG
         // Ekran görüntüsü için: `-screen photo` fotoğrafı tam ekran açar.
         if UserDefaults.standard.string(forKey: "screen") == "photo", !photos.isEmpty { viewerIndex = 0 }

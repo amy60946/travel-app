@@ -12,6 +12,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var journeys: [Journey] = []
     /// Yeri bulunamayan kayıtlı gönderiler ("Yeri belirle" listesi).
     @Published private(set) var pendingPosts: [SocialExport.Post] = []
+    /// Koleksiyonlar (Keşfet → Koleksiyonlar): ülke, şehir ve yer arşivi.
+    @Published private(set) var collections: [PlaceCollection] = []
     /// Son işlem geri alınabiliyorsa gösterilecek mesaj.
     @Published private(set) var undoMessage: String?
 
@@ -20,6 +22,7 @@ final class AppStore: ObservableObject {
         var trips: [Trip]
         var pendingPosts: [SocialExport.Post]?
         var journeys: [Journey]?
+        var collections: [PlaceCollection]?
     }
 
     private var undoSnapshot: Snapshot?
@@ -450,6 +453,65 @@ final class AppStore: ObservableObject {
         return places.contains { $0.sourceURL.map(SocialExport.canonical) == key }
     }
 
+    // MARK: - Koleksiyonlar
+
+    func collection(_ id: UUID) -> PlaceCollection? {
+        collections.first { $0.id == id }
+    }
+
+    /// Yeni koleksiyon; `item` verilirse içine de eklenir.
+    @discardableResult
+    func createCollection(name: String, emoji: String, color: Int, with item: CollectionItem? = nil) -> UUID {
+        var collection = PlaceCollection(name: name, emoji: emoji, color: color)
+        if let item { collection.items.append(item) }
+        collections.insert(collection, at: 0)
+        save()
+        return collection.id
+    }
+
+    func editCollection(_ id: UUID, name: String, emoji: String, color: Int) {
+        guard let index = collections.firstIndex(where: { $0.id == id }) else { return }
+        collections[index].name = name
+        collections[index].emoji = emoji
+        collections[index].color = color
+        save()
+    }
+
+    func deleteCollection(_ id: UUID) {
+        guard let collection = collection(id) else { return }
+        snapshot(String(localized: "\(collection.name) silindi"))
+        collections.removeAll { $0.id == id }
+        save()
+    }
+
+    func contains(_ item: CollectionItem, in collectionID: UUID) -> Bool {
+        collection(collectionID)?.items.contains { $0.key == item.key } ?? false
+    }
+
+    /// Herhangi bir koleksiyonda mı (kaydet düğmesi dolu görünsün).
+    func isCollected(_ item: CollectionItem) -> Bool {
+        collections.contains { $0.items.contains { $0.key == item.key } }
+    }
+
+    /// Koleksiyonda yoksa ekler, varsa çıkarır.
+    func toggle(_ item: CollectionItem, in collectionID: UUID) {
+        guard let index = collections.firstIndex(where: { $0.id == collectionID }) else { return }
+        let name = collections[index].name
+        if let existing = collections[index].items.firstIndex(where: { $0.key == item.key }) {
+            snapshot(String(localized: "\(item.displayName) \(name) koleksiyonundan çıkarıldı"))
+            collections[index].items.remove(at: existing)
+        } else {
+            snapshot(String(localized: "\(item.displayName) \(name) koleksiyonuna eklendi"))
+            collections[index].items.insert(item, at: 0)
+        }
+        save()
+    }
+
+    func removeItem(_ itemID: UUID, from collectionID: UUID) {
+        guard let item = collection(collectionID)?.items.first(where: { $0.id == itemID }) else { return }
+        toggle(item, in: collectionID)
+    }
+
     // MARK: - Geri al
 
     func undo() {
@@ -458,6 +520,7 @@ final class AppStore: ObservableObject {
         trips = undoSnapshot.trips
         pendingPosts = undoSnapshot.pendingPosts ?? pendingPosts
         journeys = undoSnapshot.journeys ?? journeys
+        collections = undoSnapshot.collections ?? collections
         self.undoSnapshot = nil
         undoMessage = nil
         save()
@@ -487,7 +550,8 @@ final class AppStore: ObservableObject {
     }
 
     private func snapshot(_ message: String) {
-        undoSnapshot = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys)
+        undoSnapshot = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys,
+                                collections: collections)
         undoMessage = message
     }
 
@@ -499,6 +563,7 @@ final class AppStore: ObservableObject {
             trips = state.trips
             pendingPosts = state.pendingPosts ?? []
             journeys = state.journeys ?? []
+            collections = state.collections ?? []
             needsJourneys = state.journeys == nil
         } else {
             places = SampleData.places
@@ -517,7 +582,8 @@ final class AppStore: ObservableObject {
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let state = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys)
+            let state = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys,
+                                 collections: collections)
             try JSONEncoder().encode(state).write(to: fileURL, options: .atomic)
         } catch {
             print("Kayıt yazılamadı: \(error)")

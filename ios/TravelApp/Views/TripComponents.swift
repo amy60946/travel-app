@@ -25,11 +25,15 @@ struct SearchField: View {
     @Binding var text: String
     let prompt: LocalizedStringKey
     var isSearching = false
+    /// Yazma alanının odağı (ör. dokununca paneli büyütmek için).
+    var focus: FocusState<Bool>.Binding?
+    @FocusState private var ownFocus: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
             TextField(prompt, text: $text)
+                .focused(focus ?? $ownFocus)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
             if isSearching { ProgressView() }

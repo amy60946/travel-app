@@ -15,21 +15,49 @@ actor WikipediaService {
         var translatedFrom: String? = nil
     }
 
+    /// Sayfanın tamamı, başlıklarıyla (Giriş özetin içinde; kaynakça ve dış
+    /// bağlantılar yok). Okunur ve dinlenir.
+    struct Article: Codable, Equatable {
+        struct Section: Codable, Equatable, Identifiable {
+            var heading: String
+            var text: String
+            var id: String { heading }
+        }
+        var sections: [Section]
+        var language: String
+        var translatedFrom: String? = nil
+
+        /// Dinlemek için: başlıklar ve yazılar art arda.
+        var spokenText: String {
+            sections.map { "\($0.heading).\n\($0.text)" }.joined(separator: "\n\n")
+        }
+    }
+
     struct PopularPlace: Identifiable, Equatable {
+        /// İngilizce Wikipedia başlığı.
         var title: String
         var latitude: Double
         var longitude: Double
         var monthlyViews: Int
         var thumbnailURL: URL?
+        /// Uygulama dilindeki sayfanın adı (ör. Türkçe), yoksa nil.
+        var localTitle: String?
         var id: String { title }
+        /// Listede görünen ad.
+        var name: String { localTitle ?? title }
     }
 
-    /// Anlatım dili: telefonun dili ne olursa olsun Türkçe (Oguz, 2026-10-29).
-    static let narrationLanguage = "tr"
+    /// Anlatım dili: uygulamanın dili (Ayarlar, varsayılan Türkçe); telefonun
+    /// dili ne olursa olsun.
+    static var narrationLanguage: String { AppLanguage.current.rawValue }
 
     /// Bir kez okunan özet ve fotoğraf listesi telefonda saklanır; internetsiz de açılır.
     private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
     private let photoLists = DiskCache<[URL]>(name: "wikipedia-photos")
+    private let placePhotos = DiskCache<URL>(name: "place-photos")
+    private let articles = DiskCache<Article>(name: "wikipedia-articles")
+    /// Bu açılışta fotoğrafı bulunamayan yerler (yeniden sorulmaz).
+    private var missingPhotos: Set<String> = []
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = ["User-Agent": "TravelApp/0.1 (https://github.com/amy60946/travel-app)"]
@@ -59,6 +87,102 @@ actor WikipediaService {
         return result
     }
 
+    /// Sayfanın tamamı, başlık başlık. İstenen dilde sayfa yoksa İngilizcesi
+    /// bölüm bölüm Türkçeye çevrilir (Türkçe istenmişse).
+    func article(englishTitle: String, language: String = WikipediaService.narrationLanguage) async -> Article? {
+        let key = "\(language)|\(englishTitle)"
+        if let cached = articles[key] { return cached }
+        if language != "en", let local = try? await localTitle(for: englishTitle, language: language),
+           let sections = await fetchSections(title: local, language: language), !sections.isEmpty {
+            let result = Article(sections: sections, language: language)
+            articles[key] = result
+            return result
+        }
+        guard let english = await fetchSections(title: englishTitle, language: "en"), !english.isEmpty else { return nil }
+        guard language == "tr" else {
+            let result = Article(sections: english, language: "en")
+            articles[key] = result
+            return result
+        }
+        let headings = await Translator.shared.toTurkish(english.map(\.heading).joined(separator: "\n"))?
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        var translated: [Article.Section] = []
+        for (index, section) in english.enumerated() {
+            guard let text = await Translator.shared.toTurkish(section.text) else { break }
+            let heading = headings?.count == english.count ? headings?[index] ?? section.heading : section.heading
+            translated.append(Article.Section(heading: heading, text: text))
+        }
+        guard !translated.isEmpty else { return nil }
+        let result = Article(sections: translated, language: "tr", translatedFrom: "en")
+        if translated.count == english.count { articles[key] = result }
+        return result
+    }
+
+    private func fetchSections(title: String, language: String) async -> [Article.Section]? {
+        var components = URLComponents(string: "https://\(language).wikipedia.org/w/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "prop", value: "extracts"),
+            .init(name: "explaintext", value: "1"),
+            .init(name: "exsectionformat", value: "wiki"),
+            .init(name: "redirects", value: "1"),
+            .init(name: "titles", value: title),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable {
+                struct Page: Decodable { var extract: String? }
+                var pages: [Page]?
+            }
+            var query: Query?
+        }
+        guard let url = components.url, let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let extract = try? JSONDecoder().decode(Response.self, from: data).query?.pages?.first?.extract
+        else { return nil }
+        return Self.articleSections(fromExtract: extract)
+    }
+
+    /// Düz yazı sayfadan (== Başlık ==) ana bölümler; alt başlıklar yazının
+    /// içinde kalır. Kaynakça, dış bağlantılar gibi bölümler alınmaz; toplam
+    /// yaklaşık `limit` harfe kadar.
+    static func articleSections(fromExtract text: String, limit: Int = 8000) -> [Article.Section] {
+        let skipped: Set<String> = [
+            "references", "see also", "external links", "notes", "further reading", "bibliography",
+            "sources", "citations", "gallery", "footnotes", "explanatory notes",
+            "kaynakça", "kaynaklar", "dış bağlantılar", "ayrıca bakınız", "notlar", "dipnotlar",
+            "galeri", "konuyla ilgili yayınlar", "ek okumalar",
+        ]
+        var sections: [(heading: String, lines: [String], hasText: Bool)] = []
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("=="), trimmed.hasSuffix("==") {
+                let level = trimmed.prefix { $0 == "=" }.count
+                let heading = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "= "))
+                if level == 2 {
+                    sections.append((heading, [], false))
+                } else if !sections.isEmpty {
+                    sections[sections.count - 1].lines.append(heading + ".")
+                }
+            } else if !sections.isEmpty, !trimmed.isEmpty {
+                sections[sections.count - 1].lines.append(trimmed)
+                sections[sections.count - 1].hasText = true
+            }
+        }
+        var result: [Article.Section] = []
+        var total = 0
+        for section in sections where section.hasText && !skipped.contains(section.heading.lowercased()) {
+            let body = DiscoverService.excerpt(section.lines.joined(separator: "\n"), limit: min(limit, 3500))
+            if total > 0 && total + body.count > limit { break }
+            result.append(Article.Section(heading: section.heading, text: body))
+            total += body.count
+        }
+        return result
+    }
+
     /// Sayfanın küçük fotoğrafı (İngilizce özetten; çeviri gerekmez).
     func thumbnailURL(englishTitle: String) async -> URL? {
         await englishSummary(englishTitle)?.thumbnailURL
@@ -72,46 +196,149 @@ actor WikipediaService {
         return result
     }
 
-    /// Bir noktanın 10 km çevresindeki Wikipedia sayfaları, son 30 günde
-    /// en çok okunandan aza.
-    func popularPlaces(latitude: Double, longitude: Double, limit: Int = 15) async throws -> [PopularPlace] {
+    /// Bir noktanın 10 km çevresindeki Wikipedia sayfaları (en çok 300),
+    /// son 30 günde en çok okunandan aza. Ad uygulamanın dilinde (Türkçe
+    /// sayfası varsa Türkçe adı).
+    func popularPlaces(latitude: Double, longitude: Double, limit: Int = 40) async throws -> [PopularPlace] {
         var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
         components.queryItems = [
             .init(name: "action", value: "query"),
             .init(name: "format", value: "json"),
             .init(name: "formatversion", value: "2"),
-            .init(name: "generator", value: "geosearch"),
-            .init(name: "ggscoord", value: "\(latitude)|\(longitude)"),
-            .init(name: "ggsradius", value: "10000"),
-            .init(name: "ggslimit", value: "50"),
-            .init(name: "prop", value: "coordinates|pageviews|pageimages"),
-            .init(name: "pithumbsize", value: "300"),
-            .init(name: "pvipdays", value: "30"),
+            .init(name: "list", value: "geosearch"),
+            .init(name: "gscoord", value: "\(latitude)|\(longitude)"),
+            .init(name: "gsradius", value: "10000"),
+            .init(name: "gslimit", value: "300"),
+            .init(name: "gsprop", value: "type"),
         ]
         struct Response: Decodable {
-            struct Query: Decodable { var pages: [Page] }
-            struct Page: Decodable {
-                struct Coordinate: Decodable { var lat: Double; var lon: Double }
-                struct Thumbnail: Decodable { var source: URL }
-                var title: String
-                var coordinates: [Coordinate]?
-                var pageviews: [String: Int?]?
-                var thumbnail: Thumbnail?
-            }
+            struct Query: Decodable { var geosearch: [Page] }
+            struct Page: Decodable { var title: String; var lat: Double; var lon: Double; var type: String? }
             var query: Query?
         }
         let (data, _) = try await session.data(from: components.url!)
-        let pages = try JSONDecoder().decode(Response.self, from: data).query?.pages ?? []
-        return pages
-            .compactMap { page -> PopularPlace? in
-                guard let c = page.coordinates?.first, Self.isSight(page.title) else { return nil }
-                let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
-                return PopularPlace(title: page.title, latitude: c.lat, longitude: c.lon,
-                                    monthlyViews: views, thumbnailURL: page.thumbnail?.source)
+        let nearby = (try JSONDecoder().decode(Response.self, from: data).query?.geosearch ?? [])
+            .filter { Self.isSight($0.title) && Self.isSight(type: $0.type) }
+        // Okunma sayısı, fotoğraf ve yerel ad 50'şerli toplu istekle, aynı anda.
+        let language = Self.narrationLanguage
+        let details = await withTaskGroup(of: [String: PageDetails].self, returning: [String: PageDetails].self) { group in
+            for start in stride(from: 0, to: nearby.count, by: 50) {
+                let titles = nearby[start..<min(start + 50, nearby.count)].map(\.title)
+                group.addTask { await self.pageDetails(titles, language: language) }
             }
-            .sorted { $0.monthlyViews > $1.monthlyViews }
-            .prefix(limit)
-            .map { $0 }
+            var all: [String: PageDetails] = [:]
+            for await chunk in group { all.merge(chunk) { first, _ in first } }
+            return all
+        }
+        let places = nearby.filter { Self.isSight(description: details[$0.title]?.description) }.map { page in
+            let detail = details[page.title]
+            return PopularPlace(title: page.title, latitude: page.lat, longitude: page.lon,
+                                monthlyViews: detail?.views ?? 0, thumbnailURL: detail?.thumbnail,
+                                localTitle: detail?.localTitle)
+        }
+        let sorted = places.sorted { $0.monthlyViews > $1.monthlyViews }
+        return Array(sorted.prefix(limit))
+    }
+
+    private struct PageDetails {
+        var views = 0
+        var thumbnail: URL?
+        var localTitle: String?
+        var description: String?
+    }
+
+    private func pageDetails(_ titles: [String], language: String) async -> [String: PageDetails] {
+        var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
+        var items: [URLQueryItem] = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "pvipdays", value: "30"),
+            .init(name: "piprop", value: "thumbnail"),
+            .init(name: "pithumbsize", value: "300"),
+            .init(name: "pilimit", value: "50"),
+            .init(name: "titles", value: titles.joined(separator: "|")),
+        ]
+        if language == "en" {
+            items.append(.init(name: "prop", value: "pageviews|pageimages|description"))
+        } else {
+            items += [.init(name: "prop", value: "pageviews|pageimages|description|langlinks"),
+                      .init(name: "lllang", value: language),
+                      .init(name: "lllimit", value: "max")]
+        }
+        components.queryItems = items
+        struct Response: Decodable {
+            struct Query: Decodable { var pages: [Page] }
+            struct Page: Decodable {
+                struct Thumbnail: Decodable { var source: URL }
+                struct Link: Decodable { var title: String }
+                var title: String
+                var pageviews: [String: Int?]?
+                var thumbnail: Thumbnail?
+                var langlinks: [Link]?
+                var description: String?
+            }
+            var query: Query?
+        }
+        guard let url = components.url, let (data, _) = try? await session.data(from: url),
+              let pages = try? JSONDecoder().decode(Response.self, from: data).query?.pages
+        else { return [:] }
+        var result: [String: PageDetails] = [:]
+        for page in pages {
+            let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
+            let local = page.langlinks?.first?.title
+                .replacingOccurrences(of: "\\s*\\([^)]*\\)$", with: "", options: .regularExpression)
+            result[page.title] = PageDetails(views: views, thumbnail: page.thumbnail?.source, localTitle: local,
+                                             description: page.description)
+        }
+        return result
+    }
+
+    /// Bir yerin gerçek fotoğrafı (listelerde tür simgesi yerine): Wikipedia
+    /// sayfası (biliniyorsa ya da 300 m içinde adı tutan sayfa), yoksa 150 m
+    /// içinde çekilmiş bir Wikimedia Commons fotoğrafı. Bulunan saklanır.
+    func photo(name: String, city: String, latitude: Double, longitude: Double,
+               englishTitle: String? = nil) async -> URL? {
+        let key = "\(englishTitle ?? name)|\((latitude * 1000).rounded() / 1000)|\((longitude * 1000).rounded() / 1000)"
+        if let cached = placePhotos[key] { return cached }
+        guard !missingPhotos.contains(key) else { return nil }
+        // Haritada çok pin varken Wikipedia'ya aynı anda en çok 4 istek.
+        await acquireLookup()
+        defer { releaseLookup() }
+        if let cached = placePhotos[key] { return cached }
+        guard !Task.isCancelled else { return nil }
+        var title = englishTitle
+        if title == nil, !name.isEmpty {
+            title = await findArticle(name: name, city: city, latitude: latitude, longitude: longitude)
+        }
+        var url: URL?
+        if let title { url = await thumbnailURL(englishTitle: title) }
+        if url == nil { url = await nearbyPhotos(latitude: latitude, longitude: longitude).first }
+        if let url {
+            placePhotos[key] = url
+        } else if !Task.isCancelled {
+            missingPhotos.insert(key)
+        }
+        return url
+    }
+
+    private var runningLookups = 0
+    private var waitingLookups: [CheckedContinuation<Void, Never>] = []
+
+    private func acquireLookup() async {
+        if runningLookups < 4 {
+            runningLookups += 1
+            return
+        }
+        await withCheckedContinuation { waitingLookups.append($0) }
+    }
+
+    private func releaseLookup() {
+        if waitingLookups.isEmpty {
+            runningLookups -= 1
+        } else {
+            waitingLookups.removeFirst().resume()
+        }
     }
 
     /// Sayfadaki fotoğraflar (yana kaydırılan galeri için), en çok 10.
@@ -252,7 +479,32 @@ actor WikipediaService {
         let excluded = ["university", "college", "school", "station", "line", "railway", "hospital",
                         "embassy", "ministry", "headquarters", "prefecture", "ward", "district",
                         "company", "corporation", "bank", "court", "police", "office", "airport",
-                        "expressway", "highway", "route", "list of", "chongryon", "constituency"]
+                        "expressway", "highway", "route", "list of", "chongryon", "constituency",
+                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty"]
+        return !excluded.contains { lower.contains($0) }
+    }
+
+    /// Wikipedia koordinatının türü: ülke, il, şehir, istasyon, havalimanı,
+    /// okul ve olay sayfaları gezilecek yer değildir ("city(8000000)" gibi
+    /// nüfuslu yazımlar da).
+    static func isSight(type: String?) -> Bool {
+        guard let type = type?.lowercased().split(separator: "(").first.map(String.init) else { return true }
+        let excluded = ["country", "state", "adm1st", "adm2nd", "adm3rd", "city", "railwaystation",
+                        "airport", "edu", "event", "satellite"]
+        return !excluded.contains(type)
+    }
+
+    /// Kısa açıklaması ülke, eski devlet, şehir, istasyon, okul, şirket ya da
+    /// kurum diyen sayfalar ("Japon İmparatorluğu" gibi) listeye alınmaz.
+    static func isSight(description: String?) -> Bool {
+        guard let lower = description?.lowercased() else { return true }
+        let excluded = ["country in", "island country", "sovereign state", "historical state", "former country",
+                        "historical country", "state from", "empire from", "special ward", "prefecture of",
+                        "capital of", "capital city", "city in", "city of", "town in", "municipality",
+                        "railway station", "metro station", "subway station", "train station", "railway line",
+                        "university", "school in", "college in", "company", "corporation", "hospital", "embassy",
+                        "ministry", "political party", "electoral", "constituency", "airport",
+                        "expressway", "stock exchange", "newspaper", "broadcaster", "television station"]
         return !excluded.contains { lower.contains($0) }
     }
 

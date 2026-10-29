@@ -14,4 +14,31 @@ final class WikipediaMatchTests: XCTestCase {
         XCTAssertFalse(WikipediaService.matches(title: "Ueno Station", name: "Ueno Parkı", city: "Tokyo"))
         XCTAssertFalse(WikipediaService.matches(title: "Zōjō-ji", name: "Blue Bottle Coffee", city: "Tokyo"))
     }
+
+    func testArticleSectionsSkipReferencesAndKeepSubheadings() {
+        let extract = """
+        Çırağan Palace is a former Ottoman palace.
+
+        == History ==
+        The palace was built by Sultan Abdulaziz.
+
+        === Fire ===
+        It burned down in 1910.
+
+        == Architecture ==
+
+        === Interior ===
+
+        == Hotel ==
+        Today it is a hotel.
+
+        == References ==
+        Some book.
+        """
+        let sections = WikipediaService.articleSections(fromExtract: extract)
+        XCTAssertEqual(sections.map(\.heading), ["History", "Hotel"])
+        XCTAssertTrue(sections[0].text.contains("Fire."))
+        XCTAssertTrue(sections[0].text.contains("It burned down in 1910."))
+        XCTAssertEqual(sections[1].text, "Today it is a hotel.")
+    }
 }

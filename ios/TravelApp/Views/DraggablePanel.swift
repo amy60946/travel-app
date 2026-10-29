@@ -49,12 +49,18 @@ struct DraggablePanel<Header: View, Content: View>: View {
             }
             .frame(height: shownHeight(heights[index] - drag, heights: heights), alignment: .top)
             .frame(maxWidth: .infinity)
+            // Kenarlardan ayrık, dört köşesi yuvarlak kart (alt köşeler ekranın
+            // köşesiyle aynı kavisle).
             .background {
-                UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius, topTrailingRadius: Theme.sheetRadius)
+                UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius + 4, bottomLeadingRadius: 44,
+                                       bottomTrailingRadius: 44, topTrailingRadius: Theme.sheetRadius + 4,
+                                       style: .continuous)
                     .fill(.white)
-                    .ignoresSafeArea(edges: .bottom)
                     .softShadow()
+                    .padding(.bottom, 8)
+                    .ignoresSafeArea(edges: .bottom)
             }
+            .padding(.horizontal, 8)
             .frame(maxHeight: .infinity, alignment: .bottom)
             .onAppear { onSettle(heights[index]) }
             .onChange(of: heights[index]) { _, height in onSettle(height) }

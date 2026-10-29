@@ -79,7 +79,13 @@ struct AddPlaceView: View {
         .background(.white)
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
-        .task { await loadPopular() }
+        .task {
+            #if DEBUG
+            // `-screen addSearch`: aramada bir otel (fotoğrafı ve köşesinde tür simgesi).
+            if UserDefaults.standard.string(forKey: "screen") == "addSearch" { query = "Park Hyatt Tokyo" }
+            #endif
+            await loadPopular()
+        }
         // Yazarken arar (her harfte değil, yazmaya ara verince).
         .task(id: query) {
             try? await Task.sleep(for: .milliseconds(450))
@@ -209,38 +215,37 @@ struct AddPlaceView: View {
 
     private func resultRow(_ item: MKMapItem) -> some View {
         let coordinate = item.placemark.coordinate
-        return SpotRow(category: PlaceCategory(item), title: item.name ?? "",
+        let category = PlaceCategory(item)
+        return SpotRow(category: category, title: item.name ?? "",
                        subtitle: item.placemark.locality ?? item.placemark.title ?? "",
                        isAdded: store.savedPlace(named: item.name ?? "", near: coordinate) != nil,
                        onAdd: { add(item) }, onTap: { detailItem = item }) {
-            CategoryTile(category: PlaceCategory(item))
+            LocationPhoto(name: item.name ?? "", category: category, city: city,
+                          latitude: coordinate.latitude, longitude: coordinate.longitude,
+                          size: 64, cornerRadius: 14)
         }
     }
 
     private func savedRow(_ place: Place) -> some View {
         SpotRow(category: place.category, title: place.name, subtitle: place.city,
-                isAdded: store.isPlanned(place), showsBadge: place.wikipediaTitle != nil,
+                isAdded: store.isPlanned(place),
                 onAdd: { store.addToPlan([place.id], city: city, day: day) }) {
-            if place.wikipediaTitle != nil {
-                PlaceThumbnail(place: place, cornerRadius: 0)
-            } else {
-                CategoryTile(category: place.category)
-            }
+            LocationPhoto(name: place.name, category: place.category, city: place.city,
+                          latitude: place.latitude, longitude: place.longitude,
+                          englishTitle: place.wikipediaTitle, size: 64, cornerRadius: 14)
         }
     }
 
     private func popularRow(_ item: WikipediaService.PopularPlace) -> some View {
         let category = PlaceCategory.guess(name: item.title) ?? .sight
         let coordinate = CLLocationCoordinate2D(latitude: item.latitude, longitude: item.longitude)
-        return SpotRow(category: category, title: item.title, subtitle: city,
-                       isAdded: store.savedPlace(named: item.title, near: coordinate) != nil,
-                       showsBadge: item.thumbnailURL != nil,
+        return SpotRow(category: category, title: item.name, subtitle: city,
+                       isAdded: store.savedPlace(named: item.name, near: coordinate) != nil
+                           || store.savedPlace(named: item.title, near: coordinate) != nil,
                        onAdd: { addPopular(item, category: category) }) {
-            AsyncImage(url: item.thumbnailURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                CategoryTile(category: category)
-            }
+            LocationPhoto(name: item.name, category: category, city: city,
+                          latitude: item.latitude, longitude: item.longitude, englishTitle: item.title,
+                          knownPhoto: item.thumbnailURL, size: 64, cornerRadius: 14)
         }
     }
 
@@ -277,7 +282,7 @@ struct AddPlaceView: View {
     }
 
     private func addPopular(_ item: WikipediaService.PopularPlace, category: PlaceCategory) {
-        store.add(Place(name: item.title, city: city, latitude: item.latitude, longitude: item.longitude,
+        store.add(Place(name: item.name, city: city, latitude: item.latitude, longitude: item.longitude,
                         category: category, source: .search, wikipediaTitle: item.title),
                   plan: true, day: day)
     }
@@ -290,22 +295,13 @@ private struct SpotRow<Thumbnail: View>: View {
     let title: String
     let subtitle: String
     let isAdded: Bool
-    var showsBadge = true
     let onAdd: () -> Void
     var onTap: (() -> Void)?
     @ViewBuilder let thumbnail: Thumbnail
 
     var body: some View {
         HStack(spacing: 14) {
-            Theme.surface
-                .overlay { thumbnail }
-                .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(alignment: .bottomTrailing) {
-                    if showsBadge {
-                        CategoryPin(category: category, size: 22).offset(x: 5, y: 5)
-                    }
-                }
+            thumbnail.frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.title)
                     .font(Theme.font(11, .bold))

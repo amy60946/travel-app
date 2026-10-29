@@ -182,7 +182,8 @@ struct CircleIconButton: View {
     }
 }
 
-/// Yerin fotoğrafı: Wikipedia'dan; yoksa tür ikonu.
+/// Yerin fotoğrafı: Wikipedia sayfasından, yoksa yakında çekilmiş bir
+/// fotoğraf (Wikimedia Commons); bulunamazsa tür ikonu.
 struct PlaceThumbnail: View {
     let place: Place
     var cornerRadius: CGFloat = Theme.cardRadius
@@ -206,9 +207,10 @@ struct PlaceThumbnail: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .task(id: place.wikipediaTitle) {
-            guard let title = place.wikipediaTitle else { return }
-            url = await WikipediaService.shared.thumbnailURL(englishTitle: title)
+        .task(id: "\(place.id)|\(place.wikipediaTitle ?? "")") {
+            url = await WikipediaService.shared.photo(name: place.name, city: place.city,
+                                                      latitude: place.latitude, longitude: place.longitude,
+                                                      englishTitle: place.wikipediaTitle)
         }
     }
 }
@@ -454,27 +456,81 @@ struct NarrationBar: View {
     }
 }
 
-/// Yerin liste fotoğrafı (Polarsteps "Add a spot" gibi): Wikipedia
-/// fotoğrafı, köşesinde türün simgesi; fotoğraf yoksa türün renginde kare.
+/// Yerin liste fotoğrafı (Polarsteps "Add a spot" gibi): yerin gerçek
+/// fotoğrafı, sağ alt köşesinde türün küçük kare simgesi; fotoğraf yoksa
+/// türün renginde kare.
 struct PlaceRowThumbnail: View {
     let place: Place
     var size: CGFloat = 56
 
     var body: some View {
-        let hasPhoto = place.wikipediaTitle != nil
+        LocationPhoto(name: place.name, category: place.category, city: place.city,
+                      latitude: place.latitude, longitude: place.longitude,
+                      englishTitle: place.wikipediaTitle, size: size)
+    }
+}
+
+/// Bir yerin gerçek fotoğrafı (Wikipedia ya da yakında çekilmiş), sağ alt
+/// köşesinde türün küçük kare simgesi; bulunamazsa türün renginde kare.
+/// Kayıtlı olmayan yerler (arama sonuçları) için de kullanılır.
+struct LocationPhoto: View {
+    let name: String
+    let category: PlaceCategory
+    var city = ""
+    let latitude: Double
+    let longitude: Double
+    var englishTitle: String?
+    /// Zaten bilinen fotoğraf (ör. popüler yerler listesinden); varsa aranmaz.
+    var knownPhoto: URL?
+    var size: CGFloat = 56
+    var cornerRadius: CGFloat = 12
+    @State private var url: URL?
+
+    var body: some View {
         Theme.surface
             .overlay {
-                if hasPhoto {
-                    PlaceThumbnail(place: place, cornerRadius: 0)
+                if let url {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Theme.surface
+                    }
                 } else {
-                    CategoryTile(category: place.category)
+                    CategoryTile(category: category)
                 }
             }
             .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(alignment: .bottomTrailing) {
-                if hasPhoto { CategoryPin(category: place.category, size: 20).offset(x: 4, y: 4) }
+                if url != nil {
+                    CategoryBadge(category: category, size: max(18, size * 0.36)).offset(x: 4, y: 4)
+                }
             }
+            .task(id: "\(name)|\(englishTitle ?? "")|\(latitude)|\(longitude)") {
+                if let knownPhoto {
+                    url = knownPhoto
+                    return
+                }
+                url = await WikipediaService.shared.photo(name: name, city: city, latitude: latitude,
+                                                          longitude: longitude, englishTitle: englishTitle)
+            }
+    }
+}
+
+/// Fotoğrafın köşesindeki tür simgesi: türün renginde küçük kare, beyaz çerçeve.
+struct CategoryBadge: View {
+    let category: PlaceCategory
+    var size: CGFloat = 20
+
+    var body: some View {
+        Image(systemName: category.symbol)
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(category.color, in: RoundedRectangle(cornerRadius: size * 0.28))
+            .overlay(RoundedRectangle(cornerRadius: size * 0.28).stroke(.white, lineWidth: 1.5))
+            .softShadow()
+            .accessibilityLabel(Text(category.title))
     }
 }
 
@@ -596,5 +652,52 @@ extension MKCoordinateRegion {
         let neighbor = distances.count >= 2 ? distances[1] : distances.first ?? 400
         let meters = min(max(neighbor * 2.4, 800), 5_000)
         self.init(center: place.coordinate, latitudinalMeters: meters, longitudinalMeters: meters)
+    }
+}
+
+/// Wikipedia yazısının tamamı, başlık başlık (dokununca açılır). "Dinle"
+/// kartı özeti ve bu bölümleri art arda okur.
+struct ArticleSections: View {
+    let article: WikipediaService.Article
+    @State private var expanded: Set<String> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(article.sections) { section in
+                Button {
+                    withAnimation(.snappy) {
+                        if expanded.contains(section.id) { expanded.remove(section.id) } else { expanded.insert(section.id) }
+                    }
+                } label: {
+                    HStack {
+                        Text(section.heading).font(Theme.font(16, .semibold)).multilineTextAlignment(.leading)
+                        Spacer()
+                        Image(systemName: expanded.contains(section.id) ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if expanded.contains(section.id) {
+                    Text(section.text)
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.ink.opacity(0.85))
+                        .padding(.bottom, 12)
+                }
+                Divider()
+            }
+        }
+    }
+}
+
+extension WikipediaService.Summary {
+    /// Dinlemek için özet ve yazının tamamı art arda.
+    func adding(_ article: WikipediaService.Article?) -> WikipediaService.Summary {
+        guard let article, !article.sections.isEmpty else { return self }
+        var full = self
+        full.extract = extract + "\n\n" + article.spokenText
+        return full
     }
 }
