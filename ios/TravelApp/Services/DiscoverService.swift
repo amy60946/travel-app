@@ -249,7 +249,7 @@ actor DiscoverService {
             let banner = page.pageprops?.wpb_banner.flatMap(Self.bannerURL)
             result[title] = PageInfo(latitude: page.coordinates?.first?.lat,
                                      longitude: page.coordinates?.first?.lon,
-                                     photo: banner ?? page.thumbnail?.source,
+                                     photo: banner ?? page.thumbnail?.source.flatMap { Self.isPhoto($0) ? $0 : nil },
                                      localTitle: page.langlinks?.first?.title)
         }
         return result
@@ -284,6 +284,15 @@ actor DiscoverService {
     }
 
     // MARK: - Ayrıştırma (birim testli)
+
+    /// Bölge haritası, bayrak gibi çizimler manzara fotoğrafı sayılmaz
+    /// (ör. Wikivoyage'da manzarası olmayan ülkelerin sayfa resmi haritadır).
+    static func isPhoto(_ url: URL) -> Bool {
+        let name = url.lastPathComponent.lowercased()
+        if name.contains(".svg") { return false }
+        let words = Set(name.split { !$0.isLetter }.map(String.init))
+        return words.isDisjoint(with: ["map", "maps", "locator", "location", "region", "regions", "flag"])
+    }
 
     /// Vikimetinde bir ana bölümün (== Başlık ==) içi; alt bölümler dahil.
     static func section(_ names: [String], in wikitext: String) -> String? {

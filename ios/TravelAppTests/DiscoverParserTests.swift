@@ -74,4 +74,13 @@ final class DiscoverParserTests: XCTestCase {
         XCTAssertLessThanOrEqual(excerpt.count, 600)
         XCTAssertTrue(excerpt.hasSuffix("."))
     }
+
+    func testMapsAreNotPhotos() {
+        let map = URL(string: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Afghanistan_regions_map.png/800px-Afghanistan_regions_map.png")!
+        let flag = URL(string: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Flag_of_Japan.svg/800px-Flag_of_Japan.svg.png")!
+        let photo = URL(string: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Kiyomizu-dera_in_Kyoto.jpg/800px-Kiyomizu-dera_in_Kyoto.jpg")!
+        XCTAssertFalse(DiscoverService.isPhoto(map))
+        XCTAssertFalse(DiscoverService.isPhoto(flag))
+        XCTAssertTrue(DiscoverService.isPhoto(photo))
+    }
 }
