@@ -1,8 +1,12 @@
 import MapKit
 import SwiftUI
 
-/// Şehir planı: harita üstte (gün numaralı pinler, sokaklardan rota),
-/// günler altta; gün sayısı − / +, tempo, "Planla / Yürü", "+" menüsü.
+/// Şehir planı: yalnızca seçili gün görünür. Harita üstte (o günün türüne
+/// göre renkli pinleri, sokaklardan rota), altta o günün yerleri. Gün,
+/// listenin üstündeki tek "1. gün ⌄" düğmesinden değiştirilir. Bir yere
+/// dokununca harita o yere ve yanındaki yerlere yakınlaşır, alttan yer
+/// penceresi açılır; harita görünür kalır. Yer, penceredeki gün düğmesiyle
+/// ya da listede basılı tutup menüden başka güne taşınır.
 struct CityPlanView: View {
     let city: String
     @Binding var path: [Route]
@@ -14,64 +18,88 @@ struct CityPlanView: View {
     @State private var route: WalkingRoutes.DayRoute?
     @State private var mapKind: MapKind = .standard
     @State private var sheet: AddSheet?
+    /// Bakılan yer: harita ona yakınlaşır, alttan penceresi açılır.
+    @State private var focusedID: UUID?
+    /// Yer penceresi açıkken haritanın yüksekliği: pencerenin üstünü doldurur.
+    @State private var focusedMapHeight: CGFloat = 360
+    #if DEBUG
+    private static var openedLaunchScreen = false
+    #endif
 
-    private var plan: (days: [[Place]], leftOver: [Place]) { store.dayPlan(for: city) }
+    private var days: [[Place]] { store.dayPlan(for: city) }
     private var trip: Trip { store.trip(for: city) }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            map
-                .frame(height: 360)
-                .overlay(alignment: .top) { header }
-                .overlay(alignment: .bottomTrailing) { mapKindMenu }
+    /// Seçili günün yerleri, yürüme sırasıyla.
+    private var stops: [Place] {
+        let days = self.days
+        return days.indices.contains(selectedDay) ? days[selectedDay] : []
+    }
 
+    var body: some View {
+        let stops = self.stops
+        VStack(spacing: 0) {
+            map(stops)
+                .frame(height: focusedID == nil ? 360 : max(focusedMapHeight, 360))
+                .overlay(alignment: .top) { header }
+                .overlay(alignment: .bottomTrailing) { MapKindMenu(selection: $mapKind).padding(12) }
+
+            dayBar(stops)
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    controls
-                    ForEach(Array(plan.days.enumerated()), id: \.offset) { index, stops in
-                        DayCard(index: index, stops: stops, isSelected: index == selectedDay,
-                                route: index == selectedDay ? route : nil,
-                                onSelect: { selectedDay = index },
-                                onOpen: { path.append(.place($0.id)) },
-                                onLighten: { store.lightenDay(index, city: city) },
-                                onWalk: { path.append(.walk(city: city, day: index)) })
-                    }
-                    if !plan.leftOver.isEmpty {
-                        Text("\(plan.leftOver.count) yer sığmadı. Gün ekle ya da tempoyu artır.")
+                VStack(alignment: .leading, spacing: 0) {
+                    if stops.isEmpty {
+                        Text("Bu gün boş. Sağ alttaki + ile yer ekle.")
                             .font(Theme.caption)
                             .foregroundStyle(Theme.muted)
+                            .padding(.vertical, 14)
                     }
-                    Text("Harita ve yol tarifi: Apple Haritalar")
-                        .font(Theme.font(11))
-                        .foregroundStyle(Theme.muted)
+                    ForEach(stops) { place in row(place) }
                 }
-                .padding(20)
-                .padding(.bottom, 80)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 100)
             }
         }
-        .overlay(alignment: .bottomTrailing) { addMenu }
+        .animation(.snappy, value: focusedID)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            // Yer penceresi ekranın yarısını kaplar; köşeleri de harita üstünde dursun.
+            let screen = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
+            return screen / 2 - proxy.safeAreaInsets.top + 24
+        } action: { focusedMapHeight = $0 }
+        .overlay(alignment: .bottomTrailing) { addButton }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 90) }
         .animation(.snappy, value: store.undoMessage)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { $0.view }
+        .sheet(isPresented: Binding(get: { focusedID != nil }, set: { if !$0 { focusedID = nil } })) {
+            if let id = focusedID {
+                PlaceSheet(placeID: id) { place in
+                    focusedID = nil
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(350))
+                        path.append(.place(place.id))
+                    }
+                }
+                .placeSheetPresentation()
+            }
+        }
+        .onAppear(perform: updateCamera)
+        .onChange(of: selectedDay) { updateCamera() }
+        .onChange(of: focusedID) { updateCamera() }
+        .onChange(of: trip) { followFocusedPlace() }
         .task(id: routeKey) { await loadRoute() }
+        .task { await openLaunchScreen() }
     }
 
     // MARK: - Harita
 
-    private var map: some View {
+    private func map(_ stops: [Place]) -> some View {
         Map(position: $position) {
-            ForEach(Array(plan.days.enumerated()), id: \.offset) { dayIndex, stops in
-                ForEach(stops) { place in
-                    Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
-                        Button { selectedDay = dayIndex } label: {
-                            DayBadge(number: dayIndex + 1, size: dayIndex == selectedDay ? 30 : 22)
-                                .opacity(dayIndex == selectedDay ? 1 : 0.55)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .annotationTitles(dayIndex == selectedDay ? .visible : .hidden)
-                }
+            // Yalnızca seçili günün yerleri, türün renkli pini ve adıyla.
+            ForEach(stops) { place in
+                Annotation(place.name, coordinate: place.coordinate, anchor: .center) { pin(place) }
+            }
+            // Rotadan çıkarılan yerin penceresi açıksa pini kaybolmasın.
+            if let place = focusedOutsideDay {
+                Annotation(place.name, coordinate: place.coordinate, anchor: .center) { pin(place) }
             }
             if let route {
                 ForEach(Array(route.polylines.enumerated()), id: \.offset) { _, line in
@@ -79,9 +107,21 @@ struct CityPlanView: View {
                 }
             }
         }
-        .mapStyle(mapKind.style)
-        .onAppear(perform: focusSelectedDay)
-        .onChange(of: selectedDay) { focusSelectedDay() }
+        .mapStyle(mapKind.exploreStyle(showingApplePlaces: false))
+        // Üstteki geri düğmesi ve şehir adı pinlerin üstüne binmesin.
+        .safeAreaPadding(.top, 52)
+    }
+
+    private var focusedOutsideDay: Place? {
+        guard let id = focusedID, !stops.contains(where: { $0.id == id }) else { return nil }
+        return store.place(id)
+    }
+
+    private func pin(_ place: Place) -> some View {
+        Button { focus(place) } label: {
+            CategoryPin(category: place.category, size: place.id == focusedID ? 40 : 30)
+        }
+        .buttonStyle(.plain)
     }
 
     private var header: some View {
@@ -95,90 +135,119 @@ struct CityPlanView: View {
                 .background(.white, in: Capsule())
                 .softShadow()
             Spacer()
-            Button {
-                path.append(.walk(city: city, day: selectedDay))
-            } label: {
-                Label("Yürü", systemImage: "figure.walk")
-                    .font(Theme.font(14, .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Theme.ink, in: Capsule())
-            }
-            .disabled(plan.days.indices.contains(selectedDay) ? plan.days[selectedDay].isEmpty : true)
+            Color.clear.frame(width: 40, height: 40)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
     }
 
-    private var mapKindMenu: some View {
-        Menu {
-            Picker("Harita türü", selection: $mapKind) {
-                ForEach(MapKind.allCases) { Text($0.title).tag($0) }
+    // MARK: - Liste
+
+    /// Listenin üstünde tek satır: gün seçici, o günün özeti ve Yürü.
+    private func dayBar(_ stops: [Place]) -> some View {
+        HStack(spacing: 10) {
+            dayMenu
+            Group {
+                if let route, !stops.isEmpty {
+                    Text("\(stops.count) durak · \(Int((route.meters / 1000).rounded())) km")
+                } else {
+                    Text("\(stops.count) durak")
+                }
+            }
+            .font(Theme.caption)
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
+            Spacer(minLength: 4)
+            if !stops.isEmpty {
+                Button { path.append(.walk(city: city, day: selectedDay)) } label: {
+                    Label("Yürü", systemImage: "figure.walk")
+                        .font(Theme.font(14, .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Theme.ink, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    /// "1. gün ⌄": günler (kaçar yer), Gün ekle, Son günü sil.
+    private var dayMenu: some View {
+        let days = self.days
+        return Menu {
+            Picker("Gün", selection: Binding(get: { selectedDay }, set: { day in
+                focusedID = nil
+                selectedDay = day
+            })) {
+                ForEach(days.indices, id: \.self) { day in
+                    Text("\(day + 1). gün · \(days[day].count) yer").tag(day)
+                }
+            }
+            .pickerStyle(.inline)
+            Section {
+                Button {
+                    store.setDays(trip.days + 1, city: city)
+                    focusedID = nil
+                    selectedDay = trip.days - 1
+                } label: {
+                    Label("Gün ekle", systemImage: "plus")
+                }
+                .disabled(trip.days >= 14)
+                Button(role: .destructive) { store.setDays(trip.days - 1, city: city) } label: {
+                    Label("Son günü sil", systemImage: "trash")
+                }
+                .disabled(trip.days <= 1)
             }
         } label: {
-            Image(systemName: "map")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 40, height: 40)
-                .background(.white, in: Circle())
-                .softShadow()
-        }
-        .padding(12)
-    }
-
-    // MARK: - Kontroller
-
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                HStack(spacing: 14) {
-                    stepButton("minus") { store.setDays(trip.days - 1, city: city) }
-                    Text("\(trip.days) gün").font(Theme.headline).frame(minWidth: 56)
-                    stepButton("plus") { store.setDays(trip.days + 1, city: city) }
-                }
-                Spacer()
-                Menu {
-                    Picker("Tempo", selection: Binding(get: { trip.pace }, set: { store.setPace($0, city: city) })) {
-                        ForEach(Pace.allCases) { Text($0.title).tag($0) }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(trip.pace.title)
-                        Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
-                    }
-                    .font(Theme.font(14, .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .overlay(Capsule().stroke(Theme.hairline))
-                }
+            HStack(spacing: 6) {
+                Text("\(selectedDay + 1). gün").font(Theme.font(17, .bold))
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
             }
-            Text("\(trip.pace.maxStops(days: trip.days)) yer sığar · rotada \(trip.placeIDs.count) yer")
-                .font(Theme.caption)
-                .foregroundStyle(Theme.muted)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Theme.surface, in: Capsule())
         }
+        .menuOrder(.fixed)
+        .accessibilityHint(Text("Günü değiştir"))
     }
 
-    private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 34, height: 34)
-                .overlay(Circle().stroke(Theme.hairline))
+    private func row(_ place: Place) -> some View {
+        Button { focus(place) } label: {
+            HStack(spacing: 12) {
+                CategoryIcon(category: place.category, size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(place.name).font(Theme.font(15, .semibold)).lineLimit(1)
+                    Text(place.category.title).font(Theme.caption).foregroundStyle(place.category.color)
+                }
+                Spacer(minLength: 8)
+                if place.isEstimated { EstimatedTag() }
+            }
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            ForEach(0..<trip.days, id: \.self) { target in
+                if target != selectedDay {
+                    Button { store.move(place, toDay: target) } label: {
+                        Label("\(target + 1). güne taşı", systemImage: "arrow.right.circle")
+                    }
+                }
+            }
+            Divider()
+            Button(role: .destructive) { store.removeFromPlan(place) } label: {
+                Label("Rotadan çıkar", systemImage: "minus.circle")
+            }
+        }
     }
 
-    private var addMenu: some View {
-        Menu {
-            Button { sheet = .addPlace(city: city) } label: { Label("Yer ekle", systemImage: "magnifyingglass") }
-            Button { sheet = .addPlace(city: city) } label: {
-                Label("Kayıtlarından ekle", systemImage: "bookmark")
-            }
-            Button { sheet = .customPlace(city: city) } label: { Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse") }
-        } label: {
+    private var addButton: some View {
+        Button { sheet = .addPlace(city: city, day: selectedDay) } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(.white)
@@ -186,92 +255,71 @@ struct CityPlanView: View {
                 .background(Theme.ink, in: Circle())
                 .softShadow()
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Yer ekle"))
         .padding(20)
     }
 
-    // MARK: - Rota
+    // MARK: - Odak ve rota
 
-    private var routeKey: String {
-        guard plan.days.indices.contains(selectedDay) else { return "" }
-        return plan.days[selectedDay].map(\.id.uuidString).joined(separator: ",")
+    private func focus(_ place: Place) {
+        if let day = store.dayIndex(of: place) { selectedDay = day }
+        focusedID = place.id
     }
 
-    private func loadRoute() async {
-        guard plan.days.indices.contains(selectedDay) else { route = nil; return }
-        route = await WalkingRoutes.route(through: plan.days[selectedDay])
+    /// Penceredeki gün düğmesiyle taşınan yerin yeni gününe geçer.
+    private func followFocusedPlace() {
+        if let id = focusedID, let place = store.place(id), let day = store.dayIndex(of: place) {
+            selectedDay = day
+        } else if selectedDay >= trip.days {
+            selectedDay = max(trip.days - 1, 0)
+        }
     }
 
-    private func focusSelectedDay() {
-        let days = plan.days
-        let stops = days.indices.contains(selectedDay) && !days[selectedDay].isEmpty
-            ? days[selectedDay] : days.flatMap { $0 }
-        if let region = MKCoordinateRegion(fitting: stops.map(\.coordinate)) {
+    /// Bakılan yer varsa ona ve günün yanındaki yerlerine, yoksa seçili
+    /// güne (boşsa bütün rotaya) yaklaşır.
+    private func updateCamera() {
+        let stops = self.stops
+        if let id = focusedID, let place = store.place(id) {
+            withAnimation { position = .region(MKCoordinateRegion(focusing: place, among: stops)) }
+            return
+        }
+        let shown = stops.isEmpty ? days.flatMap { $0 } : stops
+        if let region = MKCoordinateRegion(fitting: shown.map(\.coordinate)) {
             withAnimation { position = .region(region) }
         }
     }
-}
 
-private struct DayCard: View {
-    let index: Int
-    let stops: [Place]
-    let isSelected: Bool
-    let route: WalkingRoutes.DayRoute?
-    let onSelect: () -> Void
-    let onOpen: (Place) -> Void
-    let onLighten: () -> Void
-    let onWalk: () -> Void
+    private var routeKey: String {
+        stops.map(\.id.uuidString).joined(separator: ",")
+    }
 
-    private var visitMinutes: Int { stops.map(\.category.averageMinutes).reduce(0, +) }
+    private func loadRoute() async {
+        let stops = self.stops
+        guard !stops.isEmpty else { route = nil; return }
+        route = await WalkingRoutes.route(through: stops)
+    }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                DayBadge(number: index + 1)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(index + 1). gün").font(Theme.headline)
-                    if let route {
-                        Text("\(stops.count) durak · \(Int((route.meters / 1000).rounded())) km yürüyüş · ~\((visitMinutes + route.minutes) / 60) sa")
-                            .font(Theme.caption).foregroundStyle(Theme.muted)
-                    } else {
-                        Text("\(stops.count) durak").font(Theme.caption).foregroundStyle(Theme.muted)
-                    }
-                }
-                Spacer()
-            }
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onSelect)
-
-            if stops.isEmpty {
-                Text("Bu gün boş. \"+\" ile yer ekleyebilirsin.")
-                    .font(Theme.caption).foregroundStyle(Theme.muted)
-            }
-            ForEach(stops) { place in
-                Button { onOpen(place) } label: {
-                    HStack(spacing: 12) {
-                        PlaceThumbnail(place: place, cornerRadius: 10).frame(width: 52, height: 52)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(place.name).font(Theme.font(15, .semibold))
-                            Text(place.category.title).font(Theme.caption).foregroundStyle(Theme.muted)
-                        }
-                        Spacer()
-                        if place.isEstimated { EstimatedTag() }
-                        Image(systemName: "chevron.right").foregroundStyle(Theme.hairline)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
-            if isSelected && !stops.isEmpty {
-                HStack {
-                    SecondaryButton(title: "Günü hafiflet", systemImage: "minus.circle", action: onLighten)
-                    Spacer()
-                    PrimaryButton(title: "Yürüyüşe başla", systemImage: "figure.walk", action: onWalk)
-                }
-            }
+    /// Yalnızca geliştirme sürümünde (ekran görüntüleri için): `-screen spot`
+    /// Meiji Tapınağı'na bakar; `moved` onu başka güne taşınmış gösterir;
+    /// `movedList` taşıdıktan sonra yeni gününün listesini ve "Geri al"
+    /// bildirimini gösterir.
+    private func openLaunchScreen() async {
+        #if DEBUG
+        guard !Self.openedLaunchScreen else { return }
+        Self.openedLaunchScreen = true
+        let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
+        let all = days.flatMap { $0 }
+        guard ["spot", "moved", "movedList"].contains(screen),
+              let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
+              let day = store.dayIndex(of: place) else { return }
+        if screen == "movedList" { try? await Task.sleep(for: .seconds(3)) }
+        if screen != "spot" {
+            let target = day == 0 ? 1 : day - 1
+            store.move(place, toDay: target)
+            selectedDay = target
         }
-        .padding(16)
-        .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
-            .stroke(isSelected ? Theme.ink : Theme.hairlineLight, lineWidth: isSelected ? 1.5 : 1))
+        if screen != "movedList" { focus(place) }
+        #endif
     }
 }

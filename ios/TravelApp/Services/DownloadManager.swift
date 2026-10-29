@@ -32,7 +32,7 @@ final class DownloadManager: ObservableObject {
 
     func download(city: String, store: AppStore) async {
         guard progress[city] == nil, !blockedByNetwork else { return }
-        let days = store.dayPlan(for: city).days
+        let days = store.dayPlan(for: city)
         let places = days.flatMap { $0 }
         let total = Double(places.count + days.count)
         var done = 0.0

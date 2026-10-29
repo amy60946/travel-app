@@ -1,21 +1,22 @@
 import MapKit
 import SwiftUI
 
-/// Haritadaki yer pini: beyaz hap içinde ikon + ad; aktifse siyah.
+/// Haritadaki yer pini: beyaz hap içinde türün renkli simgesi + ad;
+/// aktifse siyah.
 struct PlacePin: View {
     let place: Place
     var isActive = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: place.category.symbol)
-                .font(.system(size: 11, weight: .semibold))
+            CategoryIcon(category: place.category, size: 20)
             Text(place.name)
                 .font(Theme.font(12, .semibold))
                 .lineLimit(1)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.leading, 4)
+        .padding(.trailing, 10)
+        .padding(.vertical, 4)
         .foregroundStyle(isActive ? .white : Theme.ink)
         .background(isActive ? Theme.ink : .white, in: Capsule())
         .softShadow()
@@ -45,18 +46,28 @@ struct PrimaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(Theme.font(16, .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 13)
-            .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        Button(action: action) { PrimaryLabel(title: title, systemImage: systemImage) }
+            .buttonStyle(.plain)
+    }
+}
+
+/// Ana düğmenin görünümü (menü düğmelerinde de kullanılır).
+struct PrimaryLabel: View {
+    let title: LocalizedStringKey
+    var systemImage: String?
+    var showsChevron = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(title)
+            if showsChevron { Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)) }
         }
-        .buttonStyle(.plain)
+        .font(Theme.font(16, .semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 13)
+        .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
     }
 }
 
@@ -67,19 +78,69 @@ struct SecondaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(Theme.font(14, .semibold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
+        Button(action: action) { SecondaryLabel(title: title, systemImage: systemImage) }
+            .buttonStyle(.plain)
+    }
+}
+
+/// İkincil düğmenin görünümü (menü düğmelerinde de kullanılır).
+struct SecondaryLabel: View {
+    let title: LocalizedStringKey
+    var systemImage: String?
+    var showsChevron = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(title)
+            if showsChevron { Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)) }
         }
-        .buttonStyle(.plain)
+        .font(Theme.font(14, .semibold))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
+    }
+}
+
+/// Yerin rotadaki günü tek düğmede. Rotadaysa "2. gün ⌄": menüden başka
+/// güne taşınır ya da rotadan çıkarılır. Değilse "Rotaya ekle"; birden çok
+/// gün varsa hangi güne ekleneceği sorulur.
+struct PlanDayButton: View {
+    let place: Place
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        let days = store.trip(for: place.city).days
+        if let current = store.dayIndex(of: place) {
+            Menu {
+                Picker("Gün", selection: Binding(get: { current }, set: { store.move(place, toDay: $0) })) {
+                    ForEach(0..<days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
+                }
+                .pickerStyle(.inline)
+                Button(role: .destructive) { store.removeFromPlan(place) } label: {
+                    Label("Rotadan çıkar", systemImage: "minus.circle")
+                }
+            } label: {
+                SecondaryLabel(title: "\(current + 1). gün", systemImage: "calendar", showsChevron: true)
+            }
+            .menuOrder(.fixed)
+            .accessibilityHint(Text("Günü değiştir"))
+        } else if days > 1 {
+            Menu {
+                ForEach(0..<days, id: \.self) { day in
+                    Button("\(day + 1). güne ekle") { store.addToPlan([place.id], city: place.city, day: day) }
+                }
+            } label: {
+                PrimaryLabel(title: "Rotaya ekle", systemImage: "plus")
+            }
+            .menuOrder(.fixed)
+        } else {
+            PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
+                store.addToPlan([place.id], city: place.city)
+            }
+        }
     }
 }
 
@@ -178,6 +239,44 @@ struct EstimatedTag: View {
     }
 }
 
+/// "Dinle" kartı: yerin Wikipedia yazısını iPhone sesiyle okur;
+/// okurken dokununca duraklatır / sürdürür.
+struct ListenCard: View {
+    let title: String
+    let summary: WikipediaService.Summary?
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        let isPlaying = narrator.currentTitle == title
+        HStack(spacing: 14) {
+            Image(systemName: isPlaying && !narrator.isPaused ? "pause.fill" : "play.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(Theme.ink, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dinle").font(Theme.headline)
+                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isPlaying {
+                narrator.togglePause()
+            } else if let summary {
+                narrator.speak(summary.extract, title: title, language: summary.language)
+            }
+        }
+        .opacity(summary == nil ? 0.5 : 1)
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
 /// Alttan çıkan "Geri al" bildirimi.
 struct UndoToast: View {
     @EnvironmentObject private var store: AppStore
@@ -221,11 +320,24 @@ enum MapKind: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Rota haritası: yalnızca bizim pinlerimiz görünür.
     var style: MapStyle {
         switch self {
         case .standard: .standard(elevation: .realistic, pointsOfInterest: .excludingAll)
         case .satellite: .imagery(elevation: .realistic)
         case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: .excludingAll)
+        }
+    }
+
+    /// Keşfet haritası: zemin soluk, bizim renkli pinler öne çıksın.
+    /// Sokak düzeyine inince Google Maps gibi Apple'ın yerleri de (müze,
+    /// kafe, istasyon) görünür ve dokunulabilir.
+    func exploreStyle(showingApplePlaces: Bool) -> MapStyle {
+        let places: PointOfInterestCategories = showingApplePlaces ? .all : .excludingAll
+        return switch self {
+        case .standard: .standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: places)
+        case .satellite: .imagery(elevation: .realistic)
+        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: places)
         }
     }
 }
@@ -240,5 +352,16 @@ extension MKCoordinateRegion {
         let span = MKCoordinateSpan(latitudeDelta: max((lats.max()! - lats.min()!) * padding, 0.01),
                                     longitudeDelta: max((lons.max()! - lons.min()!) * padding, 0.01))
         self.init(center: center, span: span)
+    }
+
+    /// Bir yere yakınlaşır; en yakın iki komşusu da görünsün diye pay
+    /// bırakır (yer ortada, en az 800 m, en çok 5 km).
+    init(focusing place: Place, among others: [Place]) {
+        let distances = others.filter { $0.id != place.id }
+            .map { $0.location.distance(from: place.location) }
+            .sorted()
+        let neighbor = distances.count >= 2 ? distances[1] : distances.first ?? 400
+        let meters = min(max(neighbor * 2.4, 800), 5_000)
+        self.init(center: place.coordinate, latitudinalMeters: meters, longitudinalMeters: meters)
     }
 }

@@ -2,11 +2,10 @@ import MapKit
 import SwiftUI
 
 /// Yer sayfası: fotoğraf, ad, tür; Dinle kartı; açıklama ve kaynağı;
-/// alt çubukta "Rotaya ekle" ya da "Rotada · Çıkar".
+/// alt çubukta gün düğmesi ("Rotaya ekle" ya da "2. gün ⌄").
 struct PlaceDetailView: View {
     let placeID: UUID
     @EnvironmentObject private var store: AppStore
-    @ObservedObject private var narrator = Narrator.shared
     @Environment(\.dismiss) private var dismiss
     @State private var summary: WikipediaService.Summary?
     @State private var isLoading = true
@@ -34,9 +33,11 @@ struct PlaceDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(place.name).font(Theme.title)
-                        Text("\(place.category.title) · \(place.city)")
-                            .font(Theme.body)
-                            .foregroundStyle(Theme.muted)
+                        HStack(spacing: 6) {
+                            categoryMenu(place)
+                            Text(verbatim: "· \(place.city)").foregroundStyle(Theme.muted)
+                        }
+                        .font(Theme.body)
                         HStack {
                             if let note = place.source.savedNote {
                                 Label(note, systemImage: "bookmark.fill")
@@ -57,7 +58,7 @@ struct PlaceDetailView: View {
                             .foregroundStyle(Theme.muted)
                     }
 
-                    listenCard(place)
+                    ListenCard(title: place.name, summary: summary)
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
@@ -110,53 +111,33 @@ struct PlaceDetailView: View {
         }
     }
 
-    private func listenCard(_ place: Place) -> some View {
-        let isPlaying = narrator.currentTitle == place.name
-        return HStack(spacing: 14) {
-            Image(systemName: isPlaying && !narrator.isPaused ? "pause.fill" : "play.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(Theme.ink, in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Dinle").font(Theme.headline)
-                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.muted)
+    /// Tür (haritadaki pinin rengi ve simgesi); yanlış tahmin edildiyse
+    /// buradan değiştirilir.
+    private func categoryMenu(_ place: Place) -> some View {
+        Menu {
+            Picker("Tür", selection: Binding(get: { place.category }, set: { category in
+                var updated = place
+                updated.category = category
+                store.update(updated)
+            })) {
+                ForEach(PlaceCategory.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
             }
-            Spacer()
-        }
-        .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isPlaying {
-                narrator.togglePause()
-            } else if let summary {
-                narrator.speak(summary.extract, title: place.name, language: summary.language)
+        } label: {
+            HStack(spacing: 6) {
+                CategoryIcon(category: place.category, size: 22)
+                Text(place.category.title)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
             }
+            .foregroundStyle(Theme.ink)
         }
-        .opacity(summary == nil ? 0.5 : 1)
+        .accessibilityHint(Text("Türü değiştir"))
     }
 
     private func bottomBar(_ place: Place) -> some View {
         HStack {
-            if store.isPlanned(place) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Rotada").font(Theme.headline)
-                    if let day = store.dayIndex(of: place) {
-                        Text("\(day + 1). gün").font(Theme.caption).foregroundStyle(Theme.muted)
-                    }
-                }
-                Spacer()
-                SecondaryButton(title: "Çıkar", systemImage: "minus") { store.removeFromPlan(place) }
-            } else {
-                Text(place.city).font(Theme.headline)
-                Spacer()
-                PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
-                    store.addToPlan([place.id], city: place.city)
-                }
-            }
+            Text(place.city).font(Theme.headline)
+            Spacer()
+            PlanDayButton(place: place)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

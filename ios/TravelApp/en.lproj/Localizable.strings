@@ -14,7 +14,6 @@
 "Rotaya ekle (%lld)" = "Add to route (%lld)";
 "Tahmini" = "Estimated";
 "Geri al" = "Undo";
-"Rotaya eklendi" = "Added to route";
 "%@ rotadan çıkarıldı" = "%@ removed from route";
 "%@ eklendi" = "%@ added";
 
@@ -39,7 +38,6 @@
 /* Şehir planı */
 "%lld gün" = "%lld days";
 "%lld. gün" = "Day %lld";
-"Tempo" = "Pace";
 "Rahat" = "Relaxed";
 "Normal" = "Normal";
 "Tempolu" = "Brisk";
@@ -48,17 +46,22 @@
 "Standart" = "Standard";
 "Uydu" = "Satellite";
 "Karma" = "Hybrid";
-"%lld yer sığar · rotada %lld yer" = "Fits %lld places · %lld on route";
-"%lld yer sığmadı. Gün ekle ya da tempoyu artır." = "%lld places didn't fit. Add a day or pick a faster pace.";
-"Harita ve yol tarifi: Apple Haritalar" = "Maps and directions: Apple Maps";
 "Yer ekle" = "Add place";
-"Kayıtlarından ekle" = "Add from saves";
 "Kendi yerini oluştur" = "Create your own place";
 "%lld durak" = "%lld stops";
-"%lld durak · %lld km yürüyüş · ~%lld sa" = "%lld stops · %lld km walk · ~%lld h";
-"Bu gün boş. \"+\" ile yer ekleyebilirsin." = "This day is empty. Use \"+\" to add places.";
-"Günü hafiflet" = "Lighten day";
-"Yürüyüşe başla" = "Start walk";
+"%lld durak · %lld km" = "%1$lld stops · %2$lld km";
+"%lld. gün · %lld yer" = "Day %1$lld · %2$lld places";
+"Bu gün boş. Sağ alttaki + ile yer ekle." = "This day is empty. Add a place with + at the bottom right.";
+"Günü değiştir" = "Change the day";
+"Son günü sil" = "Remove last day";
+"%lld. gün silindi" = "Day %lld removed";
+"%lld. güne ekle" = "Add to day %lld";
+"%lld. güne eklendi" = "Added to day %lld";
+"Eklenecek günü değiştir" = "Change the day to add to";
+"%lld. güne taşı" = "Move to day %lld";
+"%@ %lld. güne taşındı" = "%1$@ moved to day %2$lld";
+"Rotadan çıkar" = "Remove from route";
+"Gün ekle" = "Add a day";
 
 /* Yer sayfası */
 "Bu yer artık kayıtlı değil." = "This place is no longer saved.";
@@ -70,7 +73,6 @@
 "Dinle" = "Listen";
 "Anlatım hazırlanıyor" = "Preparing narration";
 "Rehber anlatımı · iPhone sesi" = "Guide narration · iPhone voice";
-"Çıkar" = "Remove";
 
 /* Yer ekle */
 "Arama sonuçları" = "Search results";
@@ -90,7 +92,6 @@
 "Not" = "Note";
 "İsteğe bağlı" = "Optional";
 "Gün" = "Day";
-"Otomatik (en yakın gün)" = "Automatic (nearest day)";
 "Vazgeç" = "Cancel";
 "Kaydet" = "Save";
 
@@ -192,7 +193,6 @@
 "Yazıda yer bulunamadı." = "No places found in the text.";
 "Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";
 /* Ana sayfa */
-"Gezim" = "My travels";
 "Yer ara" = "Search places";
 "Henüz gezi yok. Kayıtlarım'dan bir şehir seç, rota oluştur." = "No trips yet. Pick a city from My saves and create a route.";
 "Henüz kayıt yok. + ile yer ekle ya da veri aktar." = "Nothing saved yet. Add a place with + or import your data.";
@@ -226,3 +226,29 @@
 "boş cevap" = "empty reply";
 "Yapay zekâyla yeniden ara" = "Search again with AI";
 "Aranıyor…" = "Searching…";
+
+/* Harita (Google Maps gibi) ve Yer ekle (Polarsteps gibi) */
+"Bar" = "Bar";
+"Konaklama" = "Stay";
+"Yer ara ve ekle" = "Search and add places";
+"Konumum" = "My location";
+"Konum izni kapalı" = "Location access is off";
+"Ayarları aç" = "Open Settings";
+"Konumunu haritada görmek için Ayarlar'da Location → While Using the App seç." = "To see yourself on the map, choose Location → While Using the App in Settings.";
+"Yükleniyor…" = "Loading…";
+"Kaydediliyor…" = "Saving…";
+"Ayrıntılar" = "Details";
+"Yol tarifi" = "Directions";
+"Rotayı aç" = "Open route";
+"Gezilerim ve kayıtlarım" = "My trips and saves";
+"Paneli küçült" = "Collapse panel";
+"Kapat" = "Close";
+"Temizle" = "Clear";
+"Sonuç bulunamadı." = "No results.";
+"Kayıtlı yerler" = "Saved places";
+"Tümünü göster" = "Show all";
+"Arama: Apple Haritalar · Popüler yerler: Wikipedia" = "Search: Apple Maps · Popular places: Wikipedia";
+"Türü değiştir" = "Change type";
+"Fotoğraflar: yakında çekilenler, Wikimedia Commons" = "Photos: taken nearby, Wikimedia Commons";
+"Fotoğraflar: Wikipedia / Wikimedia Commons" = "Photos: Wikipedia / Wikimedia Commons";
+"Bu yer hakkında Wikipedia'da yazı bulunamadı." = "No Wikipedia article found for this place.";

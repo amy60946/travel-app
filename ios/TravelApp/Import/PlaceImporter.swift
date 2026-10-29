@@ -28,10 +28,13 @@ final class PlaceImporter: ObservableObject {
             progress = (index, items.count)
             var coordinate: CLLocationCoordinate2D?
             var estimated = false
+            // Tür addan tahmin edilir; Apple Haritalar'da bulunduysa onun türü.
+            var category = PlaceCategory.guess(name: item.name) ?? .sight
             if let lat = item.latitude, let lon = item.longitude {
                 coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             } else if let found = await search(item) {
-                coordinate = found
+                coordinate = found.placemark.coordinate
+                category = PlaceCategory(apple: found.pointOfInterestCategory, name: item.name)
                 estimated = true
             }
             guard let coordinate else {
@@ -49,7 +52,7 @@ final class PlaceImporter: ObservableObject {
             result.added.append(Place(
                 name: item.name, city: city ?? String(localized: "Diğer"),
                 latitude: coordinate.latitude, longitude: coordinate.longitude,
-                category: .sight, source: item.source, isEstimated: estimated, note: item.note,
+                category: category, source: item.source, isEstimated: estimated, note: item.note,
                 sourceURL: item.url))
         }
         return result
@@ -57,7 +60,7 @@ final class PlaceImporter: ObservableObject {
 
     /// Önce "ad, adres/şehir" aranır; bulunamazsa (ör. adres yerine bir
     /// koleksiyon adı geldiyse) yalnızca ad.
-    private func search(_ item: TakeoutParser.Item) async -> CLLocationCoordinate2D? {
+    private func search(_ item: TakeoutParser.Item) async -> MKMapItem? {
         if let address = item.address, !address.isEmpty,
            let found = await search(query: "\(item.name), \(address)") {
             return found
@@ -67,13 +70,13 @@ final class PlaceImporter: ObservableObject {
 
     /// Apple Haritalar dakikada belli sayıda aramaya izin verir; sınıra
     /// takılınca biraz bekleyip yeniden dener.
-    private func search(query: String) async -> CLLocationCoordinate2D? {
+    private func search(query: String) async -> MKMapItem? {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = .pointOfInterest
         for attempt in 1...3 {
             do {
-                return try await MKLocalSearch(request: request).start().mapItems.first?.placemark.coordinate
+                return try await MKLocalSearch(request: request).start().mapItems.first
             } catch let error as MKError where error.code == .loadingThrottled && attempt < 3 {
                 try? await Task.sleep(for: .seconds(Double(attempt) * 15))
             } catch {

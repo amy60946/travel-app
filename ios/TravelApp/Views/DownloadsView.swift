@@ -50,12 +50,12 @@ struct DownloadsView: View {
     }
 
     private func row(_ city: AppStore.CitySummary) -> some View {
-        let plan = store.dayPlan(for: city.name)
-        let stopCount = plan.days.reduce(0) { $0 + $1.count }
+        let days = store.dayPlan(for: city.name)
+        let stopCount = days.reduce(0) { $0 + $1.count }
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(city.name).font(Theme.headline)
-                Text("\(plan.days.count) gün · \(stopCount) anlatım")
+                Text("\(days.count) gün · \(stopCount) anlatım")
                     .font(Theme.caption)
                     .foregroundStyle(Theme.muted)
                 if let date = downloads.downloadedAt(city.name) {

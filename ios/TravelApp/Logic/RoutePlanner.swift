@@ -2,7 +2,7 @@ import Foundation
 
 /// Yerleri günlere böler ve her günü yürüme sırasına dizer.
 ///
-/// 1. Kapasiteyi aşan yerler (gün × tempo) en sondan bırakılır.
+/// 1. Kapasiteyi aşan yerler (gün × günlük sınır) en sondan bırakılır.
 /// 2. Yakın yerler aynı güne düşsün diye k-ortalama ile gruplanır.
 /// 3. Dolu günlerden taşan yerler en yakın boş güne aktarılır.
 /// 4. Günler ve gün içindeki duraklar en-yakın-komşu sırasıyla dizilir.

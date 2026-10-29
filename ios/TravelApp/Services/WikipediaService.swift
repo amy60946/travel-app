@@ -27,8 +27,9 @@ actor WikipediaService {
         Locale.current.language.languageCode?.identifier == "tr" ? "tr" : "en"
     }
 
-    /// Bir kez okunan özet telefonda saklanır; internetsiz de açılır.
+    /// Bir kez okunan özet ve fotoğraf listesi telefonda saklanır; internetsiz de açılır.
     private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
+    private let photoLists = DiskCache<[URL]>(name: "wikipedia-photos")
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = ["User-Agent": "TravelApp/0.1 (https://github.com/amy60946/travel-app)"]
@@ -92,6 +93,137 @@ actor WikipediaService {
             .map { $0 }
     }
 
+    /// Sayfadaki fotoğraflar (yana kaydırılan galeri için), en çok 10.
+    func photos(englishTitle: String) async -> [URL] {
+        if let cached = photoLists[englishTitle] { return cached }
+        struct Response: Decodable {
+            struct Item: Decodable {
+                struct Source: Decodable { var src: String }
+                var title: String?
+                var type: String
+                var showInGallery: Bool?
+                var srcset: [Source]?
+            }
+            var items: [Item]
+        }
+        guard let url = Self.restURL(language: "en", endpoint: "media-list", title: englishTitle),
+              let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let items = try? JSONDecoder().decode(Response.self, from: data).items
+        else { return [] }
+        let photos = items
+            .filter { $0.type == "image" && $0.showInGallery != false }
+            .filter { !($0.title ?? "").lowercased().hasSuffix(".svg") }
+            .compactMap { $0.srcset?.first?.src }
+            .compactMap { URL(string: $0.hasPrefix("//") ? "https:" + $0 : $0) }
+        let result = Array(photos.prefix(10))
+        if !result.isEmpty { photoLists[englishTitle] = result }
+        return result
+    }
+
+    /// Wikipedia sayfası olmayan yerler (kafe, restoran...) için yakında
+    /// çekilmiş fotoğraflar (Wikimedia Commons, 150 m içinde).
+    func nearbyPhotos(latitude: Double, longitude: Double) async -> [URL] {
+        var components = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "generator", value: "geosearch"),
+            .init(name: "ggsnamespace", value: "6"),
+            .init(name: "ggscoord", value: "\(latitude)|\(longitude)"),
+            .init(name: "ggsradius", value: "150"),
+            .init(name: "ggslimit", value: "10"),
+            .init(name: "prop", value: "imageinfo"),
+            .init(name: "iiprop", value: "url|mime"),
+            .init(name: "iiurlwidth", value: "640"),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable { var pages: [Page] }
+            struct Page: Decodable {
+                struct Info: Decodable { var thumburl: URL?; var mime: String? }
+                var imageinfo: [Info]?
+            }
+            var query: Query?
+        }
+        guard let (data, _) = try? await session.data(from: components.url!),
+              let pages = try? JSONDecoder().decode(Response.self, from: data).query?.pages
+        else { return [] }
+        return pages
+            .compactMap(\.imageinfo?.first)
+            .filter { $0.mime == "image/jpeg" || $0.mime == "image/png" }
+            .compactMap(\.thumburl)
+    }
+
+    /// Kayıtlı yerin İngilizce Wikipedia sayfası: 300 m içindeki sayfalardan
+    /// adı yerin adıyla örtüşen ("Meiji Tapınağı" → "Meiji Shrine").
+    /// Emin olunamazsa nil (yanlış yazı göstermektense hiç göstermemek).
+    func findArticle(name: String, city: String, latitude: Double, longitude: Double) async -> String? {
+        var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "list", value: "geosearch"),
+            .init(name: "gscoord", value: "\(latitude)|\(longitude)"),
+            .init(name: "gsradius", value: "300"),
+            .init(name: "gslimit", value: "20"),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable { var geosearch: [Page] }
+            struct Page: Decodable { var title: String }
+            var query: Query?
+        }
+        guard let (data, _) = try? await session.data(from: components.url!),
+              let pages = try? JSONDecoder().decode(Response.self, from: data).query?.geosearch
+        else { return nil }
+        // Önce adı aynı ya da içeren sayfa, yoksa ortak kelimesi olan.
+        let titles = pages.map(\.title)
+        return titles.first { Self.matchesStrongly(title: $0, name: name) }
+            ?? titles.first { Self.matches(title: $0, name: name, city: city) }
+    }
+
+    /// Sayfa başlığı yerin adıyla örtüşüyor mu: biri ötekini içeriyor ya da
+    /// genel olmayan (tapınak, park, şehir adı dışında) bir kelime ortak ve
+    /// türleri çelişmiyor ("Ueno Station" ile "Ueno Parkı" eşleşmez).
+    static func matches(title: String, name: String, city: String) -> Bool {
+        if matchesStrongly(title: title, name: name) { return true }
+        let a = words(fold(title)), b = words(fold(name))
+        let cityWord = fold(city)
+        let kindsA = Set(a.compactMap { kinds[$0] }), kindsB = Set(b.compactMap { kinds[$0] })
+        if !kindsA.isEmpty && !kindsB.isEmpty && kindsA.isDisjoint(with: kindsB) { return false }
+        let significant = { (words: Set<String>) in
+            words.filter { $0.count >= 4 && $0 != cityWord && kinds[$0] == nil && !["the", "national", "art"].contains($0) }
+        }
+        return !significant(a).isDisjoint(with: significant(b))
+    }
+
+    static func matchesStrongly(title: String, name: String) -> Bool {
+        let a = fold(title), b = fold(name)
+        return a == b || (b.count >= 4 && a.contains(b)) || (a.count >= 4 && b.contains(a))
+    }
+
+    /// Yer türü bildiren kelimeler (İngilizce ve Türkçe) ve türleri.
+    private static let kinds: [String: String] = [
+        "temple": "temple", "shrine": "temple", "tapinagi": "temple", "tapinak": "temple", "mosque": "temple",
+        "camii": "temple", "church": "temple", "kilisesi": "temple",
+        "park": "park", "parki": "park", "garden": "park", "gardens": "park", "bahcesi": "park",
+        "tower": "tower", "kulesi": "tower", "museum": "museum", "muzesi": "museum",
+        "palace": "palace", "sarayi": "palace", "station": "station", "istasyonu": "station",
+        "market": "market", "bazaar": "market", "carsisi": "market", "bridge": "bridge", "koprusu": "bridge",
+        "castle": "castle", "hotel": "hotel", "cafe": "cafe", "restaurant": "restaurant", "street": "street",
+    ]
+
+    private static func words(_ text: String) -> Set<String> {
+        Set(text.split { !$0.isLetter && !$0.isNumber }.map(String.init))
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .lowercased()
+            .replacingOccurrences(of: "ı", with: "i")
+    }
+
     /// Gezilecek yer gibi görünmeyen sayfalar (üniversite, istasyon, bakanlık…)
     /// popüler listesine alınmaz.
     static func isSight(_ title: String) -> Bool {
@@ -118,18 +250,22 @@ actor WikipediaService {
             var thumbnail: Thumbnail?
             var content_urls: ContentURLs?
         }
-        // Yalnızca ASCII harfler açık kalır; "ō" gibi harfler kodlanır.
-        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.()")
-        guard let path = title.replacingOccurrences(of: " ", with: "_")
-            .addingPercentEncoding(withAllowedCharacters: allowed),
-              let url = URL(string: "https://\(language).wikipedia.org/api/rest_v1/page/summary/\(path)")
-        else { return nil }
+        guard let url = Self.restURL(language: language, endpoint: "summary", title: title) else { return nil }
         let (data, response) = try await session.data(from: url)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         let decoded = try JSONDecoder().decode(Response.self, from: data)
         guard decoded.type != "disambiguation", let extract = decoded.extract, !extract.isEmpty else { return nil }
         return Summary(title: decoded.title, extract: extract, pageURL: decoded.content_urls?.mobile?.page,
                        thumbnailURL: decoded.thumbnail?.source, language: language)
+    }
+
+    /// Wikipedia REST adresi (ör. page/summary/Sensō-ji).
+    private static func restURL(language: String, endpoint: String, title: String) -> URL? {
+        // Yalnızca ASCII harfler açık kalır; "ō" gibi harfler kodlanır.
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.()")
+        guard let path = title.replacingOccurrences(of: " ", with: "_")
+            .addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
+        return URL(string: "https://\(language).wikipedia.org/api/rest_v1/page/\(endpoint)/\(path)")
     }
 
     /// İngilizce sayfanın başka dildeki karşılığının başlığı.

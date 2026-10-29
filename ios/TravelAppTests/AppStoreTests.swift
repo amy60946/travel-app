@@ -31,14 +31,80 @@ final class AppStoreTests: XCTestCase {
         XCTAssertNil(store.undoMessage)
     }
 
-    func testFewerDaysLeavesPlacesOut() {
+    func testSampleTripKeepsEveryPlaceInADay() {
         let store = makeStore()
-        store.setPace(.relaxed, city: "Tokyo")
+        let planned = store.trip(for: "Tokyo").placeIDs.count
+        let days = store.dayPlan(for: "Tokyo")
+        XCTAssertEqual(days.count, 3)
+        XCTAssertEqual(days.reduce(0) { $0 + $1.count }, planned)
+        XCTAssertTrue(days.allSatisfy { !$0.isEmpty }, "\(days.map(\.count))")
+
+        // Tek günde de hiçbir yer dışarıda kalmaz.
         store.setDays(1, city: "Tokyo")
-        let plan = store.dayPlan(for: "Tokyo")
-        XCTAssertEqual(plan.days.count, 1)
-        XCTAssertLessThanOrEqual(plan.days[0].count, Pace.relaxed.stopsPerDay.upperBound)
-        XCTAssertFalse(plan.leftOver.isEmpty)
+        XCTAssertEqual(store.dayPlan(for: "Tokyo").first?.count, planned)
+    }
+
+    func testMoveToAnotherDay() throws {
+        let store = makeStore()
+        let before = store.dayPlan(for: "Tokyo")
+        let place = try XCTUnwrap(before[0].first)
+
+        store.move(place, toDay: 2)
+        let after = store.dayPlan(for: "Tokyo")
+        XCTAssertEqual(store.dayIndex(of: place), 2)
+        XCTAssertEqual(after.reduce(0) { $0 + $1.count }, before.reduce(0) { $0 + $1.count })
+        // Diğer yerler günlerinde kalır.
+        for (index, stops) in before.enumerated() {
+            for stop in stops where stop.id != place.id {
+                XCTAssertEqual(store.dayIndex(of: stop), index, stop.name)
+            }
+        }
+        XCTAssertNotNil(store.undoMessage)
+
+        store.undo()
+        XCTAssertEqual(store.dayIndex(of: place), 0)
+    }
+
+    func testUserChoosesTheDay() throws {
+        let store = makeStore()
+        let first = try XCTUnwrap(store.dayPlan(for: "Tokyo")[0].first)
+        store.move(first, toDay: 1)
+
+        // Gün seçilmezse 1. güne; seçilirse o güne eklenir (en yakın güne değil).
+        let near = try XCTUnwrap(store.dayPlan(for: "Tokyo")[2].first)
+        let cafe = Place(name: "Yakın kafe", city: "Tokyo", latitude: near.latitude + 0.0004,
+                         longitude: near.longitude, category: .cafe, source: .manual)
+        store.add(cafe, plan: true)
+        XCTAssertEqual(store.dayIndex(of: cafe), 0)
+        let bar = Place(name: "Bar", city: "Tokyo", latitude: 35.66, longitude: 139.70, category: .bar, source: .manual)
+        store.add(bar, plan: true, day: 2)
+        XCTAssertEqual(store.dayIndex(of: bar), 2)
+        store.removeFromPlan(cafe)
+        store.addToPlan([cafe.id], city: "Tokyo", day: 1)
+        XCTAssertEqual(store.dayIndex(of: cafe), 1)
+        XCTAssertEqual(store.dayIndex(of: first), 1)
+
+        // Son gün silinince yerleri yeni son güne geçer; geri eklenen gün boştur.
+        let planned = store.trip(for: "Tokyo").placeIDs.count
+        store.setDays(2, city: "Tokyo")
+        XCTAssertNotNil(store.undoMessage)
+        XCTAssertEqual(store.dayIndex(of: bar), 1)
+        XCTAssertEqual(store.dayPlan(for: "Tokyo").reduce(0) { $0 + $1.count }, planned)
+        store.setDays(3, city: "Tokyo")
+        XCTAssertEqual(store.dayPlan(for: "Tokyo")[2].count, 0)
+        XCTAssertEqual(store.dayIndex(of: first), 1)
+    }
+
+    func testMovedDayPersists() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("state.json")
+        let first = AppStore(fileURL: url)
+        let place = try XCTUnwrap(first.dayPlan(for: "Tokyo")[0].first)
+        first.move(place, toDay: 1)
+
+        let second = AppStore(fileURL: url)
+        XCTAssertEqual(second.dayIndex(of: place), 1)
     }
 
     func testStatePersists() throws {

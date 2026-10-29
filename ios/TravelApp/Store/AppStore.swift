@@ -74,63 +74,102 @@ final class AppStore: ObservableObject {
 
     func trip(for city: String) -> Trip {
         trips.first { $0.city == city }
-            ?? Trip(city: city, days: 2, pace: .normal, placeIDs: [])
+            ?? Trip(city: city, days: 2, pace: .normal, placeIDs: [], dayOf: [:])
     }
 
     func isPlanned(_ place: Place) -> Bool {
         trip(for: place.city).placeIDs.contains(place.id)
     }
 
-    /// Şehrin günleri, yürüme sırasıyla.
-    func dayPlan(for city: String) -> (days: [[Place]], leftOver: [Place]) {
+    /// Şehrin günleri, yürüme sırasıyla. Her yerin gününü kullanıcı seçer
+    /// (`Trip.dayOf`); gün içindeki sıra yürüme yoluna göre kendiliğinden.
+    func dayPlan(for city: String) -> [[Place]] {
         let trip = self.trip(for: city)
-        let points = trip.placeIDs.compactMap(place).map {
-            RoutePlanner.Point(id: $0.id, latitude: $0.latitude, longitude: $0.longitude)
+        guard trip.days > 0 else { return [] }
+        var days = Array(repeating: [Place](), count: trip.days)
+        for place in trip.placeIDs.compactMap(place) {
+            days[Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)].append(place)
         }
-        let plan = RoutePlanner.plan(points, days: trip.days, maxPerDay: trip.pace.stopsPerDay.upperBound)
-        return (plan.days.map { $0.compactMap(place) }, plan.leftOver.compactMap(place))
+        return days.map { stops in
+            let order = RoutePlanner.nearestNeighborOrder(stops.map(\.point))
+            return order.compactMap { point in stops.first { $0.id == point.id } }
+        }
     }
 
     func dayIndex(of place: Place) -> Int? {
-        dayPlan(for: place.city).days.firstIndex { $0.contains { $0.id == place.id } }
+        let trip = self.trip(for: place.city)
+        guard trip.placeIDs.contains(place.id) else { return nil }
+        return Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)
     }
 
+    /// Gün sayısını değiştirir; silinen günlerin yerleri son güne geçer.
     func setDays(_ days: Int, city: String) {
-        updateTrip(city) { $0.days = min(max(days, 1), 14) }
+        let days = min(max(days, 1), 14)
+        let current = trip(for: city).days
+        let message = days < current ? String(localized: "\(current). gün silindi") : nil
+        updateTrip(city, undo: message) { trip in
+            trip.days = days
+            trip.dayOf = (trip.dayOf ?? [:]).mapValues { Self.clamp($0, days: days) }
+        }
     }
 
-    func setPace(_ pace: Pace, city: String) {
-        updateTrip(city) { $0.pace = pace }
+    /// Yeri kullanıcının seçtiği güne taşır.
+    func move(_ place: Place, toDay day: Int) {
+        let trip = self.trip(for: place.city)
+        guard (0..<trip.days).contains(day), let current = dayIndex(of: place), current != day else { return }
+        updateTrip(place.city, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) {
+            $0.dayOf = ($0.dayOf ?? [:]).merging([place.id: day]) { $1 }
+        }
     }
 
-    func addToPlan(_ ids: [UUID], city: String) {
-        updateTrip(city, undo: String(localized: "Rotaya eklendi")) { trip in
-            for id in ids where !trip.placeIDs.contains(id) { trip.placeIDs.append(id) }
+    /// Yerleri rotaya, seçilen güne ekler.
+    func addToPlan(_ ids: [UUID], city: String, day: Int = 0) {
+        let day = Self.clamp(day, days: trip(for: city).days)
+        updateTrip(city, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
+            for id in ids where !trip.placeIDs.contains(id) {
+                trip.placeIDs.append(id)
+                trip.dayOf = (trip.dayOf ?? [:]).merging([id: day]) { $1 }
+            }
         }
     }
 
     func removeFromPlan(_ place: Place) {
         updateTrip(place.city, undo: String(localized: "\(place.name) rotadan çıkarıldı")) {
             $0.placeIDs.removeAll { $0 == place.id }
+            $0.dayOf?[place.id] = nil
         }
     }
 
-    /// Günün son durağını rotadan çıkarır.
-    func lightenDay(_ index: Int, city: String) {
-        let days = dayPlan(for: city).days
-        guard days.indices.contains(index), let last = days[index].last else { return }
-        removeFromPlan(last)
+    private static func clamp(_ day: Int, days: Int) -> Int {
+        min(max(day, 0), max(days - 1, 0))
+    }
+
+    /// Bu sürümden önceki gezilerde gün bilgisi yok: o zamanki otomatik
+    /// bölme bir kez yapılıp kaydedilir, böylece hiçbir yer yer değiştirmez.
+    private func withDays(_ trip: Trip) -> Trip {
+        guard trip.dayOf == nil, trip.days > 0 else { return trip }
+        var trip = trip
+        let planned = trip.placeIDs.compactMap(place)
+        let perDay = Int((Double(planned.count) / Double(trip.days)).rounded(.up))
+        let plan = RoutePlanner.plan(planned.map(\.point), days: trip.days, maxPerDay: max(perDay, 1))
+        var dayOf: [UUID: Int] = [:]
+        for (index, ids) in plan.days.enumerated() {
+            for id in ids { dayOf[id] = index }
+        }
+        trip.dayOf = dayOf
+        return trip
     }
 
     // MARK: - Yerler
 
-    /// Yeni yeri kaydeder; `plan` doğruysa rotaya da ekler.
-    func add(_ place: Place, plan: Bool) {
+    /// Yeni yeri kaydeder; `plan` doğruysa rotaya, seçilen güne de ekler.
+    func add(_ place: Place, plan: Bool, day: Int = 0) {
         snapshot(String(localized: "\(place.name) eklendi"))
         places.append(place)
         if plan {
             var trip = self.trip(for: place.city)
             trip.placeIDs.append(place.id)
+            trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: Self.clamp(day, days: trip.days)]) { $1 }
             replace(trip)
         }
         save()
@@ -142,6 +181,49 @@ final class AppStore: ObservableObject {
         places[index] = place
         save()
     }
+
+    /// Aynı adla 200 m içinde kayıtlı yer (haritadan eklerken iki kez
+    /// kaydedilmesin).
+    func savedPlace(named name: String, near coordinate: CLLocationCoordinate2D) -> Place? {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return places.first {
+            $0.name.caseInsensitiveCompare(name) == .orderedSame && $0.location.distance(from: location) < 200
+        }
+    }
+
+    /// Türü bilinmeyen ("Görülecek yer") aktarılmış yerlerin türünü bulur:
+    /// önce addan, olmazsa Apple Haritalar'da aynı adla yakında arayarak.
+    /// Haritadaki pinler böylece müze, kafe, tapınak diye ayrılır. Her yer
+    /// bir kez denenir; Apple'ın dakikalık sınırına takılmamak için
+    /// aramalar arasında beklenir.
+    func refineCategories() async {
+        let defaults = UserDefaults.standard
+        var checked = Set(defaults.stringArray(forKey: Self.categoryCheckedKey) ?? [])
+        let imported: Set<PlaceSource> = [.instagram, .tiktok, .googleMaps, .text]
+        let candidates = places.filter {
+            $0.category == .sight && imported.contains($0.source) && !checked.contains($0.id.uuidString)
+        }
+        for place in candidates {
+            var category = PlaceCategory.guess(name: place.name)
+            if category == nil {
+                if Task.isCancelled { return }
+                switch await PlaceSearch.category(of: place.name, near: place.coordinate) {
+                case .throttled: return
+                case .found(let found): category = found
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
+            checked.insert(place.id.uuidString)
+            defaults.set(Array(checked), forKey: Self.categoryCheckedKey)
+            // "Diğer" (istasyon, otopark...) büyük ihtimalle yanındaki yerdir; alınmaz.
+            if let category, ![.sight, .other].contains(category), var current = self.place(place.id), current.category == .sight {
+                current.category = category
+                update(current)
+            }
+        }
+    }
+
+    private static let categoryCheckedKey = "categoryChecked"
 
     /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
     /// Yeri böylece bulunan gönderiler "Yeri belirle" listesinden çıkar.
@@ -242,6 +324,7 @@ final class AppStore: ObservableObject {
             places = SampleData.places
             trips = SampleData.trips(for: places)
         }
+        trips = trips.map(withDays)
     }
 
     private func save() {
@@ -253,5 +336,11 @@ final class AppStore: ObservableObject {
         } catch {
             print("Kayıt yazılamadı: \(error)")
         }
+    }
+}
+
+private extension Place {
+    var point: RoutePlanner.Point {
+        RoutePlanner.Point(id: id, latitude: latitude, longitude: longitude)
     }
 }

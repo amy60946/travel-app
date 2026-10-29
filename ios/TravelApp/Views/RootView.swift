@@ -58,6 +58,9 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await openImportIfNewExport() } }
         }
+        // Aktarılan yerlerin türünü (müze, kafe...) arka planda bulur;
+        // yeni yer gelince kaldığı yerden devam eder.
+        .task(id: store.places.count) { await store.refineCategories() }
         // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
         .onOpenURL { url in
             if url.isFileURL { sheet = .importFile(url) }
@@ -82,7 +85,7 @@ struct RootView: View {
         switch screen {
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city": path = [.city(city)]
+        case "city", "spot", "moved", "movedList": path = [.city(city)]
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
         case "add": sheet = .addPlace(city: city)
@@ -97,7 +100,7 @@ struct RootView: View {
 
 /// Uygulama genelinde açılan alt pencereler.
 enum AddSheet: Identifiable {
-    case addPlace(city: String)
+    case addPlace(city: String, day: Int = 0)
     case customPlace(city: String)
     case importData
     case importFile(URL)
@@ -105,7 +108,7 @@ enum AddSheet: Identifiable {
 
     var id: String {
         switch self {
-        case .addPlace(let city): "add-\(city)"
+        case .addPlace(let city, let day): "add-\(city)-\(day)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
         case .importFile(let url): "import-\(url.lastPathComponent)"
@@ -115,7 +118,7 @@ enum AddSheet: Identifiable {
 
     @ViewBuilder var view: some View {
         switch self {
-        case .addPlace(let city): AddPlaceView(city: city)
+        case .addPlace(let city, let day): AddPlaceView(city: city, day: day)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
         case .importFile(let url): ImportView(initialFile: url)

@@ -39,7 +39,7 @@ mümkün. Bu ürünün yapması gereken, yapay zekânın tek başına yapamadı�
 
 1. Başka bir uygulamada yeri paylaş (iOS paylaşma menüsü).
 2. Uygulama yeri bulur ve şehrinin listesine ekler.
-3. Gün sayısı ve tempo seç (rahat, normal, tempolu).
+3. Gün sayısını seç (tempo seçimi şimdilik yok, 2026-10-29).
 4. Rota hazır, gerekirse düzenle.
 5. Kulaklığı tak, yürü ve dinle.
 
@@ -49,14 +49,14 @@ mümkün. Bu ürünün yapması gereken, yapay zekânın tek başına yapamadı�
 |---|---|---|
 | Kayıt aktarımı | iOS paylaşma menüsü; Instagram/TikTok linki, ekran görüntüsü, Google Maps linki. Yer bulma sırası: konum etiketi → açıklama, hashtag ve etiketler (yapay zekâ + harita aramasıyla doğrulama) → fotoğraf/video karesi (görsel okuyan yapay zekâ). Onay kartı yok: güven yüksekse otomatik ekle + "Geri al"; düşükse 2-3 aday, tek dokunuş; bulunamazsa "Yeri belirle" etiketiyle bekler. | Paylaşmadan eklemeye 3 saniyenin altı; 20-30 gerçek post ile doğruluk oranı ölçülür |
 | Google Maps liste aktarımı | Google Takeout dosyası yüklenir: Yıldızlı yerler (GeoJSON, koordinatlı) doğrudan eklenir; Favoriler, "Gitmek istiyorum" ve özel listeler (CSV, koordinatsız) başlık ve linkten haritada eşleştirilir. Önce dosya yükleme, sonra liste linki paylaşma denenir | Listedeki yerler doğru konumda ve doğru şehre eklenir |
-| Gezim | Şehre göre liste ve harita (Apple Haritalar), her yer için küçük ikon ve fotoğraf | Yerler haritada doğru konumda |
-| Otomatik rota | Gün sayısı ve tempo seçimi; bölgeye göre gruplama, her gün tek bölgede kalmaya çalışma, sıralama; "güzel sokak puanı" ile yürüyüş rotası; bölgeler arası toplu taşıma veya taksi önerisi | Rota 5 saniyeden kısa sürede; tempoya göre durak sayısı değişir |
-| Düzenleme | Sürükle sırala, kaydırarak sil, "Günü hafiflet" düğmesi, her işlemde geri al | Metin yazma gerektirmez |
+| Gezim | Şehre göre liste ve Google Maps gibi çalışan harita (Apple Haritalar: konumum, uydu görünümü, haritadaki bir yere dokunup kaydetme, yol tarifi). Her yer türünün renk ve simgesiyle görünür (müze, kafe, tapınak...). Polarsteps'teki "Add a spot" gibi sade "Yer ekle" listesi: arama, kayıtlı yerler, popüler yerler, tek dokunuşla "+" | Yerler haritada doğru konumda; türü pinden anlaşılıyor |
+| Otomatik rota | Gün sayısı seçimi (tempo şimdilik yok); her yerin gününü kullanıcı seçer (otomatik bölme yok, 2026-10-29); gün içinde yürüme sırası otomatik; bölgeye göre gruplama, her gün tek bölgede kalmaya çalışma, sıralama; "güzel sokak puanı" ile yürüyüş rotası; bölgeler arası toplu taşıma veya taksi önerisi | Rota 5 saniyeden kısa sürede; hiçbir yer dışarıda kalmaz |
+| Düzenleme | Şehir planında tek gün görünür, gün tek düğmeden değişir; yeri başka güne taşıma (yer penceresinde "n. gün ⌄" düğmesi, listede basılı tutup menü), rotadan çıkarma, her işlemde geri al. Yere bakarken harita görünür kalır ve o yere yakınlaşır | Metin yazma gerektirmez |
 | Yürüyüş modu | Telefon cepteyken tek kulaklıkla (mono) yön tarifi; konuma göre otomatik anlatım; anlatımlar üst üste binmez; çevrimdışı ses ve harita; sade ekran (sıradaki durak, mesafe, duraklat/devam) | 30 dk yürüyüşte kesintisiz ses, makul pil tüketimi |
 | Anlatım | Yapay zekâ üretir, kaynak gösterir, birden fazla açık kaynakla çapraz kontrol; aynı yer için bir kez üretilip saklanır; "Yanlış bilgi bildir" düğmesi | Her anlatımda en az bir kaynak |
 | Dil | Arayüz ve ses Türkçe ve İngilizce; kullanıcı anlatım dilini seçer; Tokyo gibi şehirlerde yer adı okunuşları kontrol edilir | İki dilde de tam akış |
 
-**Tempo başlangıç varsayımları** (kullanıcı testiyle ayarlanacak):
+**Tempo başlangıç varsayımları** (tempo seçimi 2026-10-29'da şimdilik kaldırıldı; geri gelirse kullanılır):
 
 | Tempo | Günde durak | Durak başı süre | Mola | Yürüyüş |
 |---|---|---|---|---|
@@ -79,7 +79,7 @@ takibi. Kaydırmalı öneri kartları Aşama 2'de, Apple Watch Aşama 3'te.
   10-15 hedef kullanıcıyla kısa görüşme; değer cümlesinin
   anlaşılırlığını ölçmek.
 - **Aşama 1 — MVP:** paylaşma menüsünden yer ekleme, Google Maps liste
-  aktarımı, gün sayısı ve tempo seçimi, otomatik rota, yürüyüş modu ve ses, çevrimdışı indirme.
+  aktarımı, gün sayısı seçimi, otomatik rota, yürüyüş modu ve ses, çevrimdışı indirme.
 - **Aşama 2:** kaydırmalı öneri kartları (rotaya yakın yerler, oturumda
   en fazla 8-10 kart).
 - **Aşama 3:** Apple Watch (sıradaki durak, duraklat/devam), yeni
@@ -133,3 +133,7 @@ Onay bekleyen öneriler buraya yazılır.
   önce anahtarı ücretsiz bir sunucu katmanına (ör. Cloudflare Workers
   ücretsiz katmanı) taşımak gerekir; aksi halde anahtar uygulamadan
   okunabilir. Oguz'a sorulacak.
+- 2026-10-29 (Oguz'un fikri, sonra): **Gün önerisi.** Bir yer, yakınındaki
+  yerlerin çoğunun olduğu günden farklı bir güne eklenmişse uygulama bunu
+  söyleyip "Bu yer 2. gündeki yerlere yakın, oraya taşıyalım mı?" diye
+  önerebilir. Şimdilik yapılmadı; Oguz'a sorulacak.
