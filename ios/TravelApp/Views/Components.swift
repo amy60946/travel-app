@@ -231,13 +231,15 @@ enum MapKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Keşfet haritası: Google Maps gibi Apple'ın yerleri de (müze, kafe,
-    /// istasyon) görünür ve dokunulabilir.
-    var exploreStyle: MapStyle {
-        switch self {
-        case .standard: .standard(elevation: .realistic, pointsOfInterest: .all)
+    /// Keşfet haritası: zemin soluk, bizim renkli pinler öne çıksın.
+    /// Sokak düzeyine inince Google Maps gibi Apple'ın yerleri de (müze,
+    /// kafe, istasyon) görünür ve dokunulabilir.
+    func exploreStyle(showingApplePlaces: Bool) -> MapStyle {
+        let places: PointOfInterestCategories = showingApplePlaces ? .all : .excludingAll
+        return switch self {
+        case .standard: .standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: places)
         case .satellite: .imagery(elevation: .realistic)
-        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: .all)
+        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: places)
         }
     }
 }

@@ -41,7 +41,10 @@ struct HomeView: View {
     /// Bu yükseklikten (metre) yakına inince şehir pinleri yerine yerler görünür.
     private static let placesDistance: Double = 400_000
     private var isZoomedIn: Bool { distance < Self.placesDistance }
-    private var showsTitles: Bool { distance < 12_000 }
+    /// Şehir görünümünde yalnızca bizim pinler; sokak düzeyinde Apple'ın yerleri de.
+    private var showsApplePlaces: Bool { distance < 4_000 }
+    /// Az yer görünüyorsa ya da yakındaysak pinlerin adları da yazılır.
+    private var showsTitles: Bool { distance < 12_000 || visiblePlaces.count <= 20 }
 
     private var listedCities: [AppStore.CitySummary] {
         section == 0 ? store.cities.filter(\.hasTrip) : store.cities
@@ -108,7 +111,7 @@ struct HomeView: View {
                 ForEach(visiblePlaces) { place in
                     Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
                         Button { select(place) } label: {
-                            CategoryPin(category: place.category, size: card == .saved(place.id) ? 40 : 30)
+                            CategoryPin(category: place.category, size: card == .saved(place.id) ? 42 : 32)
                         }
                         .buttonStyle(.plain)
                     }
@@ -127,7 +130,7 @@ struct HomeView: View {
             }
             UserAnnotation()
         }
-        .mapStyle(mapKind.exploreStyle)
+        .mapStyle(mapKind.exploreStyle(showingApplePlaces: showsApplePlaces))
         .onMapCameraChange(frequency: .onEnd) { context in
             distance = context.camera.distance
             region = context.region
@@ -407,8 +410,10 @@ struct HomeView: View {
     /// (ekran görüntüleri için).
     private func openLaunchScreen() async {
         #if DEBUG
-        guard UserDefaults.standard.string(forKey: "screen") == "map", let city = store.cities.first else { return }
-        position = .camera(MapCamera(centerCoordinate: city.coordinate, distance: 11_000))
+        guard UserDefaults.standard.string(forKey: "screen") == "map", let city = store.cities.first,
+              let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))
+        else { return }
+        position = .region(region)
         #endif
     }
 }
