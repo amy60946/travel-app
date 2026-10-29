@@ -21,6 +21,11 @@ struct CityPlanView: View {
     @State private var focusedID: UUID?
     /// Sürüklenen yerin üstünde durduğu gün.
     @State private var dropDay: Int?
+    /// Yer penceresi açıkken haritanın yüksekliği: pencerenin üstünü doldurur.
+    @State private var focusedMapHeight: CGFloat = 360
+    #if DEBUG
+    private static var openedLaunchScreen = false
+    #endif
 
     private var days: [[Place]] { store.dayPlan(for: city) }
     private var trip: Trip { store.trip(for: city) }
@@ -29,7 +34,7 @@ struct CityPlanView: View {
         let days = self.days
         VStack(spacing: 0) {
             map(days)
-                .frame(height: 360)
+                .frame(height: focusedID == nil ? 360 : max(focusedMapHeight, 360))
                 .overlay(alignment: .top) { header }
                 .overlay(alignment: .bottomTrailing) { MapKindMenu(selection: $mapKind).padding(12) }
 
@@ -44,6 +49,12 @@ struct CityPlanView: View {
                 .padding(.bottom, 100)
             }
         }
+        .animation(.snappy, value: focusedID)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            // Yer penceresi ekranın yarısını kaplar; köşeleri de harita üstünde dursun.
+            let screen = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
+            return screen / 2 - proxy.safeAreaInsets.top + 24
+        } action: { focusedMapHeight = $0 }
         .overlay(alignment: .bottomTrailing) { addButton }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 90) }
         .animation(.snappy, value: store.undoMessage)
@@ -90,6 +101,8 @@ struct CityPlanView: View {
             }
         }
         .mapStyle(mapKind.exploreStyle(showingApplePlaces: false))
+        // Üstteki geri düğmesi ve şehir adı pinlerin üstüne binmesin.
+        .safeAreaPadding(.top, 52)
     }
 
     private func pin(_ place: Place, day: Int) -> some View {
@@ -319,10 +332,12 @@ struct CityPlanView: View {
     }
 
     /// Yalnızca geliştirme sürümünde (ekran görüntüleri için): `-screen spot`
-    /// Sensō-ji'ye bakar; `moved` onu başka güne taşınmış gösterir;
+    /// Sensō-ji'ye bakar; `moved` onu bir önceki güne taşınmış gösterir;
     /// `movedList` taşıdıktan sonra listeyi ve "Geri al" bildirimini gösterir.
     private func openLaunchScreen() async {
         #if DEBUG
+        guard !Self.openedLaunchScreen else { return }
+        Self.openedLaunchScreen = true
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
         guard ["spot", "moved", "movedList"].contains(screen),
@@ -330,7 +345,7 @@ struct CityPlanView: View {
               let day = store.dayIndex(of: place) else { return }
         if screen == "movedList" { try? await Task.sleep(for: .seconds(4)) }
         if screen != "spot" {
-            let target = day == 0 ? 1 : 0
+            let target = day == 0 ? 1 : day - 1
             store.move(place, toDay: target)
             selectedDay = target
         }
