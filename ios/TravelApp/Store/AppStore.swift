@@ -81,26 +81,60 @@ final class AppStore: ObservableObject {
         trip(for: place.city).placeIDs.contains(place.id)
     }
 
-    /// Şehrin günleri, yürüme sırasıyla.
-    func dayPlan(for city: String) -> (days: [[Place]], leftOver: [Place]) {
+    /// Şehrin günleri, yürüme sırasıyla. Elle taşıma yapılmadıysa yerler
+    /// günlere eşit bölünür (yakın yerler aynı güne); yapıldıysa her yer
+    /// kendi gününde kalır, sonradan eklenen yer en yakın güne girer.
+    func dayPlan(for city: String) -> [[Place]] {
         let trip = self.trip(for: city)
-        let points = trip.placeIDs.compactMap(place).map {
-            RoutePlanner.Point(id: $0.id, latitude: $0.latitude, longitude: $0.longitude)
+        guard trip.days > 0 else { return [] }
+        let planned = trip.placeIDs.compactMap(place)
+        guard let dayOf = trip.dayOf else {
+            let perDay = Int((Double(planned.count) / Double(trip.days)).rounded(.up))
+            let plan = RoutePlanner.plan(planned.map(\.point), days: trip.days, maxPerDay: max(perDay, 1))
+            return plan.days.map { $0.compactMap(place) }
         }
-        let plan = RoutePlanner.plan(points, days: trip.days, maxPerDay: trip.pace.stopsPerDay.upperBound)
-        return (plan.days.map { $0.compactMap(place) }, plan.leftOver.compactMap(place))
+        var days = Array(repeating: [Place](), count: trip.days)
+        var unassigned: [Place] = []
+        for place in planned {
+            if let day = dayOf[place.id], days.indices.contains(day) {
+                days[day].append(place)
+            } else {
+                unassigned.append(place)
+            }
+        }
+        for place in unassigned {
+            let nearest = days.indices.min { Self.distance(from: place, to: days[$0]) < Self.distance(from: place, to: days[$1]) }
+            days[nearest ?? 0].append(place)
+        }
+        return days.map { stops in
+            RoutePlanner.nearestNeighborOrder(stops.map(\.point)).compactMap { point in stops.first { $0.id == point.id } }
+        }
     }
 
     func dayIndex(of place: Place) -> Int? {
-        dayPlan(for: place.city).days.firstIndex { $0.contains { $0.id == place.id } }
+        dayPlan(for: place.city).firstIndex { $0.contains { $0.id == place.id } }
     }
 
+    /// Gün sayısını değiştirir. Günler elle düzenlendiyse silinen günün
+    /// yerleri en yakın güne geçer ve orada kalır.
     func setDays(_ days: Int, city: String) {
         updateTrip(city) { $0.days = min(max(days, 1), 14) }
+        if trip(for: city).dayOf != nil {
+            let plan = dayPlan(for: city)
+            updateTrip(city) { $0.dayOf = Self.assignments(plan) }
+        }
     }
 
-    func setPace(_ pace: Pace, city: String) {
-        updateTrip(city) { $0.pace = pace }
+    /// Yeri başka güne taşır. İlk taşımada o anki günler sabitlenir;
+    /// sonra günler kendiliğinden yeniden bölünmez.
+    func move(_ place: Place, toDay day: Int) {
+        let days = dayPlan(for: place.city)
+        guard days.indices.contains(day), let current = dayIndex(of: place), current != day else { return }
+        updateTrip(place.city, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) { trip in
+            var dayOf = Self.assignments(days)
+            dayOf[place.id] = day
+            trip.dayOf = dayOf
+        }
     }
 
     func addToPlan(_ ids: [UUID], city: String) {
@@ -112,14 +146,21 @@ final class AppStore: ObservableObject {
     func removeFromPlan(_ place: Place) {
         updateTrip(place.city, undo: String(localized: "\(place.name) rotadan çıkarıldı")) {
             $0.placeIDs.removeAll { $0 == place.id }
+            $0.dayOf?[place.id] = nil
         }
     }
 
-    /// Günün son durağını rotadan çıkarır.
-    func lightenDay(_ index: Int, city: String) {
-        let days = dayPlan(for: city).days
-        guard days.indices.contains(index), let last = days[index].last else { return }
-        removeFromPlan(last)
+    private static func assignments(_ days: [[Place]]) -> [UUID: Int] {
+        var result: [UUID: Int] = [:]
+        for (index, stops) in days.enumerated() {
+            for stop in stops { result[stop.id] = index }
+        }
+        return result
+    }
+
+    /// Yerin o günün en yakın durağına uzaklığı; gün boşsa sonsuz.
+    private static func distance(from place: Place, to stops: [Place]) -> CLLocationDistance {
+        stops.map { $0.location.distance(from: place.location) }.min() ?? .infinity
     }
 
     // MARK: - Yerler
@@ -296,5 +337,11 @@ final class AppStore: ObservableObject {
         } catch {
             print("Kayıt yazılamadı: \(error)")
         }
+    }
+}
+
+private extension Place {
+    var point: RoutePlanner.Point {
+        RoutePlanner.Point(id: id, latitude: latitude, longitude: longitude)
     }
 }

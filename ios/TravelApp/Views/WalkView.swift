@@ -21,7 +21,7 @@ struct WalkView: View {
     private let triggerMeters: CLLocationDistance = 50
 
     private var stops: [Place] {
-        let days = store.dayPlan(for: city).days
+        let days = store.dayPlan(for: city)
         return days.indices.contains(dayIndex) ? days[dayIndex] : []
     }
 

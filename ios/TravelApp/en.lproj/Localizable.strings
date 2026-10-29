@@ -39,7 +39,6 @@
 /* Şehir planı */
 "%lld gün" = "%lld days";
 "%lld. gün" = "Day %lld";
-"Tempo" = "Pace";
 "Rahat" = "Relaxed";
 "Normal" = "Normal";
 "Tempolu" = "Brisk";
@@ -48,17 +47,17 @@
 "Standart" = "Standard";
 "Uydu" = "Satellite";
 "Karma" = "Hybrid";
-"%lld yer sığar · rotada %lld yer" = "Fits %lld places · %lld on route";
-"%lld yer sığmadı. Gün ekle ya da tempoyu artır." = "%lld places didn't fit. Add a day or pick a faster pace.";
-"Harita ve yol tarifi: Apple Haritalar" = "Maps and directions: Apple Maps";
 "Yer ekle" = "Add place";
-"Kayıtlarından ekle" = "Add from saves";
 "Kendi yerini oluştur" = "Create your own place";
 "%lld durak" = "%lld stops";
-"%lld durak · %lld km yürüyüş · ~%lld sa" = "%lld stops · %lld km walk · ~%lld h";
-"Bu gün boş. \"+\" ile yer ekleyebilirsin." = "This day is empty. Use \"+\" to add places.";
-"Günü hafiflet" = "Lighten day";
-"Yürüyüşe başla" = "Start walk";
+"%lld durak · %lld km yürüyüş" = "%lld stops · %lld km walk";
+"Yeri başka güne taşımak için basılı tut." = "Press and hold a place to move it to another day.";
+"Boş gün. Bir yeri basılı tutup buraya sürükle." = "Empty day. Press and hold a place and drag it here.";
+"%lld. güne taşı" = "Move to day %lld";
+"%@ %lld. güne taşındı" = "%1$@ moved to day %2$lld";
+"Rotadan çıkar" = "Remove from route";
+"Gün çıkar" = "Remove a day";
+"Gün ekle" = "Add a day";
 
 /* Yer sayfası */
 "Bu yer artık kayıtlı değil." = "This place is no longer saved.";

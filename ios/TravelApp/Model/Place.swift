@@ -166,7 +166,11 @@ struct Place: Identifiable, Codable, Hashable {
 struct Trip: Codable, Hashable {
     var city: String
     var days: Int
+    /// Tempo seçimi şimdilik arayüzde yok (2026-10-29); eski kayıtlar için durur.
     var pace: Pace
     /// Rotaya eklenmiş yerler, öncelik sırasıyla.
     var placeIDs: [UUID]
+    /// Bir yer elle başka güne taşınınca günler sabitlenir: yer → gün
+    /// (0'dan). Boşsa günler otomatik bölünür.
+    var dayOf: [UUID: Int]?
 }

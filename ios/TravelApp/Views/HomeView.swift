@@ -32,6 +32,8 @@ struct HomeView: View {
     @State private var saving = false
     @State private var detailItem: MKMapItem?
     @State private var locationManager = CLLocationManager()
+    /// Haritanın ekrandaki yüksekliği (yer penceresi yarısını kaplar).
+    @State private var mapHeight: CGFloat = 800
     @State private var showLocationDenied = false
 
     /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
@@ -143,9 +145,11 @@ struct HomeView: View {
             distance = context.camera.distance
             region = context.region
         }
-        // Harita alttaki panelin üstünde, görünen alanın ortasında dursun.
-        .safeAreaPadding(.bottom, panelExpanded && card == nil ? 300 : 170)
+        // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
+        // alanın ortasında dursun.
+        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2 : panelExpanded && card == nil ? 300 : 170)
         .ignoresSafeArea()
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
     }
 
     private var topBar: some View {
@@ -309,11 +313,15 @@ struct HomeView: View {
         return false
     }
 
+    /// Yerin penceresini açar; harita o yere ve yanındaki yerlere yakınlaşır.
     private func select(_ place: Place) {
         cardFromFeature = false
         selectedFeature = nil
         card = nil
         sheetPlaceID = place.id
+        withAnimation {
+            position = .region(MKCoordinateRegion(focusing: place, among: store.places(in: place.city)))
+        }
     }
 
     /// Yer penceresinden tam yer sayfasına geçer (pencere kapanınca).
@@ -408,7 +416,10 @@ struct HomeView: View {
               let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))
         else { return }
         position = .region(region)
-        if screen == "sheet" { sheetPlaceID = store.places(in: city.name).first?.id }
+        if screen == "sheet", let place = store.places(in: city.name).first {
+            try? await Task.sleep(for: .seconds(1))
+            select(place)
+        }
         #endif
     }
 }

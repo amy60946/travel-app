@@ -293,4 +293,15 @@ extension MKCoordinateRegion {
                                     longitudeDelta: max((lons.max()! - lons.min()!) * padding, 0.01))
         self.init(center: center, span: span)
     }
+
+    /// Bir yere yakınlaşır; en yakın iki komşusu da görünsün diye pay
+    /// bırakır (yer ortada, en az 800 m, en çok 5 km).
+    init(focusing place: Place, among others: [Place]) {
+        let distances = others.filter { $0.id != place.id }
+            .map { $0.location.distance(from: place.location) }
+            .sorted()
+        let neighbor = distances.count >= 2 ? distances[1] : distances.first ?? 400
+        let meters = min(max(neighbor * 2.4, 800), 5_000)
+        self.init(center: place.coordinate, latitudinalMeters: meters, longitudinalMeters: meters)
+    }
 }

@@ -85,7 +85,7 @@ struct RootView: View {
         switch screen {
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city": path = [.city(city)]
+        case "city", "spot", "moved", "movedList": path = [.city(city)]
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
         case "add": sheet = .addPlace(city: city)
