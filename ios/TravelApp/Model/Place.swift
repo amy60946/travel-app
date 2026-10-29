@@ -170,7 +170,7 @@ struct Trip: Codable, Hashable {
     var pace: Pace
     /// Rotaya eklenmiş yerler, öncelik sırasıyla.
     var placeIDs: [UUID]
-    /// Bir yer elle başka güne taşınınca günler sabitlenir: yer → gün
-    /// (0'dan). Boşsa günler otomatik bölünür.
+    /// Her yerin günü (0'dan), kullanıcı seçer. Eski kayıtlarda yoksa
+    /// açılışta bir kez doldurulur.
     var dayOf: [UUID: Int]?
 }
