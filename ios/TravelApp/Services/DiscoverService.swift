@@ -249,7 +249,7 @@ actor DiscoverService {
             let banner = page.pageprops?.wpb_banner.flatMap(Self.bannerURL)
             result[title] = PageInfo(latitude: page.coordinates?.first?.lat,
                                      longitude: page.coordinates?.first?.lon,
-                                     photo: banner ?? page.thumbnail?.source.flatMap { Self.isPhoto($0) ? $0 : nil },
+                                     photo: banner ?? page.thumbnail.flatMap { Self.isPhoto($0.source) ? $0.source : nil },
                                      localTitle: page.langlinks?.first?.title)
         }
         return result
