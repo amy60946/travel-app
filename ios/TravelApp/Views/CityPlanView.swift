@@ -343,7 +343,7 @@ struct CityPlanView: View {
         guard ["spot", "moved", "movedList"].contains(screen),
               let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
               let day = store.dayIndex(of: place) else { return }
-        if screen == "movedList" { try? await Task.sleep(for: .seconds(4)) }
+        if screen == "movedList" { try? await Task.sleep(for: .seconds(3)) }
         if screen != "spot" {
             let target = day == 0 ? 1 : day - 1
             store.move(place, toDay: target)
