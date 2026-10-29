@@ -68,8 +68,11 @@ jobs:
           xcrun simctl privacy "$DEVICE_ID" grant location io.travelapp.ios || true
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
-          # simctl bazen takılıyor (bir kez 26 dk bekledi); her komut en çok 60 sn.
+          # simctl bazen takılıyor (bir kez 26 dk bekledi); her komut için süre sınırı.
           t() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+          # Yeni açılan simülatörde ilk açılışlar 60 sn'yi aşıyor; önce bir kez ısıt.
+          t 180 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen home -appLanguage tr -AppleLanguages "(tr)" -AppleLocale tr_TR || true
+          sleep 30
           i=1
           for screen in home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english; do
             t 60 xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
@@ -80,7 +83,9 @@ jobs:
               english) LANG_ARGS=(-appLanguage en -AppleLanguages "(en)" -AppleLocale en_US) ;;
               pins) EXTRA=(-pinStyle photo) ;;
             esac
-            t 60 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" || echo "açılmadı: $screen"
+            t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" \
+              || t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" \
+              || echo "açılmadı: $screen"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
               guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall) sleep 14 ;;

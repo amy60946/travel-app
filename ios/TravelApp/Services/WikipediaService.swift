@@ -209,15 +209,16 @@ actor WikipediaService {
             .init(name: "gscoord", value: "\(latitude)|\(longitude)"),
             .init(name: "gsradius", value: "10000"),
             .init(name: "gslimit", value: "300"),
+            .init(name: "gsprop", value: "type"),
         ]
         struct Response: Decodable {
             struct Query: Decodable { var geosearch: [Page] }
-            struct Page: Decodable { var title: String; var lat: Double; var lon: Double }
+            struct Page: Decodable { var title: String; var lat: Double; var lon: Double; var type: String? }
             var query: Query?
         }
         let (data, _) = try await session.data(from: components.url!)
         let nearby = (try JSONDecoder().decode(Response.self, from: data).query?.geosearch ?? [])
-            .filter { Self.isSight($0.title) }
+            .filter { Self.isSight($0.title) && Self.isSight(type: $0.type) }
         // Okunma sayısı, fotoğraf ve yerel ad 50'şerli toplu istekle, aynı anda.
         let language = Self.narrationLanguage
         let details = await withTaskGroup(of: [String: PageDetails].self, returning: [String: PageDetails].self) { group in
@@ -229,7 +230,7 @@ actor WikipediaService {
             for await chunk in group { all.merge(chunk) { first, _ in first } }
             return all
         }
-        let places = nearby.map { page in
+        let places = nearby.filter { Self.isSight(description: details[$0.title]?.description) }.map { page in
             let detail = details[page.title]
             return PopularPlace(title: page.title, latitude: page.lat, longitude: page.lon,
                                 monthlyViews: detail?.views ?? 0, thumbnailURL: detail?.thumbnail,
@@ -243,6 +244,7 @@ actor WikipediaService {
         var views = 0
         var thumbnail: URL?
         var localTitle: String?
+        var description: String?
     }
 
     private func pageDetails(_ titles: [String], language: String) async -> [String: PageDetails] {
@@ -258,9 +260,9 @@ actor WikipediaService {
             .init(name: "titles", value: titles.joined(separator: "|")),
         ]
         if language == "en" {
-            items.append(.init(name: "prop", value: "pageviews|pageimages"))
+            items.append(.init(name: "prop", value: "pageviews|pageimages|description"))
         } else {
-            items += [.init(name: "prop", value: "pageviews|pageimages|langlinks"),
+            items += [.init(name: "prop", value: "pageviews|pageimages|description|langlinks"),
                       .init(name: "lllang", value: language),
                       .init(name: "lllimit", value: "max")]
         }
@@ -274,6 +276,7 @@ actor WikipediaService {
                 var pageviews: [String: Int?]?
                 var thumbnail: Thumbnail?
                 var langlinks: [Link]?
+                var description: String?
             }
             var query: Query?
         }
@@ -285,7 +288,8 @@ actor WikipediaService {
             let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
             let local = page.langlinks?.first?.title
                 .replacingOccurrences(of: "\\s*\\([^)]*\\)$", with: "", options: .regularExpression)
-            result[page.title] = PageDetails(views: views, thumbnail: page.thumbnail?.source, localTitle: local)
+            result[page.title] = PageDetails(views: views, thumbnail: page.thumbnail?.source, localTitle: local,
+                                             description: page.description)
         }
         return result
     }
@@ -475,7 +479,32 @@ actor WikipediaService {
         let excluded = ["university", "college", "school", "station", "line", "railway", "hospital",
                         "embassy", "ministry", "headquarters", "prefecture", "ward", "district",
                         "company", "corporation", "bank", "court", "police", "office", "airport",
-                        "expressway", "highway", "route", "list of", "chongryon", "constituency"]
+                        "expressway", "highway", "route", "list of", "chongryon", "constituency",
+                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty"]
+        return !excluded.contains { lower.contains($0) }
+    }
+
+    /// Wikipedia koordinatının türü: ülke, il, şehir, istasyon, havalimanı,
+    /// okul ve olay sayfaları gezilecek yer değildir ("city(8000000)" gibi
+    /// nüfuslu yazımlar da).
+    static func isSight(type: String?) -> Bool {
+        guard let type = type?.lowercased().split(separator: "(").first.map(String.init) else { return true }
+        let excluded = ["country", "state", "adm1st", "adm2nd", "adm3rd", "city", "railwaystation",
+                        "airport", "edu", "event", "satellite"]
+        return !excluded.contains(type)
+    }
+
+    /// Kısa açıklaması ülke, eski devlet, şehir, istasyon, okul, şirket ya da
+    /// kurum diyen sayfalar ("Japon İmparatorluğu" gibi) listeye alınmaz.
+    static func isSight(description: String?) -> Bool {
+        guard let lower = description?.lowercased() else { return true }
+        let excluded = ["country in", "island country", "sovereign state", "historical state", "former country",
+                        "historical country", "state from", "empire from", "special ward", "prefecture of",
+                        "capital of", "capital city", "city in", "city of", "town in", "municipality",
+                        "railway station", "metro station", "subway station", "train station", "railway line",
+                        "university", "school in", "college in", "company", "corporation", "hospital", "embassy",
+                        "ministry", "political party", "electoral", "constituency", "airport",
+                        "expressway", "stock exchange", "newspaper", "broadcaster", "television station"]
         return !excluded.contains { lower.contains($0) }
     }
 
