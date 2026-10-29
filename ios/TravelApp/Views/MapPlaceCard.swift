@@ -38,7 +38,7 @@ struct MapPlaceCard<Actions: View>: View {
     }
 }
 
-/// Yürüyüş yol tarifi (Apple Haritalar'da açılır): çerçeveli yuvarlak düğme.
+/// Yürüyüş yol tarifi (uygulamanın içinde, GPS gibi): çerçeveli yuvarlak düğme.
 struct DirectionsButton: View {
     let action: () -> Void
 

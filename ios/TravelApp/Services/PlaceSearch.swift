@@ -48,17 +48,6 @@ enum PlaceSearch {
         }
     }
 
-    /// Yürüyüş yol tarifini Apple Haritalar'da açar.
-    static func openDirections(to item: MKMapItem) {
-        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-    }
-
-    static func openDirections(to place: Place) {
-        let item = MKMapItem(placemark: MKPlacemark(coordinate: place.coordinate))
-        item.name = place.name
-        openDirections(to: item)
-    }
-
     private static func run(_ request: MKLocalSearch.Request) async -> [MKMapItem] {
         (try? await MKLocalSearch(request: request).start().mapItems) ?? []
     }

@@ -134,6 +134,27 @@ enum PlaceAI {
         return Array(found.prefix(30))
     }
 
+    /// Anlatım metnini Türkçeye çevirir (iPhone çevirisi yoksa). Önce
+    /// Gemini, olmazsa Groq; ikisi de olmazsa nil.
+    static func translateToTurkish(_ text: String) async -> String? {
+        struct Reply: Decodable { var text: String }
+        let prompt = """
+        Translate the text below into natural, fluent Turkish for a spoken travel guide. \
+        Keep names of places as they are. Reply only with JSON like {"text": "Turkish translation"}.
+
+        Text:
+        \(text.prefix(6000))
+        """
+        for provider in providers {
+            guard case .text(let answer) = await askText(provider, prompt: prompt, jpeg: nil),
+                  let data = jsonBody(in: answer),
+                  let reply = try? JSONDecoder().decode(Reply.self, from: data),
+                  !reply.text.isEmpty else { continue }
+            return reply.text
+        }
+        return nil
+    }
+
     /// Kaydedilen gönderiler (TikTok açıklaması, Instagram hesap ve koleksiyon
     /// adı) için yerler. Sonuç, gönderilerle aynı sırada ve uzunlukta.
     static func places(inPosts entries: [String]) async -> PostResults {

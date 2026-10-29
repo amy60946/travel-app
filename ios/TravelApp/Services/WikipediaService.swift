@@ -11,6 +11,8 @@ actor WikipediaService {
         var pageURL: URL?
         var thumbnailURL: URL?
         var language: String
+        /// Türkçe sayfa yoksa İngilizceden çevrildi ("en").
+        var translatedFrom: String? = nil
     }
 
     struct PopularPlace: Identifiable, Equatable {
@@ -22,10 +24,8 @@ actor WikipediaService {
         var id: String { title }
     }
 
-    /// Arayüz dili Türkçeyse Türkçe, değilse İngilizce.
-    static var preferredLanguage: String {
-        Locale.current.language.languageCode?.identifier == "tr" ? "tr" : "en"
-    }
+    /// Anlatım dili: telefonun dili ne olursa olsun Türkçe (Oguz, 2026-10-29).
+    static let narrationLanguage = "tr"
 
     /// Bir kez okunan özet ve fotoğraf listesi telefonda saklanır; internetsiz de açılır.
     private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
@@ -36,18 +36,39 @@ actor WikipediaService {
         return URLSession(configuration: config)
     }()
 
-    /// İngilizce başlıktan, istenen dilde özet. O dilde sayfa yoksa İngilizcesi.
-    func summary(englishTitle: String, language: String = WikipediaService.preferredLanguage) async -> Summary? {
+    /// İngilizce başlıktan, istenen dilde özet. O dilde sayfa yoksa
+    /// İngilizcesi Türkçeye çevrilir; çeviri olmazsa İngilizcesi döner
+    /// (saklanmaz, sonra yeniden denenir).
+    func summary(englishTitle: String, language: String = WikipediaService.narrationLanguage) async -> Summary? {
         let key = "\(language)|\(englishTitle)"
         if let cached = summaries[key] { return cached }
-        var result: Summary?
-        if language != "en", let local = try? await localTitle(for: englishTitle, language: language) {
-            result = try? await fetchSummary(title: local, language: language)
+        if language != "en", let local = try? await localTitle(for: englishTitle, language: language),
+           let result = try? await fetchSummary(title: local, language: language) {
+            summaries[key] = result
+            return result
         }
-        if result == nil {
-            result = try? await fetchSummary(title: englishTitle, language: "en")
+        guard let english = await englishSummary(englishTitle) else { return nil }
+        guard language == "tr", let translated = await Translator.shared.toTurkish(english.extract) else {
+            return english
         }
-        if let result { summaries[key] = result }
+        var result = english
+        result.extract = translated
+        result.language = "tr"
+        result.translatedFrom = "en"
+        summaries[key] = result
+        return result
+    }
+
+    /// Sayfanın küçük fotoğrafı (İngilizce özetten; çeviri gerekmez).
+    func thumbnailURL(englishTitle: String) async -> URL? {
+        await englishSummary(englishTitle)?.thumbnailURL
+    }
+
+    private func englishSummary(_ title: String) async -> Summary? {
+        let key = "en|\(title)"
+        if let cached = summaries[key] { return cached }
+        guard let result = try? await fetchSummary(title: title, language: "en") else { return nil }
+        summaries[key] = result
         return result
     }
 

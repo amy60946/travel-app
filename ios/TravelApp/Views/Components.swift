@@ -208,7 +208,7 @@ struct PlaceThumbnail: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .task(id: place.wikipediaTitle) {
             guard let title = place.wikipediaTitle else { return }
-            url = await WikipediaService.shared.summary(englishTitle: title)?.thumbnailURL
+            url = await WikipediaService.shared.thumbnailURL(englishTitle: title)
         }
     }
 }
@@ -256,7 +256,7 @@ struct ListenCard: View {
                 .background(Theme.ink, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("Dinle").font(Theme.headline)
-                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
+                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Türkçe anlatım · iPhone sesi"))
                     .font(Theme.caption)
                     .foregroundStyle(Theme.muted)
             }
@@ -274,6 +274,87 @@ struct ListenCard: View {
         }
         .opacity(summary == nil ? 0.5 : 1)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Anlatım çalarken ekranın altında duran çubuk: ad, ilerleme, 10 sn geri,
+/// oynat / duraklat, 10 sn ileri, kapat. Sayfa değişse de görünür kalır.
+struct NarrationBar: View {
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        ZStack {
+            if let title = narrator.currentTitle { bar(title) }
+        }
+        .animation(.snappy, value: narrator.currentTitle)
+    }
+
+    private func bar(_ title: String) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                Text(title)
+                    .font(Theme.font(15, .semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                control("gobackward.10", label: "10 saniye geri") { narrator.skip(by: -10) }
+                Button { narrator.togglePause() } label: {
+                    Image(systemName: narrator.isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(Theme.ink, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(narrator.isPaused ? LocalizedStringKey("Oynat") : LocalizedStringKey("Duraklat")))
+                control("goforward.10", label: "10 saniye ileri") { narrator.skip(by: 10) }
+                control("xmark", label: "Anlatımı kapat", size: 13) { narrator.stop() }
+            }
+            ProgressView(value: narrator.progress)
+                .tint(Theme.accent)
+                .scaleEffect(x: 1, y: 0.6, anchor: .center)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .softShadow()
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func control(_ symbol: String, label: LocalizedStringKey, size: CGFloat = 19,
+                         action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 38, height: 42)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+    }
+}
+
+/// Anlatımın kaynağı; İngilizceden çevrildiyse bunu da söyler.
+struct WikipediaCredit: View {
+    let summary: WikipediaService.Summary
+
+    var body: some View {
+        if let url = summary.pageURL {
+            Link(destination: url) {
+                Text(summary.translatedFrom == nil
+                     ? LocalizedStringKey("Kaynak: Wikipedia (CC BY-SA)")
+                     : LocalizedStringKey("Kaynak: İngilizce Wikipedia (CC BY-SA), Türkçeye çevrildi"))
+                    .font(Theme.caption)
+                    .underline()
+            }
+            .foregroundStyle(Theme.muted)
+        }
     }
 }
 

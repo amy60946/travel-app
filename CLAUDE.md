@@ -88,3 +88,10 @@ cevapları.
 | 2026-10-29 | Şehir planında **yalnızca seçili gün** görünür (harita ve liste); gün, listenin üstündeki tek **"1. gün ⌄"** düğmesinden değişir (Gün ekle / Son günü sil de orada). Yer penceresinde gün bilgisi tek düğme: rotadaysa "2. gün ⌄" (taşı, rotadan çıkar), değilse "Rotaya ekle". Sürükleyip bırakma kaldırıldı; listede basılı tutunca "n. güne taşı" menüsü duruyor. |
 | 2026-10-29 | Ana sayfada **"Gezim / My travels" başlığı yok**; alttaki gezi paneli içeriği kadar yer kaplar. Oguz bu değişikliklerden sonra **TestFlight'a yüklenmesini** istedi. |
 | 2026-10-29 | GitHub'ın gizli depolara verdiği ücretsiz Mac derleme süresi bitti; Oguz karar kartında **depoyu herkese açık yapmayı** seçti (açık depolarda Mac derlemesi ücretsiz). Şifre ve anahtarlar GitHub Secrets'ta kalır. |
+| 2026-10-29 | Anlatım (sesli içerik) **hep Türkçe**: önce Türkçe Wikipedia; Türkçe kaynak yoksa İngilizce Wikipedia Türkçeye çevrilip Türkçe sesle okunur (önce iPhone'un ücretsiz çevirisi, olmazsa Gemini/Groq ücretsiz katmanı); kaynak satırında "Türkçeye çevrildi" yazar. |
+| 2026-10-29 | Anlatım başlayınca ekranın altında **oynatıcı çubuğu**: duraklat/başlat, 10 sn geri, 10 sn ileri, kapat; sayfa değişince de görünür kalır. |
+| 2026-10-29 | Yer penceresindeki fotoğrafa dokununca **tam ekran** açılır; aşağı ya da yukarı itince kapanır. |
+| 2026-10-29 | Yol tarifi **Haritalar uygulamasına gitmez**; uygulamanın içinde araba GPS'i gibi sesli yürüyüş rehberi açılır (sıradaki dönüş, mesafe, kalan süre, yoldan çıkınca yeniden rota). |
+| 2026-10-29 | Gün düğmesinde **"Tüm yerler"** seçeneği: şehirdeki bütün yerler birlikte (haritada gün numaralı pinler, liste günlere göre). |
+| 2026-10-29 | Yer penceresi yarım ekran açılır, yukarı kaydırınca **ekranın %70'ine** çıkar; üstte harita görünür kalır, haritaya dokununca pencere küçülür. |
+| 2026-10-29 | Ana sayfada üstteki arama çubuğu kalktı; sağ alttaki siyah düğme **büyüteç** oldu ve doğrudan "Yer ekle"yi (haritadaki şehir için) açar. |
