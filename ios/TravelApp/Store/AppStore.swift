@@ -8,6 +8,8 @@ import SwiftUI
 final class AppStore: ObservableObject {
     @Published private(set) var places: [Place] = []
     @Published private(set) var trips: [Trip] = []
+    /// Çok şehirli geziler (Polarsteps gibi): sırayla şehirler, uçuş ve konaklama.
+    @Published private(set) var journeys: [Journey] = []
     /// Yeri bulunamayan kayıtlı gönderiler ("Yeri belirle" listesi).
     @Published private(set) var pendingPosts: [SocialExport.Post] = []
     /// Son işlem geri alınabiliyorsa gösterilecek mesaj.
@@ -17,6 +19,7 @@ final class AppStore: ObservableObject {
         var places: [Place]
         var trips: [Trip]
         var pendingPosts: [SocialExport.Post]?
+        var journeys: [Journey]?
     }
 
     private var undoSnapshot: Snapshot?
@@ -55,6 +58,11 @@ final class AppStore: ObservableObject {
             result.append(CitySummary(name: name, placeCount: list.count, latitude: latitude,
                                       longitude: longitude, hasTrip: hasTrip, coverPlace: cover))
         }
+        // Gezideki, henüz kayıtlı yeri olmayan şehirler (ör. yeni eklenen Ankara).
+        for stop in journeys.flatMap(\.stops) where grouped[stop.city] == nil && !result.contains(where: { $0.name == stop.city }) {
+            result.append(CitySummary(name: stop.city, placeCount: 0, latitude: stop.latitude,
+                                      longitude: stop.longitude, hasTrip: true, coverPlace: nil))
+        }
         // Gezisi olan şehirler önce, sonra ada göre.
         return result.sorted { a, b in
             if a.hasTrip != b.hasTrip { return a.hasTrip }
@@ -68,6 +76,17 @@ final class AppStore: ObservableObject {
 
     func place(_ id: UUID) -> Place? {
         places.first { $0.id == id }
+    }
+
+    /// Şehrin haritadaki yeri: kayıtlı yerlerinin ortası, yoksa gezideki konumu.
+    func center(of city: String) -> CLLocationCoordinate2D? {
+        let list = places(in: city)
+        if !list.isEmpty {
+            let count = Double(list.count)
+            return CLLocationCoordinate2D(latitude: list.reduce(0.0) { $0 + $1.latitude } / count,
+                                          longitude: list.reduce(0.0) { $0 + $1.longitude } / count)
+        }
+        return journeys.flatMap(\.stops).first { $0.city == city }?.coordinate
     }
 
     // MARK: - Plan
@@ -160,6 +179,161 @@ final class AppStore: ObservableObject {
         return trip
     }
 
+    // MARK: - Geziler (çok şehirli)
+
+    func journey(_ id: UUID) -> Journey? {
+        journeys.first { $0.id == id }
+    }
+
+    /// Gezideki şehirlerin gün sayıları, sırayla.
+    func days(of journey: Journey) -> [Int] {
+        journey.stops.map { trip(for: $0.city).days }
+    }
+
+    /// Şehir hangi gezide (ilk bulunan).
+    func journey(containing city: String) -> Journey? {
+        journeys.first { $0.stops.contains { $0.city == city } }
+    }
+
+    /// Yeni gezi; en yeni gezi listenin başında durur. Kimliğini döndürür.
+    @discardableResult
+    func createJourney(name: String? = nil, cities: [CityChoice]) -> UUID {
+        let stops = uniqueStops(cities, existing: [])
+        let journey = Journey(name: name ?? Journey.defaultName(for: stops.map(\.city)), stops: stops)
+        snapshot(String(localized: "\(journey.name) gezisi oluşturuldu"))
+        journeys.insert(journey, at: 0)
+        stops.forEach { ensureTrip($0.city) }
+        save()
+        return journey.id
+    }
+
+    /// Şehirleri geziye, verilen sıraya (yoksa sona) ekler; gezide olanlar atlanır.
+    func addStops(_ cities: [CityChoice], to journeyID: UUID, at index: Int? = nil) {
+        guard let journey = self.journey(journeyID) else { return }
+        let stops = uniqueStops(cities, existing: journey.stops)
+        guard !stops.isEmpty else { return }
+        let names = stops.map(\.city).joined(separator: ", ")
+        updateJourney(journeyID, undo: String(localized: "\(names) eklendi")) { journey in
+            let position = min(max(index ?? journey.stops.count, 0), journey.stops.count)
+            journey.stops.insert(contentsOf: stops, at: position)
+        }
+        stops.forEach { ensureTrip($0.city) }
+        save()
+    }
+
+    func removeStop(_ stopID: UUID, from journeyID: UUID) {
+        guard let stop = journey(journeyID)?.stops.first(where: { $0.id == stopID }) else { return }
+        updateJourney(journeyID, undo: String(localized: "\(stop.city) geziden çıkarıldı")) {
+            $0.stops.removeAll { $0.id == stopID }
+        }
+    }
+
+    /// Şehri gezide bir öne (-1) ya da bir sonraya (+1) taşır.
+    func moveStop(_ stopID: UUID, by offset: Int, in journeyID: UUID) {
+        updateJourney(journeyID) { journey in
+            guard let index = journey.stops.firstIndex(where: { $0.id == stopID }) else { return }
+            let target = index + offset
+            guard journey.stops.indices.contains(target) else { return }
+            journey.stops.swapAt(index, target)
+        }
+    }
+
+    func renameJourney(_ id: UUID, to name: String) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        updateJourney(id) { $0.name = name }
+    }
+
+    /// Geziyi siler; kayıtlı yerler durur, başka gezide olmayan şehirlerin
+    /// planı (günler) silinir. Geri alınabilir.
+    func deleteJourney(_ id: UUID) {
+        guard let journey = self.journey(id) else { return }
+        snapshot(String(localized: "\(journey.name) silindi"))
+        journeys.removeAll { $0.id == id }
+        let stillPlanned = Set(journeys.flatMap(\.stops).map(\.city))
+        trips.removeAll { trip in journey.stops.contains { $0.city == trip.city } && !stillPlanned.contains(trip.city) }
+        save()
+    }
+
+    func setFlight(_ flight: Flight?, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID, undo: flight == nil ? String(localized: "Uçuş silindi") : nil) {
+            $0.flight = flight
+        }
+    }
+
+    func addStay(_ stay: Stay, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID, undo: String(localized: "\(stay.name) eklendi")) {
+            $0.stays.append(stay)
+        }
+    }
+
+    func updateStay(_ stay: Stay, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID) { stop in
+            guard let index = stop.stays.firstIndex(where: { $0.id == stay.id }) else { return }
+            stop.stays[index] = stay
+        }
+    }
+
+    func removeStay(_ stayID: UUID, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID, undo: String(localized: "Konaklama silindi")) {
+            $0.stays.removeAll { $0.id == stayID }
+        }
+    }
+
+    func setCountry(_ code: String, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID) { $0.countryCode = code }
+    }
+
+    /// Şehir 30 km içinde zaten kayıtlıysa (ör. "Istanbul" ile "İstanbul")
+    /// kayıtlı adı kullanılır; böylece yerleri ve planı aynı şehirde kalır.
+    func canonical(_ choice: CityChoice) -> CityChoice {
+        let location = CLLocation(latitude: choice.latitude, longitude: choice.longitude)
+        guard let known = cities.first(where: {
+            $0.name == choice.name
+                || CLLocation(latitude: $0.latitude, longitude: $0.longitude).distance(from: location) < 30_000
+        }) else { return choice }
+        var result = choice
+        result.name = known.name
+        return result
+    }
+
+    private func uniqueStops(_ cities: [CityChoice], existing: [Destination]) -> [Destination] {
+        var names = Set(existing.map(\.city))
+        return cities.map(canonical).compactMap { choice in
+            names.insert(choice.name).inserted ? Destination(choice) : nil
+        }
+    }
+
+    /// Şehrin planı yoksa boş bir plan açar (2 gün).
+    private func ensureTrip(_ city: String) {
+        if !trips.contains(where: { $0.city == city }) {
+            trips.append(Trip(city: city, days: 2, pace: .normal, placeIDs: [], dayOf: [:]))
+        }
+    }
+
+    /// Planı olan her şehir bir gezide görünsün: yoksa tek şehirlik gezi açılır.
+    private func addJourneyIfMissing(for city: String) {
+        guard journey(containing: city) == nil, let center = center(of: city) else { return }
+        journeys.append(Journey(name: city, stops: [
+            Destination(city: city, latitude: center.latitude, longitude: center.longitude),
+        ]))
+    }
+
+    private func updateJourney(_ id: UUID, undo message: String? = nil, _ change: (inout Journey) -> Void) {
+        guard let index = journeys.firstIndex(where: { $0.id == id }) else { return }
+        if let message { snapshot(message) }
+        change(&journeys[index])
+        save()
+    }
+
+    private func updateStop(_ stopID: UUID, in journeyID: UUID, undo message: String? = nil,
+                            _ change: (inout Destination) -> Void) {
+        updateJourney(journeyID, undo: message) { journey in
+            guard let index = journey.stops.firstIndex(where: { $0.id == stopID }) else { return }
+            change(&journey.stops[index])
+        }
+    }
+
     // MARK: - Yerler
 
     /// Yeni yeri kaydeder; `plan` doğruysa rotaya, seçilen güne de ekler.
@@ -171,6 +345,7 @@ final class AppStore: ObservableObject {
             trip.placeIDs.append(place.id)
             trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: Self.clamp(day, days: trip.days)]) { $1 }
             replace(trip)
+            addJourneyIfMissing(for: place.city)
         }
         save()
     }
@@ -282,6 +457,7 @@ final class AppStore: ObservableObject {
         places = undoSnapshot.places
         trips = undoSnapshot.trips
         pendingPosts = undoSnapshot.pendingPosts ?? pendingPosts
+        journeys = undoSnapshot.journeys ?? journeys
         self.undoSnapshot = nil
         undoMessage = nil
         save()
@@ -298,6 +474,7 @@ final class AppStore: ObservableObject {
         var trip = self.trip(for: city)
         change(&trip)
         replace(trip)
+        addJourneyIfMissing(for: city)
         save()
     }
 
@@ -310,28 +487,37 @@ final class AppStore: ObservableObject {
     }
 
     private func snapshot(_ message: String) {
-        undoSnapshot = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts)
+        undoSnapshot = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys)
         undoMessage = message
     }
 
     private func load() {
+        var needsJourneys = true
         if let data = try? Data(contentsOf: fileURL),
            let state = try? JSONDecoder().decode(Snapshot.self, from: data) {
             places = state.places
             trips = state.trips
             pendingPosts = state.pendingPosts ?? []
+            journeys = state.journeys ?? []
+            needsJourneys = state.journeys == nil
         } else {
             places = SampleData.places
             trips = SampleData.trips(for: places)
         }
         trips = trips.map(withDays)
+        // Çok şehirli gezilerden önceki şehir planları bir kez birer şehirlik gezi olur.
+        if needsJourneys {
+            for trip in trips where !trip.placeIDs.isEmpty {
+                addJourneyIfMissing(for: trip.city)
+            }
+        }
     }
 
     private func save() {
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let state = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts)
+            let state = Snapshot(places: places, trips: trips, pendingPosts: pendingPosts, journeys: journeys)
             try JSONEncoder().encode(state).write(to: fileURL, options: .atomic)
         } catch {
             print("Kayıt yazılamadı: \(error)")

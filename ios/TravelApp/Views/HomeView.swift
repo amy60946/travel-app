@@ -6,12 +6,15 @@ import SwiftUI
 /// simgesiyle (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte
 /// harita türü ve konumum; arama sağ alttaki büyüteçte ("Yer ekle"). Haritadaki
 /// herhangi bir yere (Apple'ın müze, kafe... yerleri) dokunup tek dokunuşla
-/// kaydedilir. Altta Gezilerim / Kayıtlarım listesi.
+/// kaydedilir. Altta Gezilerim (çok şehirli geziler, "Yeni gezi") /
+/// Kayıtlarım (şehirler) listesi.
 struct HomeView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var path: [Route]
     /// Sağ alttaki büyüteç "Yer ekle"yi bu şehir için açar: haritanın ortasına en yakın şehir.
     @Binding var searchCity: String
+    /// Uygulama genelindeki alt pencere ("Yeni gezi" buradan açılır).
+    @Binding var sheet: AddSheet?
     @StateObject private var importer = PlaceImporter()
 
     @State private var position: MapCameraPosition = .camera(
@@ -55,8 +58,9 @@ struct HomeView: View {
     /// Az yer görünüyorsa ya da yakındaysak pinlerin adları da yazılır.
     private var showsTitles: Bool { distance < 12_000 || visiblePlaces.count <= 20 }
 
+    /// Kayıtlarım: kayıtlı yeri olan şehirler.
     private var listedCities: [AppStore.CitySummary] {
-        section == 0 ? store.cities.filter(\.hasTrip) : store.cities
+        store.cities.filter { $0.placeCount > 0 }
     }
 
     /// Görünen bölgedeki kayıtlı yerler.
@@ -253,23 +257,31 @@ struct HomeView: View {
             .pickerStyle(.segmented)
             .padding(.bottom, 4)
 
-            if listedCities.isEmpty {
-                Text(section == 0
-                     ? LocalizedStringKey("Henüz gezi yok. Kayıtlarım'dan bir şehir seç, rota oluştur.")
-                     : LocalizedStringKey("Henüz kayıt yok. + ile yer ekle ya da veri aktar."))
+            if section == 1 && listedCities.isEmpty {
+                Text("Henüz kayıt yok. Büyüteçle yer ekle ya da veri aktar.")
                     .font(Theme.font(14))
                     .foregroundStyle(Theme.muted)
                     .padding(.vertical, 12)
             }
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(listedCities) { city in
-                        Button { path.append(.city(city.name)) } label: {
-                            CityRow(city: city, days: store.trip(for: city.name).days)
-                        }
-                        .buttonStyle(.plain)
-                        if city.id != listedCities.last?.id {
+                    if section == 0 {
+                        ForEach(store.journeys) { journey in
+                            Button { path.append(.journey(journey.id)) } label: { journeyRow(journey) }
+                                .buttonStyle(.plain)
                             Divider().padding(.leading, 70)
+                        }
+                        Button { sheet = .newTrip } label: { newTripRow }
+                            .buttonStyle(.plain)
+                    } else {
+                        ForEach(listedCities) { city in
+                            Button { open(city) } label: {
+                                CityRow(city: city, days: store.trip(for: city.name).days)
+                            }
+                            .buttonStyle(.plain)
+                            if city.id != listedCities.last?.id {
+                                Divider().padding(.leading, 70)
+                            }
                         }
                     }
                 }
@@ -291,7 +303,57 @@ struct HomeView: View {
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { panelTop = $0 }
     }
 
+    private func journeyRow(_ journey: Journey) -> some View {
+        let first = journey.stops.first
+        let days = store.days(of: journey).reduce(0, +)
+        let planned = journey.stops.reduce(0) { $0 + store.trip(for: $1.city).placeIDs.count }
+        return HStack(spacing: 14) {
+            CityPhoto(name: first?.city ?? "", englishTitle: first?.englishTitle,
+                      cover: store.cities.first { $0.name == first?.city }?.coverPlace)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(journey.name).font(Theme.font(17, .semibold)).lineLimit(1)
+                Text(journey.stops.count > 1
+                     ? String(localized: "\(journey.stops.count) şehir · \(days) gün")
+                     : String(localized: "\(days) gün · \(planned) yer"))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private var newTripRow: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .semibold))
+                .frame(width: 56, height: 56)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Yeni gezi").font(Theme.font(17, .semibold))
+                Text("Şehirleri seç, sırayla planla").font(Theme.caption).foregroundStyle(Theme.muted)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
     // MARK: - İşlemler
+
+    /// Kayıtlarım'da şehre dokununca: gezisi varsa gezi planı, yoksa şehrin planı.
+    private func open(_ city: AppStore.CitySummary) {
+        if let journey = store.journey(containing: city.name) {
+            path.append(.journey(journey.id))
+        } else {
+            path.append(.city(city.name))
+        }
+    }
 
     private func isShowing(_ item: MKMapItem) -> Bool {
         if case .item(let shown, _) = card { return shown == item }
@@ -398,7 +460,8 @@ struct HomeView: View {
     private func openLaunchScreen() async {
         #if DEBUG
         let screen = UserDefaults.standard.string(forKey: "screen")
-        guard screen == "map" || screen == "sheet", let city = store.cities.first,
+        guard screen == "map" || screen == "sheet",
+              let city = store.cities.first(where: { $0.name == "Tokyo" }) ?? store.cities.first,
               let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))
         else { return }
         position = .region(region)
@@ -457,7 +520,7 @@ private struct CityPin: View {
                 PlaceThumbnail(place: cover, cornerRadius: 12)
                     .frame(width: 24, height: 24)
             }
-            Text("\(city.name) · \(city.placeCount)")
+            Text(city.placeCount > 0 ? "\(city.name) · \(city.placeCount)" : city.name)
                 .font(Theme.font(13, .semibold))
         }
         .padding(.leading, 4)

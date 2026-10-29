@@ -19,8 +19,10 @@ concurrency:
 jobs:
   shots:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ekran]')
-    runs-on: macos-15
-    timeout-minutes: 30
+    # Intel Mac: GitHub'ın Apple çipli (arm64) Mac'lerinde yoğunluk var; işler
+    # 15 dakika sırada bekleyip iptal oluyordu. Açık depoda bu da ücretsiz.
+    runs-on: macos-15-intel
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: ios
@@ -67,11 +69,14 @@ jobs:
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
           i=1
-          for screen in home map sheet sheetTall photo city all spot listen player guide moved movedList saved downloads place walk add import camera custom; do
+          for screen in home map sheet sheetTall photo city all spot listen player guide moved movedList saved downloads place walk add import camera custom trips journey flight stay addCity newTrip discover continent country cityGuide addToPlan; do
             xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
             xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
-            # Yol tarifi rotayı internetten bulur; biraz daha bekle.
-            if [ "$screen" = guide ]; then sleep 14; else sleep 8; fi
+            # Yol tarifi ve Keşfet sayfaları içeriği internetten bulur; biraz daha bekle.
+            case "$screen" in
+              guide|continent|country|cityGuide|addToPlan|journey|discover) sleep 14 ;;
+              *) sleep 8 ;;
+            esac
             xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png"
             i=$((i+1))
           done
