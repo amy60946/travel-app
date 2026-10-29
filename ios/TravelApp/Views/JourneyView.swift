@@ -17,6 +17,9 @@ struct JourneyView: View {
     @State private var renaming = false
     @State private var newName = ""
     @State private var confirmDelete = false
+    /// Alttaki şehir listesinin paneli: küçük, yarım, büyük.
+    @State private var panelStop = 1
+    @State private var panelHeight: CGFloat = 400
     #if DEBUG
     private static var openedLaunchScreen = false
     #endif
@@ -48,21 +51,24 @@ struct JourneyView: View {
     private func content(_ journey: Journey) -> some View {
         let days = store.days(of: journey)
         let ranges = Journey.dayRanges(days: days)
-        return VStack(spacing: 0) {
+        return ZStack(alignment: .bottom) {
             map(journey)
-                .frame(height: 300)
+                .safeAreaPadding(.bottom, panelHeight + 30)
+                .ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .top) { header(journey) }
 
-            ScrollView {
+            DraggablePanel(stops: [.height(140), .fraction(0.55), .fraction(0.9)], selection: $panelStop,
+                           onSettle: { panelHeight = $0 }) {
+                Text(journey.stops.count == 1
+                     ? String(localized: "\(days.reduce(0, +)) gün")
+                     : String(localized: "\(journey.stops.count) şehir · \(days.reduce(0, +)) gün"))
+                    .font(Theme.font(15, .semibold))
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
+            } content: {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(journey.stops.count == 1
-                         ? String(localized: "\(days.reduce(0, +)) gün")
-                         : String(localized: "\(journey.stops.count) şehir · \(days.reduce(0, +)) gün"))
-                        .font(Theme.font(15, .semibold))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.top, 16)
-                        .padding(.bottom, 10)
-
                     ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
                         if index > 0 || stop.flight != nil {
                             TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop) {

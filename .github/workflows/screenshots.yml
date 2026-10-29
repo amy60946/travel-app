@@ -69,7 +69,7 @@ jobs:
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
           i=1
-          for screen in home map sheet sheetTall photo city all spot listen player guide moved movedList saved downloads place walk add import camera custom trips journey flight stay addCity newTrip discover continent country cityGuide addToPlan; do
+          for screen in home map sheet sheetTall photo city cityTall all spot listen player guide moved movedList saved downloads place walk add import camera custom trips journey flight stay addCity newTrip discover continent country cityGuide addToPlan; do
             xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
             xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
             # Yol tarifi ve Keşfet sayfaları içeriği internetten bulur; biraz daha bekle.

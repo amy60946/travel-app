@@ -22,8 +22,10 @@ struct CityPlanView: View {
     /// Bakılan yer: harita ona yakınlaşır, alttan penceresi açılır.
     @State private var focusedID: UUID?
     @State private var sheetDetent: PresentationDetent = .placeHalf
-    /// Yer penceresi açıkken haritanın yüksekliği: pencerenin üstünü doldurur.
-    @State private var focusedMapHeight: CGFloat = 360
+    /// Alttaki listenin paneli: hangi yükseklikte (küçük, yarım, büyük) ve kaç nokta.
+    @State private var panelStop = 1
+    @State private var panelHeight: CGFloat = 360
+    @State private var screenHeight: CGFloat = 800
     #if DEBUG
     private static var openedLaunchScreen = false
     #endif
@@ -44,47 +46,27 @@ struct CityPlanView: View {
 
     var body: some View {
         let stops = self.stops
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             map(stops)
-                .frame(height: focusedID == nil ? 360 : max(focusedMapHeight, 360))
+                // Pinler haritanın görünen kısmının (panelin ya da yer
+                // penceresinin üstünün) ortasında dursun.
+                .safeAreaPadding(.bottom, focusedID == nil ? panelHeight + 30 : screenHeight / 2)
+                .ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .top) { header }
-                .overlay(alignment: .bottomTrailing) { MapKindMenu(selection: $mapKind).padding(12) }
-
-            dayBar(stops)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    if stops.isEmpty {
-                        Text(showsAll ? LocalizedStringKey("Rotada henüz yer yok. Sağ alttaki + ile yer ekle.")
-                                      : LocalizedStringKey("Bu gün boş. Sağ alttaki + ile yer ekle."))
-                            .font(Theme.caption)
-                            .foregroundStyle(Theme.muted)
-                            .padding(.vertical, 14)
-                    }
-                    if showsAll {
-                        ForEach(Array(days.enumerated()), id: \.offset) { index, places in
-                            if !places.isEmpty {
-                                Text("\(index + 1). gün")
-                                    .font(Theme.font(13, .bold))
-                                    .foregroundStyle(Theme.muted)
-                                    .padding(.top, 14)
-                                    .padding(.bottom, 2)
-                                ForEach(places) { place in row(place) }
-                            }
-                        }
-                    } else {
-                        ForEach(stops) { place in row(place) }
-                    }
+            if focusedID == nil {
+                DraggablePanel(stops: Self.panelStops, selection: $panelStop,
+                               onSettle: { panelHeight = $0 }) {
+                    dayBar(stops)
+                } content: {
+                    list(stops)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 100)
+                .transition(.move(edge: .bottom))
             }
         }
         .animation(.snappy, value: focusedID)
         .onGeometryChange(for: CGFloat.self) { proxy in
-            // Yer penceresi ekranın yarısını kaplar; köşeleri de harita üstünde dursun.
-            let screen = proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
-            return screen / 2 - proxy.safeAreaInsets.top + 24
-        } action: { focusedMapHeight = $0 }
+            proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
+        } action: { screenHeight = $0 }
         .overlay(alignment: .bottomTrailing) { addButton }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 90) }
         .animation(.snappy, value: store.undoMessage)
@@ -167,13 +149,44 @@ struct CityPlanView: View {
                 .background(.white, in: Capsule())
                 .softShadow()
             Spacer()
-            Color.clear.frame(width: 40, height: 40)
+            MapKindMenu(selection: $mapKind)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
     }
 
     // MARK: - Liste
+
+    /// Panelin yükseklikleri: yalnızca gün satırı, yarım ekran, neredeyse tam ekran.
+    private static let panelStops: [PanelStop] = [.height(150), .fraction(0.5), .fraction(0.9)]
+
+    private func list(_ stops: [Place]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if stops.isEmpty {
+                Text(showsAll ? LocalizedStringKey("Rotada henüz yer yok. Sağ alttaki + ile yer ekle.")
+                              : LocalizedStringKey("Bu gün boş. Sağ alttaki + ile yer ekle."))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.muted)
+                    .padding(.vertical, 14)
+            }
+            if showsAll {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, places in
+                    if !places.isEmpty {
+                        Text("\(index + 1). gün")
+                            .font(Theme.font(13, .bold))
+                            .foregroundStyle(Theme.muted)
+                            .padding(.top, 14)
+                            .padding(.bottom, 2)
+                        ForEach(places) { place in row(place) }
+                    }
+                }
+            } else {
+                ForEach(stops) { place in row(place) }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 100)
+    }
 
     /// Listenin üstünde tek satır: gün seçici, o günün özeti ve Yürü.
     private func dayBar(_ stops: [Place]) -> some View {
@@ -205,7 +218,8 @@ struct CityPlanView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.top, 2)
+        .padding(.bottom, 12)
         .overlay(alignment: .bottom) { Divider() }
     }
 
@@ -352,7 +366,8 @@ struct CityPlanView: View {
     /// Meiji Tapınağı'na bakar; `moved` onu başka güne taşınmış gösterir;
     /// `movedList` taşıdıktan sonra yeni gününün listesini ve "Geri al"
     /// bildirimini gösterir; `photo` fotoğrafı tam ekran, `sheetTall`
-    /// pencereyi uzun açar; `all` bütün yerleri gösterir.
+    /// pencereyi uzun açar; `all` bütün yerleri gösterir; `cityTall` listenin
+    /// panelini yukarı çekilmiş gösterir.
     private func openLaunchScreen() async {
         #if DEBUG
         guard !Self.openedLaunchScreen else { return }
@@ -360,6 +375,7 @@ struct CityPlanView: View {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
         if screen == "all" { selectedDay = Self.allDays }
+        if screen == "cityTall" { panelStop = Self.panelStops.count - 1 }
         guard ["spot", "moved", "movedList", "photo", "sheetTall", "listen"].contains(screen),
               let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
               let day = store.dayIndex(of: place) else { return }
