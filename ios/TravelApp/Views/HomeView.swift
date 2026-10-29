@@ -3,13 +3,15 @@ import SwiftUI
 
 /// Ana sayfa: Google Maps gibi çalışan harita. Uzaktan bakınca
 /// kürede şehir pinleri; yaklaşınca kayıtlı yerler türlerinin renk ve
-/// simgesiyle (müze mor, kafe kahverengi, tapınak kırmızı...). Üstte arama
-/// ("Yer ekle" listesini açar), sağda harita türü ve konumum. Haritadaki
+/// simgesiyle (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte
+/// harita türü ve konumum; arama sağ alttaki büyüteçte ("Yer ekle"). Haritadaki
 /// herhangi bir yere (Apple'ın müze, kafe... yerleri) dokunup tek dokunuşla
 /// kaydedilir. Altta Gezilerim / Kayıtlarım listesi.
 struct HomeView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var path: [Route]
+    /// Sağ alttaki büyüteç "Yer ekle"yi bu şehir için açar: haritanın ortasına en yakın şehir.
+    @Binding var searchCity: String
     @StateObject private var importer = PlaceImporter()
 
     @State private var position: MapCameraPosition = .camera(
@@ -20,12 +22,11 @@ struct HomeView: View {
     @State private var section = 0
     @State private var panelExpanded = true
 
-    @State private var addCity = ""
-    @State private var showAdd = false
-
     @State private var selectedFeature: MapFeature?
     /// Alttan açılan yer penceresi (fotoğraflar, Dinle, bilgi).
     @State private var sheetPlaceID: UUID?
+    @State private var sheetDetent: PresentationDetent = .placeHalf
+    @State private var guidance: GuidanceDestination?
     @State private var card: Card?
     /// Kart haritadaki bir Apple yerine dokunularak mı açıldı?
     @State private var cardFromFeature = false
@@ -75,12 +76,12 @@ struct HomeView: View {
             map
 
             VStack(alignment: .leading, spacing: 10) {
-                topBar
                 HStack(alignment: .top) {
                     Spacer()
                     controls
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
                 Spacer(minLength: 0)
                 bottom
             }
@@ -99,13 +100,13 @@ struct HomeView: View {
             Task { await show(feature) }
         }
         .appleDetailSheet(item: $detailItem)
-        .sheet(isPresented: $showAdd) { AddPlaceView(city: addCity) }
         .sheet(isPresented: Binding(get: { sheetPlaceID != nil }, set: { if !$0 { sheetPlaceID = nil } })) {
             if let id = sheetPlaceID {
                 PlaceSheet(placeID: id) { place in open(place) }
-                    .placeSheetPresentation()
+                    .placeSheetPresentation(detent: $sheetDetent)
             }
         }
+        .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
         .alert("Konum izni kapalı", isPresented: $showLocationDenied) {
             Button("Ayarları aç") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -148,37 +149,18 @@ struct HomeView: View {
         .onMapCameraChange(frequency: .onEnd) { context in
             distance = context.camera.distance
             region = context.region
+            searchCity = nearestCity
         }
+        // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
+        .simultaneousGesture(TapGesture().onEnded {
+            if sheetPlaceID != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+        })
         // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
         // alanın ortasında dursun.
         .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2
                           : panelExpanded && card == nil ? max(mapHeight - panelTop, 170) : 170)
         .ignoresSafeArea()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
-    }
-
-    private var topBar: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Polarsteps'teki gibi: arama "Yer ekle" listesini açar.
-            Button {
-                addCity = nearestCity
-                showAdd = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
-                    Text("Yer ara ve ekle").foregroundStyle(Theme.muted)
-                    Spacer()
-                }
-                .font(Theme.font(16))
-                .padding(.horizontal, 16)
-                .frame(height: 48)
-                .background(.white, in: Capsule())
-                .softShadow()
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-        }
-        .padding(.top, 8)
     }
 
     /// Sağdaki düğmeler: harita türü ve konumum.
@@ -225,7 +207,7 @@ struct HomeView: View {
                 }
                 .disabled(saving)
                 SecondaryButton(title: "Ayrıntılar", systemImage: "info.circle") { detailItem = item }
-                DirectionsButton { PlaceSearch.openDirections(to: item) }
+                DirectionsButton { guidance = GuidanceDestination(item: item, category: category) }
             }
             .floatingAboveTabBar()
         }
@@ -321,6 +303,7 @@ struct HomeView: View {
         cardFromFeature = false
         selectedFeature = nil
         card = nil
+        sheetDetent = .placeHalf
         sheetPlaceID = place.id
         withAnimation {
             position = .region(MKCoordinateRegion(focusing: place, among: store.places(in: place.city)))
@@ -389,7 +372,7 @@ struct HomeView: View {
         }
     }
 
-    /// "Yer ekle" hangi şehir için açılsın: haritanın ortasına en yakın şehir.
+    /// Büyüteç "Yer ekle"yi hangi şehir için açsın: haritanın ortasına en yakın şehir.
     private var nearestCity: String {
         let cities = store.cities
         guard isZoomedIn, let center = region?.center else { return cities.first?.name ?? "Tokyo" }

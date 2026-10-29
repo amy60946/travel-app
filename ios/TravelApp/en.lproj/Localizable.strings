@@ -2,7 +2,6 @@
 "Keşfet" = "Explore";
 "Kayıtlar" = "Saved";
 "İndirilenler" = "Downloads";
-"Ekle" = "Add";
 "Gezilerim" = "My trips";
 "Kayıtlarım" = "My saves";
 "%lld yer" = "%lld places";
@@ -72,7 +71,6 @@
 "Notun" = "Your note";
 "Dinle" = "Listen";
 "Anlatım hazırlanıyor" = "Preparing narration";
-"Rehber anlatımı · iPhone sesi" = "Guide narration · iPhone voice";
 
 /* Yer ekle */
 "Arama sonuçları" = "Search results";
@@ -106,7 +104,6 @@
 
 /* Veri aktar */
 "Veri aktar" = "Import";
-"Veri dosyası ya da link aktar" = "Import data file or link";
 "%lld yer aktarıldı" = "%lld places imported";
 "1. Bilgisayarda ya da telefonda takeout.google.com adresine gir." = "1. Go to takeout.google.com on your computer or phone.";
 "2. \"Tümünün seçimini kaldır\" de, sonra yalnızca **Haritalar (yerleriniz)** ve **Kaydedilenler**'i seç." = "2. Tap \"Deselect all\", then select only **Maps (your places)** and **Saved**.";
@@ -252,3 +249,32 @@
 "Fotoğraflar: yakında çekilenler, Wikimedia Commons" = "Photos: taken nearby, Wikimedia Commons";
 "Fotoğraflar: Wikipedia / Wikimedia Commons" = "Photos: Wikipedia / Wikimedia Commons";
 "Bu yer hakkında Wikipedia'da yazı bulunamadı." = "No Wikipedia article found for this place.";
+
+/* Anlatım çubuğu, yol tarifi, tüm yerler (2026-10-29) */
+"%lld dk · Türkçe anlatım" = "%lld min · Turkish narration";
+"%lld dk · İngilizce anlatım" = "%lld min · English narration";
+"Dinleniyor" = "Playing";
+"Duraklatıldı" = "Paused";
+"Anlatımın ilerlemesi" = "Narration progress";
+"Kaynak: İngilizce Wikipedia (CC BY-SA), Türkçeye çevrildi" = "Source: English Wikipedia (CC BY-SA), translated into Turkish";
+"10 saniye geri" = "Back 10 seconds";
+"10 saniye ileri" = "Forward 10 seconds";
+"Oynat" = "Play";
+"Duraklat" = "Pause";
+"Anlatımı kapat" = "Close narration";
+"Fotoğrafı büyüt" = "Enlarge photo";
+"Konumuma dön" = "Back to my location";
+"Vardın: %@" = "You've arrived: %@";
+"Varış: %@" = "Arrive at %@";
+"Konumun bulunuyor…" = "Finding your location…";
+"Yürüme yolu bulunuyor…" = "Finding a walking route…";
+"Yürüme yolu bulunamadı. İnternet bağlantını kontrol et." = "No walking route found. Check your internet connection.";
+"Konum izni kapalı. Ayarlar'dan izin ver." = "Location access is off. Allow it in Settings.";
+"%lld dk" = "%lld min";
+"Sesli yönlendirmeyi kapat" = "Turn off voice guidance";
+"Sesli yönlendirmeyi aç" = "Turn on voice guidance";
+"Bitir" = "End";
+"Yol yeniden bulunuyor" = "Rerouting";
+"Rotada henüz yer yok. Sağ alttaki + ile yer ekle." = "No places on the route yet. Add one with + at the bottom right.";
+"Tüm yerler · %lld yer" = "All places · %lld places";
+"Tüm yerler" = "All places";

@@ -10,20 +10,24 @@ enum RootTab: Hashable {
     case explore, saved, downloads
 }
 
-/// Alt çubuk (beyaz hap) + siyah "+" ve sekmeler.
+/// Alt çubuk (beyaz hap) + siyah büyüteç ("Yer ekle") ve sekmeler. Anlatım
+/// çalarken en altta oynatıcı çubuğu durur; sayfa değişse de görünür.
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var path: [Route] = []
     @State private var tab: RootTab = .explore
     @State private var sheet: AddSheet?
+    /// Büyütecin "Yer ekle"yi açacağı şehir (ana haritada ortaya en yakın şehir).
+    @State private var searchCity = ""
+    @State private var guidance: GuidanceDestination?
 
     var body: some View {
         NavigationStack(path: $path) {
             ZStack(alignment: .bottom) {
                 Group {
                     switch tab {
-                    case .explore: HomeView(path: $path)
+                    case .explore: HomeView(path: $path, searchCity: $searchCity)
                     case .saved: SavedPlacesView(path: $path)
                     case .downloads: DownloadsView()
                     }
@@ -32,16 +36,19 @@ struct RootView: View {
 
                 VStack(spacing: 10) {
                     UndoToast()
-                    TabBar(tab: $tab, city: store.cities.first?.name ?? "Tokyo", sheet: $sheet)
+                    TabBar(tab: $tab, sheet: $sheet,
+                           city: searchCity.isEmpty ? store.cities.first?.name ?? "Tokyo" : searchCity)
                 }
                 .padding(.bottom, 8)
                 .animation(.snappy, value: store.undoMessage)
             }
+            .narrationBarInset()
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
                 switch route {
-                case .city(let name): CityPlanView(city: name, path: $path)
-                case .place(let id): PlaceDetailView(placeID: id)
+                case .city(let name): CityPlanView(city: name, path: $path).narrationBarInset()
+                case .place(let id): PlaceDetailView(placeID: id).narrationBarInset(hiding: store.place(id)?.name)
+                // Yürüyüş ekranının kendi çalar düğmeleri var; orada çubuk yok.
                 case .walk(let city, let day): WalkView(city: city, dayIndex: day)
                 }
             }
@@ -51,6 +58,9 @@ struct RootView: View {
         .sheet(item: $sheet) { sheet in
             sheet.view
         }
+        .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
+        // Türkçe kaynağı olmayan anlatımlar iPhone'un kendi çevirisiyle Türkçeye çevrilir.
+        .translationHost()
         .task {
             openLaunchScreen()
             await openImportIfNewExport()
@@ -85,7 +95,17 @@ struct RootView: View {
         switch screen {
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city", "spot", "moved", "movedList": path = [.city(city)]
+        case "city", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
+        case "player":
+            path = [.city(city)]
+            Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
+                                  + "Tokyo'nun en eski tapınağıdır ve her yıl milyonlarca kişi ziyaret eder.",
+                                  title: "Sensō-ji", language: "tr")
+        case "guide":
+            let places = store.places(in: city)
+            if let target = places.first(where: { $0.name == "Tokyo Skytree" }) ?? places.first {
+                guidance = GuidanceDestination(place: target)
+            }
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
         case "add": sheet = .addPlace(city: city)
@@ -129,8 +149,8 @@ enum AddSheet: Identifiable {
 
 private struct TabBar: View {
     @Binding var tab: RootTab
-    let city: String
     @Binding var sheet: AddSheet?
+    let city: String
 
     var body: some View {
         HStack(spacing: 12) {
@@ -143,20 +163,17 @@ private struct TabBar: View {
             .background(.white, in: Capsule())
             .softShadow()
 
-            Menu {
-                Button { sheet = .addPlace(city: city) } label: { Label("Yer ekle", systemImage: "magnifyingglass") }
-                Button { sheet = .camera } label: { Label("Fotoğrafla ekle", systemImage: "camera") }
-                Button { sheet = .importData } label: { Label("Veri dosyası ya da link aktar", systemImage: "square.and.arrow.down") }
-                Button { sheet = .customPlace(city: city) } label: { Label("Kendi yerini oluştur", systemImage: "mappin.and.ellipse") }
-            } label: {
-                Image(systemName: "plus")
+            // Hızlı erişim: doğrudan "Yer ekle" (arama, kendi yerin, fotoğrafla ekle).
+            Button { sheet = .addPlace(city: city) } label: {
+                Image(systemName: "magnifyingglass")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
                     .background(Theme.ink, in: Circle())
                     .softShadow()
             }
-            .accessibilityLabel(Text("Ekle"))
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Yer ara ve ekle"))
         }
     }
 

@@ -21,7 +21,7 @@ targets:
       path: TravelApp/Info.plist
       properties:
         UIAppFonts: [Figtree.ttf]
-        NSLocationWhenInUseUsageDescription: "Yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
+        NSLocationWhenInUseUsageDescription: "Yol tarifi, yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
         NSCameraUsageDescription: "Tabela ya da bina fotoğrafından yeri bulmak için kamerayı kullanıyoruz."
         NSPhotoLibraryUsageDescription: "Kaydettiğin gönderinin ekran görüntüsünden yeri bulmak için yalnızca en yeni ekran görüntüsüne bakıyoruz."
         GeminiAPIKey: "$(GEMINI_API_KEY)"
@@ -45,6 +45,8 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # iPhone çevirisi iOS 18'de geldi; eski iOS'ta uygulama yine açılsın.
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "Translation"]
   TravelAppTests:
     type: bundle.unit-test
     platform: iOS

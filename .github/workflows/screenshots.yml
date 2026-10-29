@@ -67,10 +67,11 @@ jobs:
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
           i=1
-          for screen in home map sheet city spot moved movedList saved downloads place walk add import camera custom; do
+          for screen in home map sheet sheetTall photo city all spot listen player guide moved movedList saved downloads place walk add import camera custom; do
             xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
             xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
-            sleep 8
+            # Yol tarifi rotayı internetten bulur; biraz daha bekle.
+            if [ "$screen" = guide ]; then sleep 14; else sleep 8; fi
             xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png"
             i=$((i+1))
           done

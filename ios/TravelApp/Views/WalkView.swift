@@ -1,8 +1,8 @@
 import MapKit
 import SwiftUI
 
-/// Yürü: harita açık; üstte sıradaki durak kartı; yaklaşınca anlatım
-/// kendiliğinden başlar; altta küçük çalar ve "Sıradaki".
+/// Yürü: harita açık; üstte sıradaki durak kartı (yol tarifi düğmesiyle);
+/// yaklaşınca anlatım kendiliğinden başlar; altta küçük çalar ve "Sıradaki".
 struct WalkView: View {
     let city: String
     let dayIndex: Int
@@ -16,6 +16,7 @@ struct WalkView: View {
     @State private var narrated: Set<UUID> = []
     @State private var route: WalkingRoutes.DayRoute?
     @State private var arrivedBanner: String?
+    @State private var guidance: GuidanceDestination?
 
     /// Anlatımın başlama mesafesi (Tokyo testinde ayarlanacak).
     private let triggerMeters: CLLocationDistance = 50
@@ -75,6 +76,7 @@ struct WalkView: View {
             if let location { checkArrival(at: location) }
         }
         .task { route = await WalkingRoutes.route(through: stops) }
+        .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
         .animation(.snappy, value: arrivedBanner)
     }
 
@@ -93,6 +95,11 @@ struct WalkView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .trailing) {
+            if let nextStop {
+                DirectionsButton { guidance = GuidanceDestination(place: nextStop) }
+            }
+        }
         .padding(14)
         .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .softShadow()
@@ -154,7 +161,7 @@ struct WalkView: View {
     private func narrate(_ stop: Place) async {
         guard let title = stop.wikipediaTitle,
               let summary = await WikipediaService.shared.summary(englishTitle: title) else {
-            narrator.speak(stop.name, title: stop.name, language: WikipediaService.preferredLanguage)
+            narrator.speak(stop.name, title: stop.name, language: WikipediaService.narrationLanguage)
             return
         }
         narrator.speak(summary.extract, title: stop.name, language: summary.language)

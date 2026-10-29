@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Haritada kayıtlı bir yere dokununca alttan açılan pencere (Google Maps
 /// gibi): ad ve tür; tek gün düğmesi (rotadaysa günü değiştirir, değilse
-/// seçilen güne ekler), Aç, Yol tarifi; yana kayan fotoğraflar, Dinle
-/// düğmesi ve Wikipedia'dan bilgi. Yarım ekranda kalır; harita hep görünür
-/// ve kullanılabilir.
+/// seçilen güne ekler), Aç, Yol tarifi (uygulamanın içinde); yana kayan
+/// fotoğraflar (dokununca tam ekran), Dinle düğmesi ve Wikipedia'dan bilgi.
+/// Yarım ekran açılır, yukarı çekilince ekranın %70'ine çıkar; üstte harita
+/// hep görünür ve kullanılabilir.
 struct PlaceSheet: View {
     let placeID: UUID
     let onOpen: (Place) -> Void
@@ -16,6 +17,9 @@ struct PlaceSheet: View {
     /// Fotoğraflar sayfadan değil, yakında çekilenlerden mi geldi?
     @State private var photosAreNearby = false
     @State private var isLoading = true
+    /// Tam ekran açılan fotoğrafın sırası.
+    @State private var viewerIndex: Int?
+    @State private var guidance: GuidanceDestination?
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -39,6 +43,12 @@ struct PlaceSheet: View {
         .background(.white)
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
+        // Bu yer çalıyorsa oynatıcı "Dinle" kartının kendisi; alttaki çubuk gizlenir.
+        .narrationBarInset(hiding: place.name)
+        .fullScreenCover(isPresented: Binding(get: { viewerIndex != nil }, set: { if !$0 { viewerIndex = nil } })) {
+            PhotoViewer(photos: photos, index: viewerIndex ?? 0)
+        }
+        .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
     }
 
     private func header(_ place: Place) -> some View {
@@ -68,7 +78,7 @@ struct PlaceSheet: View {
         HStack(spacing: 8) {
             PlanDayButton(place: place)
             SecondaryButton(title: "Aç", systemImage: "arrow.up.right") { onOpen(place) }
-            DirectionsButton { PlaceSearch.openDirections(to: place) }
+            DirectionsButton { guidance = GuidanceDestination(place: place) }
         }
     }
 
@@ -86,17 +96,21 @@ struct PlaceSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 10) {
-                        ForEach(photos, id: \.self) { url in
-                            Theme.surface
-                                .overlay {
-                                    AsyncImage(url: url) { image in
-                                        image.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Theme.surface
+                        ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
+                            Button { viewerIndex = index } label: {
+                                Theme.surface
+                                    .overlay {
+                                        AsyncImage(url: url) { image in
+                                            image.resizable().scaledToFill()
+                                        } placeholder: {
+                                            Theme.surface
+                                        }
                                     }
-                                }
-                                .frame(width: 240, height: 170)
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
+                                    .frame(width: 240, height: 170)
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text("Fotoğrafı büyüt"))
                         }
                     }
                 }
@@ -119,12 +133,7 @@ struct PlaceSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)
-                if let url = summary.pageURL {
-                    Link(destination: url) {
-                        Text("Kaynak: Wikipedia (CC BY-SA)").font(Theme.caption).underline()
-                    }
-                    .foregroundStyle(Theme.muted)
-                }
+                WikipediaCredit(summary: summary)
             }
         } else if isLoading {
             ProgressView().frame(maxWidth: .infinity)
@@ -169,16 +178,28 @@ struct PlaceSheet: View {
             photos = await WikipediaService.shared.nearbyPhotos(latitude: place.latitude, longitude: place.longitude)
             photosAreNearby = !photos.isEmpty
         }
+        #if DEBUG
+        // Ekran görüntüsü için: `-screen photo` fotoğrafı tam ekran açar.
+        if UserDefaults.standard.string(forKey: "screen") == "photo", !photos.isEmpty { viewerIndex = 0 }
+        #endif
     }
 }
 
+extension PresentationDetent {
+    /// Yer penceresi: yarım ekran; yukarı çekilince ekranın %70'i (üstte harita kalır).
+    static let placeHalf = PresentationDetent.fraction(0.5)
+    static let placeTall = PresentationDetent.fraction(0.7)
+}
+
 extension View {
-    /// Yer penceresinin Google Maps gibi davranışı: yarım ekran açılır ve
-    /// öyle kalır (içi kaydırılır); üstteki harita görünür ve kullanılır.
-    func placeSheetPresentation() -> some View {
-        presentationDetents([.fraction(0.5)])
+    /// Yer penceresinin Google Maps gibi davranışı: yarım ekran açılır,
+    /// yukarı çekilince (ya da içi yukarı kaydırılınca) ekranın %70'ine
+    /// çıkar; üstteki harita görünür ve kullanılır.
+    func placeSheetPresentation(detent: Binding<PresentationDetent>) -> some View {
+        presentationDetents([.placeHalf, .placeTall], selection: detent)
             .presentationDragIndicator(.visible)
-            .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.5)))
+            .presentationBackgroundInteraction(.enabled(upThrough: .placeTall))
+            .presentationContentInteraction(.resizes)
             .presentationCornerRadius(Theme.sheetRadius)
     }
 }

@@ -64,14 +64,7 @@ struct PlaceDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Hakkında").font(Theme.headline)
                             Text(summary.extract).font(Theme.body)
-                            if let url = summary.pageURL {
-                                Link(destination: url) {
-                                    Text("Kaynak: Wikipedia (CC BY-SA)")
-                                        .font(Theme.caption)
-                                        .underline()
-                                }
-                                .foregroundStyle(Theme.muted)
-                            }
+                            WikipediaCredit(summary: summary)
                         }
                     } else if isLoading {
                         ProgressView()

@@ -208,7 +208,7 @@ struct PlaceThumbnail: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .task(id: place.wikipediaTitle) {
             guard let title = place.wikipediaTitle else { return }
-            url = await WikipediaService.shared.summary(englishTitle: title)?.thumbnailURL
+            url = await WikipediaService.shared.thumbnailURL(englishTitle: title)
         }
     }
 }
@@ -239,41 +239,274 @@ struct EstimatedTag: View {
     }
 }
 
-/// "Dinle" kartı: yerin Wikipedia yazısını iPhone sesiyle okur;
-/// okurken dokununca duraklatır / sürdürür.
+/// "Dinle" kartı: yerin yazısını Türkçe iPhone sesiyle okur. Çalarken kart
+/// oynatıcıya dönüşür: 10 sn geri, duraklat, 10 sn ileri ve dokunulunca
+/// oraya saran çizgi. Bu yerin sayfasında alttaki çubuk ayrıca görünmez.
 struct ListenCard: View {
     let title: String
     let summary: WikipediaService.Summary?
     @ObservedObject private var narrator = Narrator.shared
 
     var body: some View {
-        let isPlaying = narrator.currentTitle == title
-        HStack(spacing: 14) {
-            Image(systemName: isPlaying && !narrator.isPaused ? "pause.fill" : "play.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(Theme.ink, in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Dinle").font(Theme.headline)
-                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.muted)
-            }
-            Spacer()
+        let isCurrent = narrator.currentTitle == title
+        Group {
+            if isCurrent { playing } else { idle }
         }
         .padding(14)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isPlaying {
-                narrator.togglePause()
-            } else if let summary {
-                narrator.speak(summary.extract, title: title, language: summary.language)
+        .animation(.snappy, value: isCurrent)
+    }
+
+    private var idle: some View {
+        Button {
+            if let summary { narrator.speak(summary.extract, title: title, language: summary.language) }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Theme.ink, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dinle").font(Theme.headline)
+                    Text(subtitle).font(Theme.caption).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(summary == nil)
+        .opacity(summary == nil ? 0.5 : 1)
+    }
+
+    private var subtitle: String {
+        guard let summary else { return String(localized: "Anlatım hazırlanıyor") }
+        let minutes = max(1, Int((Narrator.estimatedDuration(of: summary.extract) / 60).rounded()))
+        return summary.language == "tr"
+            ? String(localized: "\(minutes) dk · Türkçe anlatım")
+            : String(localized: "\(minutes) dk · İngilizce anlatım")
+    }
+
+    private var playing: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Text(narrator.isPaused ? LocalizedStringKey("Duraklatıldı") : LocalizedStringKey("Dinleniyor"))
+                    .font(Theme.headline)
+                Spacer(minLength: 0)
+                NarrationControls()
+            }
+            NarrationTimeline()
+        }
+    }
+}
+
+/// 10 sn geri, oynat / duraklat, 10 sn ileri.
+struct NarrationControls: View {
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        HStack(spacing: 2) {
+            skip("gobackward.10", seconds: -10, label: "10 saniye geri")
+            Button { narrator.togglePause() } label: {
+                Image(systemName: narrator.isPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.ink, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(narrator.isPaused ? LocalizedStringKey("Oynat") : LocalizedStringKey("Duraklat")))
+            skip("goforward.10", seconds: 10, label: "10 saniye ileri")
+        }
+    }
+
+    private func skip(_ symbol: String, seconds: Double, label: LocalizedStringKey) -> some View {
+        Button { narrator.skip(by: seconds) } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 42, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+    }
+}
+
+/// Anlatımın ilerleme çizgisi; dokununca ya da sürükleyince o yere sarar.
+/// Altında geçen ve kalan süre.
+struct NarrationTimeline: View {
+    var showsTimes = true
+    @ObservedObject private var narrator = Narrator.shared
+    /// Sürüklerken parmağın olduğu yer (0...1).
+    @State private var dragFraction: Double?
+
+    var body: some View {
+        let fraction = dragFraction ?? narrator.progress
+        VStack(spacing: 2) {
+            GeometryReader { proxy in
+                let width = max(proxy.size.width, 1)
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.hairline)
+                    Capsule().fill(Theme.accent)
+                        .frame(width: max(6, width * CGFloat(fraction)))
+                }
+                .frame(height: dragFraction == nil ? 4 : 7)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            dragFraction = min(max(Double(value.location.x / width), 0), 1)
+                        }
+                        .onEnded { value in
+                            narrator.seek(to: min(max(Double(value.location.x / width), 0), 1))
+                            dragFraction = nil
+                        }
+                )
+            }
+            .frame(height: 20)
+            if showsTimes {
+                HStack {
+                    Text(verbatim: Narrator.clock(fraction * narrator.duration))
+                    Spacer()
+                    Text(verbatim: "-" + Narrator.clock((1 - fraction) * narrator.duration))
+                }
+                .font(Theme.font(11, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.muted)
             }
         }
-        .opacity(summary == nil ? 0.5 : 1)
-        .accessibilityAddTraits(.isButton)
+        .animation(.snappy(duration: 0.15), value: dragFraction == nil)
+        .accessibilityElement()
+        .accessibilityLabel(Text("Anlatımın ilerlemesi"))
+        .accessibilityValue(Text(verbatim: "\(Narrator.clock(narrator.elapsed)) / \(Narrator.clock(narrator.duration))"))
+        .accessibilityAdjustableAction { direction in
+            narrator.skip(by: direction == .increment ? 10 : -10)
+        }
+    }
+}
+
+extension View {
+    /// Sayfanın altına anlatım çubuğunu koyar; sayfa içeriği (ve sağ alttaki
+    /// düğmeler) çubuğun üstünde kalır. NavigationStack'e bir kez koymak
+    /// açılan sayfaları itmediği için her sayfaya ayrı konur. `hiding`: o
+    /// yer kendi sayfasında çalıyorsa çubuk gösterilmez (kart oynatıcıdır).
+    func narrationBarInset(hiding title: String? = nil) -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) { NarrationBar(hiddenTitle: title) }
+    }
+}
+
+/// Anlatım çalarken ekranın altında duran sade çubuk: ad ve süre, 10 sn
+/// geri, oynat / duraklat, 10 sn ileri, kapat; altta sarılabilen çizgi.
+/// Sayfa değişse de görünür kalır; aşağı itince kapanır.
+struct NarrationBar: View {
+    var hiddenTitle: String?
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        ZStack {
+            if let title = narrator.currentTitle, title != hiddenTitle { bar(title) }
+        }
+        .animation(.snappy, value: narrator.currentTitle)
+    }
+
+    private func bar(_ title: String) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(Theme.font(15, .semibold))
+                        .lineLimit(1)
+                    Text(verbatim: "\(Narrator.clock(narrator.elapsed)) / \(Narrator.clock(narrator.duration))")
+                        .font(Theme.font(12))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 4)
+                NarrationControls()
+                Button { narrator.stop() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 30, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Anlatımı kapat"))
+            }
+            NarrationTimeline(showsTimes: false)
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.top, 8)
+        .background(.white, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .softShadow()
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24).onEnded { value in
+                if value.translation.height > 50, abs(value.translation.width) < 60 { narrator.stop() }
+            }
+        )
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+/// Yerin liste fotoğrafı (Polarsteps "Add a spot" gibi): Wikipedia
+/// fotoğrafı, köşesinde türün simgesi; fotoğraf yoksa türün renginde kare.
+struct PlaceRowThumbnail: View {
+    let place: Place
+    var size: CGFloat = 56
+
+    var body: some View {
+        let hasPhoto = place.wikipediaTitle != nil
+        Theme.surface
+            .overlay {
+                if hasPhoto {
+                    PlaceThumbnail(place: place, cornerRadius: 0)
+                } else {
+                    CategoryTile(category: place.category)
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(alignment: .bottomTrailing) {
+                if hasPhoto { CategoryPin(category: place.category, size: 20).offset(x: 4, y: 4) }
+            }
+    }
+}
+
+/// Fotoğrafı olmayan yer: türün açık renginde kare, ortada türün simgesi.
+struct CategoryTile: View {
+    let category: PlaceCategory
+
+    var body: some View {
+        category.color.opacity(0.14)
+            .overlay {
+                Image(systemName: category.symbol)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(category.color)
+            }
+    }
+}
+
+/// Anlatımın kaynağı; İngilizceden çevrildiyse bunu da söyler.
+struct WikipediaCredit: View {
+    let summary: WikipediaService.Summary
+
+    var body: some View {
+        if let url = summary.pageURL {
+            Link(destination: url) {
+                Text(summary.translatedFrom == nil
+                     ? LocalizedStringKey("Kaynak: Wikipedia (CC BY-SA)")
+                     : LocalizedStringKey("Kaynak: İngilizce Wikipedia (CC BY-SA), Türkçeye çevrildi"))
+                    .font(Theme.caption)
+                    .underline()
+            }
+            .foregroundStyle(Theme.muted)
+        }
     }
 }
 
