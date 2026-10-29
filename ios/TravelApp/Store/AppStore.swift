@@ -91,7 +91,8 @@ final class AppStore: ObservableObject {
             days[Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)].append(place)
         }
         return days.map { stops in
-            RoutePlanner.nearestNeighborOrder(stops.map(\.point)).compactMap { point in stops.first { $0.id == point.id } }
+            let order = RoutePlanner.nearestNeighborOrder(stops.map(\.point))
+            return order.compactMap { point in stops.first { $0.id == point.id } }
         }
     }
 
