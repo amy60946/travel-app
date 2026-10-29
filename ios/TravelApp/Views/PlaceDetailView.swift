@@ -83,6 +83,7 @@ struct PlaceDetailView: View {
                             PlacePin(place: place, isActive: true)
                         }
                         .annotationTitles(.hidden)
+                        UserAnnotation()
                     }
                     .frame(height: 180)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius))

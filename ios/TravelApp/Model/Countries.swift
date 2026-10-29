@@ -8,7 +8,7 @@ struct Country: Identifiable, Hashable {
     let title: String
 
     var id: String { code }
-    var name: String { Locale.current.localizedString(forRegionCode: code) ?? title }
+    var name: String { AppLanguage.current.locale.localizedString(forRegionCode: code) ?? title }
     var flag: String { Country.flag(code) }
 
     /// "TR" → 🇹🇷

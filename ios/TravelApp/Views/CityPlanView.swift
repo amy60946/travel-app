@@ -109,6 +109,7 @@ struct CityPlanView: View {
                     MapPolyline(line).stroke(Theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
                 }
             }
+            UserAnnotation()
         }
         .mapStyle(mapKind.exploreStyle(showingApplePlaces: false))
         // Üstteki geri düğmesi ve şehir adı pinlerin üstüne binmesin.
@@ -128,7 +129,7 @@ struct CityPlanView: View {
     private func pin(_ place: Place) -> some View {
         let day = showsAll ? store.dayIndex(of: place) : nil
         return Button { focus(place) } label: {
-            CategoryPin(category: place.category, size: place.id == focusedID ? 40 : 30)
+            PlaceMapPin(place: place, size: place.id == focusedID ? 40 : 30)
                 .overlay(alignment: .topTrailing) {
                     if let day {
                         DayBadge(number: day + 1, size: 16).offset(x: 7, y: -5)

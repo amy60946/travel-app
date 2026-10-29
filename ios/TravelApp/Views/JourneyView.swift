@@ -110,6 +110,7 @@ struct JourneyView: View {
                 MapPolyline(coordinates: journey.stops.map(\.coordinate), contourStyle: .geodesic)
                     .stroke(Theme.ink, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [6, 6]))
             }
+            UserAnnotation()
         }
         .mapStyle(.standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: .excludingAll))
         .safeAreaPadding(.top, 52)
@@ -246,9 +247,16 @@ struct JourneyView: View {
                 Label("Sonrasına şehir ekle", systemImage: "plus.circle")
             }
         } label: {
-            SecondaryLabel(title: "Ekle", systemImage: "plus", showsChevron: true)
+            // Yalnızca "+" (Oguz, 2026-10-29).
+            Image(systemName: "plus")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 44, height: 36)
+                .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
         }
         .menuOrder(.fixed)
+        .accessibilityLabel(Text("Ekle"))
     }
 
     private func stayRow(_ stay: Stay, stop: Destination) -> some View {

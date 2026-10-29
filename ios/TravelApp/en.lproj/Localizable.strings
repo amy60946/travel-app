@@ -370,3 +370,11 @@
 "Nelere dikkat etmeli?" = "What to keep in mind?";
 "Henüz kayıt yok. Büyüteçle yer ekle ya da veri aktar." = "Nothing saved yet. Add a place with the magnifier or import your data.";
 "Şehirleri seç, sırayla planla" = "Pick cities, plan them in order";
+
+/* Ayarlar */
+"Ayarlar" = "Settings";
+"Dil" = "Language";
+"Arayüz, Wikipedia içerikleri ve sesli anlatım bu dilde olur." = "The app, Wikipedia content and audio narration use this language.";
+"Haritada yerler" = "Places on the map";
+"Simge" = "Icon";
+"Simge: türün renkli işareti. Fotoğraf: yerin kendi fotoğrafı, köşesinde türün simgesi." = "Icon: the colored category marker. Photo: the place's own photo with the category icon in the corner.";

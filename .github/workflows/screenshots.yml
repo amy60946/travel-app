@@ -68,16 +68,25 @@ jobs:
           xcrun simctl privacy "$DEVICE_ID" grant location io.travelapp.ios || true
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
+          # simctl bazen takılıyor (bir kez 26 dk bekledi); her komut en çok 60 sn.
+          t() { perl -e 'alarm shift; exec @ARGV' "$@"; }
           i=1
-          for screen in home map sheet sheetTall photo city cityTall all spot listen player guide moved movedList saved downloads place walk add import camera custom trips journey flight stay addCity newTrip discover continent country cityGuide addToPlan; do
-            xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
-            xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
-            # Yol tarifi ve Keşfet sayfaları içeriği internetten bulur; biraz daha bekle.
+          for screen in home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover continent country cityGuide addToPlan english; do
+            t 60 xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
+            # Görüntüler Türkçe (Oguz istemedikçe); "english" yalnızca İngilizce denetimi için.
+            LANG_ARGS=(-appLanguage tr -AppleLanguages "(tr)" -AppleLocale tr_TR)
+            EXTRA=()
             case "$screen" in
-              guide|continent|country|cityGuide|addToPlan|journey|discover) sleep 14 ;;
+              english) LANG_ARGS=(-appLanguage en -AppleLanguages "(en)" -AppleLocale en_US) ;;
+              pins) EXTRA=(-pinStyle photo) ;;
+            esac
+            t 60 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" || echo "açılmadı: $screen"
+            # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
+            case "$screen" in
+              guide|continent|country|cityGuide|addToPlan|journey|discover|add|addSearch|pins|city) sleep 14 ;;
               *) sleep 8 ;;
             esac
-            xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png"
+            t 60 xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png" || echo "çekilemedi: $screen"
             i=$((i+1))
           done
           ls -la "$OUT"

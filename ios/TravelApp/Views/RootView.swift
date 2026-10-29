@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 enum Route: Hashable {
@@ -26,6 +27,7 @@ struct RootView: View {
     /// Büyütecin "Yer ekle"yi açacağı şehir (ana haritada ortaya en yakın şehir).
     @State private var searchCity = ""
     @State private var guidance: GuidanceDestination?
+    @State private var locationManager = CLLocationManager()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -90,6 +92,7 @@ struct RootView: View {
         .translationHost()
         .task {
             openLaunchScreen()
+            askLocationOnce()
             await openImportIfNewExport()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -101,6 +104,16 @@ struct RootView: View {
         // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
         .onOpenURL { url in
             if url.isFileURL { sheet = .importFile(url) }
+        }
+    }
+
+    /// Haritalar her ekranda canlı konumu göstersin: ilk açılışta bir kez izin sorulur.
+    private func askLocationOnce() {
+        #if DEBUG
+        if UserDefaults.standard.string(forKey: "screen") != nil { return }
+        #endif
+        if locationManager.authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
         }
     }
 
@@ -132,7 +145,8 @@ struct RootView: View {
                                           englishTitle: "Kyoto"))]
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
+        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins":
+            path = [.city(city)]
         case "player":
             path = [.city(city)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
@@ -145,7 +159,7 @@ struct RootView: View {
             }
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
-        case "add": sheet = .addPlace(city: city)
+        case "add", "addSearch": sheet = .addPlace(city: city)
         case "import": sheet = .importData
         case "camera": sheet = .camera
         case "custom": sheet = .customPlace(city: city)

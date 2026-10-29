@@ -42,8 +42,9 @@ actor DiscoverService {
         var id: String { heading }
     }
 
-    /// Uygulamanın dili; Türkçeyse şehir adları Türkçe Wikipedia'dan alınır.
-    static let language = Bundle.main.preferredLocalizations.first ?? "tr"
+    /// Uygulamanın dili (Ayarlar, varsayılan Türkçe); Türkçeyse şehir adları
+    /// Türkçe Wikipedia'dan alınır, açıklamalar Türkçeye çevrilir.
+    static var language: String { AppLanguage.current.rawValue }
 
     private let pages = DiskCache<PageInfo>(name: "discover-pages")
     private let cityLists = DiskCache<[GuideCity]>(name: "wikivoyage-cities")
@@ -64,7 +65,7 @@ actor DiscoverService {
         var result: [String: PageInfo] = [:]
         var missing: [String] = []
         for title in Set(titles) where !title.isEmpty {
-            if let cached = pages["\(site.rawValue)|\(title)"] {
+            if let cached = pages[Self.pageKey(title, site)] {
                 result[title] = cached
             } else {
                 missing.append(title)
@@ -75,11 +76,16 @@ actor DiscoverService {
             guard let fetched = await fetchInfo(chunk, from: site) else { continue }
             for title in chunk {
                 let info = fetched[title] ?? PageInfo()
-                pages["\(site.rawValue)|\(title)"] = info
+                pages[Self.pageKey(title, site)] = info
                 result[title] = info
             }
         }
         return result
+    }
+
+    /// Wikipedia'daki yerel ad uygulamanın diline bağlı; saklarken dil de anahtarda.
+    private static func pageKey(_ title: String, _ site: Site) -> String {
+        site == .wikipedia && language != "en" ? "\(site.rawValue)|\(language)|\(title)" : "\(site.rawValue)|\(title)"
     }
 
     /// Şehrin ya da yerin fotoğrafı: önce Wikipedia, yoksa Wikivoyage manzarası.
