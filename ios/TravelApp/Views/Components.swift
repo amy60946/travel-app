@@ -277,6 +277,15 @@ struct ListenCard: View {
     }
 }
 
+extension View {
+    /// Sayfanın altına anlatım çubuğunu koyar; sayfa içeriği (ve sağ alttaki
+    /// düğmeler) çubuğun üstünde kalır. NavigationStack'e bir kez koymak
+    /// açılan sayfaları itmediği için her sayfaya ayrı konur.
+    func narrationBarInset() -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) { NarrationBar() }
+    }
+}
+
 /// Anlatım çalarken ekranın altında duran çubuk: ad, ilerleme, 10 sn geri,
 /// oynat / duraklat, 10 sn ileri, kapat. Sayfa değişse de görünür kalır.
 struct NarrationBar: View {

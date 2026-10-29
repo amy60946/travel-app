@@ -22,12 +22,6 @@ struct RootView: View {
     @State private var searchCity = ""
     @State private var guidance: GuidanceDestination?
 
-    /// Yürüyüş ekranının kendi çalar düğmeleri var; orada çubuk gösterilmez.
-    private var showsNarrationBar: Bool {
-        if case .walk = path.last { return false }
-        return true
-    }
-
     var body: some View {
         NavigationStack(path: $path) {
             ZStack(alignment: .bottom) {
@@ -48,17 +42,16 @@ struct RootView: View {
                 .padding(.bottom, 8)
                 .animation(.snappy, value: store.undoMessage)
             }
+            .narrationBarInset()
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
                 switch route {
-                case .city(let name): CityPlanView(city: name, path: $path)
-                case .place(let id): PlaceDetailView(placeID: id)
+                case .city(let name): CityPlanView(city: name, path: $path).narrationBarInset()
+                case .place(let id): PlaceDetailView(placeID: id).narrationBarInset()
+                // Yürüyüş ekranının kendi çalar düğmeleri var; orada çubuk yok.
                 case .walk(let city, let day): WalkView(city: city, dayIndex: day)
                 }
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if showsNarrationBar { NarrationBar() }
         }
         .font(Theme.body)
         .foregroundStyle(Theme.ink)

@@ -61,7 +61,8 @@ struct GuidanceView: View {
                 }
             }
             .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
-            .mapControls { MapCompass() }
+            // Pusula üstteki dönüş kartının arkasında kalıyordu; harita zaten yönüne dönüyor.
+            .mapControls { }
             .ignoresSafeArea()
 
             VStack(spacing: 10) {

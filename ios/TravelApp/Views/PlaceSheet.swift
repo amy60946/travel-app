@@ -43,7 +43,7 @@ struct PlaceSheet: View {
         .background(.white)
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
-        .safeAreaInset(edge: .bottom, spacing: 0) { NarrationBar() }
+        .narrationBarInset()
         .fullScreenCover(isPresented: Binding(get: { viewerIndex != nil }, set: { if !$0 { viewerIndex = nil } })) {
             PhotoViewer(photos: photos, index: viewerIndex ?? 0)
         }
