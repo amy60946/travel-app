@@ -69,6 +69,7 @@ struct SettingsView: View {
             Spacer()
         }
         .presentationDetents([.medium, .large])
+        .presentationBackground(.white)
         .presentationCornerRadius(Theme.sheetRadius)
     }
 

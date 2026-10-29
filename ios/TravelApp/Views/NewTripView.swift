@@ -283,6 +283,9 @@ struct AddToPlanSheet: View {
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
         .presentationDetents([.medium, .large])
+        // iOS 26'da yarım pencere cam gibi saydam; arkadaki yazı karışmasın.
+        .presentationBackground(.white)
+        .presentationCornerRadius(Theme.sheetRadius)
     }
 
     private func journeySubtitle(_ journey: Journey) -> String {

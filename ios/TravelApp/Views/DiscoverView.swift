@@ -372,9 +372,9 @@ struct CountryView: View {
     @State private var loading = true
     @State private var wiki: [String: DiscoverService.PageInfo] = [:]
     @State private var voyage: [String: DiscoverService.PageInfo] = [:]
+    /// Türkçe açıklamalar. Uygulama Türkçeyken İngilizcesi hiç gösterilmez;
+    /// çeviri gelmezse satırda yalnızca ad kalır.
     @State private var descriptions: [String]?
-    /// Türkçe çeviri gelene kadar İngilizce açıklama gösterilmez.
-    @State private var translatingDescriptions = DiscoverService.language == "tr"
     @State private var position: MapCameraPosition = .automatic
     @State private var expanded = false
     @State private var planTarget: CityChoice?
@@ -474,7 +474,7 @@ struct CountryView: View {
 
     private func cityRow(_ city: DiscoverService.GuideCity, index: Int) -> some View {
         let choice = self.choice(for: city)
-        let description = descriptions.map { $0[index] } ?? (translatingDescriptions ? "" : city.summary)
+        let description = descriptions.map { $0[index] } ?? (DiscoverService.language == "tr" ? "" : city.summary)
         return HStack(spacing: 14) {
             Button {
                 if let choice { open(choice) }
@@ -557,7 +557,6 @@ struct CountryView: View {
         if DiscoverService.language == "tr" {
             descriptions = await DiscoverService.shared.turkishLines(cities.map(\.summary), key: "cities|\(title)")
         }
-        translatingDescriptions = false
     }
 }
 
@@ -746,6 +745,7 @@ private struct GuideRow: View {
     @State private var expanded = false
     @State private var translated: String?
     @State private var translating = false
+    @State private var failed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -773,6 +773,18 @@ private struct GuideRow: View {
                 ProgressView()
                     .padding(.leading, 46)
                     .padding(.bottom, 12)
+            } else if expanded && failed {
+                // Türkçe seçiliyken İngilizcesi gösterilmez.
+                HStack(spacing: 10) {
+                    Text("Şu an Türkçeye çevrilemedi.")
+                        .font(Theme.font(15))
+                        .foregroundStyle(Theme.muted)
+                    Button("Tekrar dene") { retry() }
+                        .font(Theme.font(15, .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .padding(.leading, 46)
+                .padding(.bottom, 12)
             } else if expanded {
                 Text(translated ?? section.text)
                     .font(Theme.font(15))
@@ -784,10 +796,20 @@ private struct GuideRow: View {
         .overlay(alignment: .bottom) { Divider() }
         .task(id: expanded) {
             guard expanded, translated == nil, DiscoverService.language == "tr" else { return }
-            translating = true
-            translated = await DiscoverService.shared.turkish(section.text, key: "guide|\(cityTitle)|\(section.heading)")
-            translating = false
+            await translate()
         }
+    }
+
+    private func translate() async {
+        translating = true
+        failed = false
+        translated = await DiscoverService.shared.turkish(section.text, key: "guide|\(cityTitle)|\(section.heading)")
+        failed = translated == nil
+        translating = false
+    }
+
+    private func retry() {
+        Task { await translate() }
     }
 
     private var question: LocalizedStringKey {

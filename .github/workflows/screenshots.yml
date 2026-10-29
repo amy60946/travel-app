@@ -70,11 +70,15 @@ jobs:
           mkdir -p "$OUT"
           # simctl bazen takılıyor (bir kez 26 dk bekledi); her komut için süre sınırı.
           t() { perl -e 'alarm shift; exec @ARGV' "$@"; }
-          # Yeni açılan simülatörde ilk açılışlar 60 sn'yi aşıyor; önce bir kez ısıt.
-          t 180 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen home -appLanguage tr -AppleLanguages "(tr)" -AppleLocale tr_TR || true
-          sleep 30
-          i=1
-          for screen in home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english; do
+          # Yeni açılan simülatör ilk dakikalarda çok yavaş (açılış 60 sn'yi aşıyor,
+          # ekran beyaz kalıyor); önce birkaç kez açıp ısıt.
+          for warm in home sheetTall city; do
+            t 60 xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
+            t 180 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$warm" -appLanguage tr -AppleLanguages "(tr)" -AppleLocale tr_TR || true
+            sleep 25
+          done
+          shoot() {
+            screen="$1"; file="$2"
             t 60 xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
             # Görüntüler Türkçe (Oguz istemedikçe); "english" yalnızca İngilizce denetimi için.
             LANG_ARGS=(-appLanguage tr -AppleLanguages "(tr)" -AppleLocale tr_TR)
@@ -91,7 +95,23 @@ jobs:
               guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall) sleep 14 ;;
               *) sleep 8 ;;
             esac
-            t 60 xcrun simctl io "$DEVICE_ID" screenshot "$OUT/$(printf '%02d' $i)-$screen.png" || echo "çekilemedi: $screen"
+            t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
+          }
+          i=1
+          SCREENS="home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          for screen in $SCREENS; do
+            shoot "$screen" "$OUT/$(printf '%02d' $i)-$screen.png"
+            i=$((i+1))
+          done
+          # Beyaz kalan (uygulama henüz çizilmemiş, ~80 KB) ya da hiç çekilemeyen
+          # ekranları bir kez daha çek.
+          i=1
+          for screen in $SCREENS; do
+            file="$OUT/$(printf '%02d' $i)-$screen.png"
+            if [ ! -s "$file" ] || [ "$(stat -f %z "$file")" -lt 120000 ]; then
+              echo "yeniden çekiliyor: $screen"
+              shoot "$screen" "$file"
+            fi
             i=$((i+1))
           done
           ls -la "$OUT"
