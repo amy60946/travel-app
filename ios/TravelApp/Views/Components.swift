@@ -179,6 +179,44 @@ struct EstimatedTag: View {
     }
 }
 
+/// "Dinle" kartı: yerin Wikipedia yazısını iPhone sesiyle okur;
+/// okurken dokununca duraklatır / sürdürür.
+struct ListenCard: View {
+    let title: String
+    let summary: WikipediaService.Summary?
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        let isPlaying = narrator.currentTitle == title
+        HStack(spacing: 14) {
+            Image(systemName: isPlaying && !narrator.isPaused ? "pause.fill" : "play.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(Theme.ink, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dinle").font(Theme.headline)
+                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isPlaying {
+                narrator.togglePause()
+            } else if let summary {
+                narrator.speak(summary.extract, title: title, language: summary.language)
+            }
+        }
+        .opacity(summary == nil ? 0.5 : 1)
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
 /// Alttan çıkan "Geri al" bildirimi.
 struct UndoToast: View {
     @EnvironmentObject private var store: AppStore

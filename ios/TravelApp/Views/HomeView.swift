@@ -24,6 +24,8 @@ struct HomeView: View {
     @State private var showAdd = false
 
     @State private var selectedFeature: MapFeature?
+    /// Alttan açılan yer penceresi (fotoğraflar, Dinle, bilgi).
+    @State private var sheetPlaceID: UUID?
     @State private var card: Card?
     /// Kart haritadaki bir Apple yerine dokunularak mı açıldı?
     @State private var cardFromFeature = false
@@ -32,8 +34,8 @@ struct HomeView: View {
     @State private var locationManager = CLLocationManager()
     @State private var showLocationDenied = false
 
+    /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
     private enum Card: Equatable {
-        case saved(UUID)
         case item(MKMapItem, PlaceCategory)
         case loading
     }
@@ -92,6 +94,12 @@ struct HomeView: View {
         }
         .appleDetailSheet(item: $detailItem)
         .sheet(isPresented: $showAdd) { AddPlaceView(city: addCity) }
+        .sheet(isPresented: Binding(get: { sheetPlaceID != nil }, set: { if !$0 { sheetPlaceID = nil } })) {
+            if let id = sheetPlaceID {
+                PlaceSheet(placeID: id) { place in open(place) }
+                    .placeSheetPresentation()
+            }
+        }
         .alert("Konum izni kapalı", isPresented: $showLocationDenied) {
             Button("Ayarları aç") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -111,11 +119,11 @@ struct HomeView: View {
                 ForEach(visiblePlaces) { place in
                     Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
                         Button { select(place) } label: {
-                            CategoryPin(category: place.category, size: card == .saved(place.id) ? 42 : 32)
+                            CategoryPin(category: place.category, size: sheetPlaceID == place.id ? 42 : 32)
                         }
                         .buttonStyle(.plain)
                     }
-                    .annotationTitles(showsTitles || card == .saved(place.id) ? .visible : .hidden)
+                    .annotationTitles(showsTitles || sheetPlaceID == place.id ? .visible : .hidden)
                 }
             } else {
                 ForEach(store.cities) { city in
@@ -202,10 +210,6 @@ struct HomeView: View {
                 ProgressView()
             }
             .floatingAboveTabBar()
-        case .saved(let id):
-            if let place = store.place(id) {
-                savedCard(place).floatingAboveTabBar()
-            }
         case .item(let item, let category):
             MapPlaceCard(category: category, title: item.name ?? "",
                          subtitle: [category.title, item.placemark.title ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
@@ -219,23 +223,6 @@ struct HomeView: View {
                 DirectionsButton { PlaceSearch.openDirections(to: item) }
             }
             .floatingAboveTabBar()
-        }
-    }
-
-    private func savedCard(_ place: Place) -> some View {
-        let planned = store.isPlanned(place)
-        let subtitle = [place.category.title, place.city] + (planned ? [String(localized: "Rotada")] : [])
-        return MapPlaceCard(category: place.category, title: place.name,
-                            subtitle: subtitle.joined(separator: " · "), onClose: closeCard) {
-            if planned {
-                SecondaryButton(title: "Rotayı aç", systemImage: "map") { path.append(.city(place.city)) }
-            } else {
-                PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
-                    store.addToPlan([place.id], city: place.city)
-                }
-            }
-            SecondaryButton(title: "Aç", systemImage: "arrow.up.right") { path.append(.place(place.id)) }
-            DirectionsButton { PlaceSearch.openDirections(to: place) }
         }
     }
 
@@ -325,7 +312,17 @@ struct HomeView: View {
     private func select(_ place: Place) {
         cardFromFeature = false
         selectedFeature = nil
-        card = .saved(place.id)
+        card = nil
+        sheetPlaceID = place.id
+    }
+
+    /// Yer penceresinden tam yer sayfasına geçer (pencere kapanınca).
+    private func open(_ place: Place) {
+        sheetPlaceID = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            path.append(.place(place.id))
+        }
     }
 
     /// Haritada Apple'ın bir yerine (müze, kafe, istasyon...) dokunuldu.
@@ -344,7 +341,7 @@ struct HomeView: View {
             return
         }
         if let saved = store.savedPlace(named: item.name ?? "", near: item.placemark.coordinate) {
-            card = .saved(saved.id)
+            select(saved)
         } else {
             card = .item(item, PlaceCategory(item))
         }
@@ -368,11 +365,7 @@ struct HomeView: View {
                           latitude: coordinate.latitude, longitude: coordinate.longitude,
                           category: category, source: .search)
         store.add(place, plan: false)
-        if isShowing(item) {
-            cardFromFeature = false
-            selectedFeature = nil
-            card = .saved(place.id)
-        }
+        if isShowing(item) { select(place) }
     }
 
     private func showMyLocation() {
@@ -406,14 +399,16 @@ struct HomeView: View {
                                      distance: 30_000_000))
     }
 
-    /// Yalnızca geliştirme sürümünde: `-screen map` ilk şehre yaklaşır
-    /// (ekran görüntüleri için).
+    /// Yalnızca geliştirme sürümünde: `-screen map` ilk şehre yaklaşır,
+    /// `-screen sheet` ayrıca ilk yerin penceresini açar (ekran görüntüleri için).
     private func openLaunchScreen() async {
         #if DEBUG
-        guard UserDefaults.standard.string(forKey: "screen") == "map", let city = store.cities.first,
+        let screen = UserDefaults.standard.string(forKey: "screen")
+        guard screen == "map" || screen == "sheet", let city = store.cities.first,
               let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))
         else { return }
         position = .region(region)
+        if screen == "sheet" { sheetPlaceID = store.places(in: city.name).first?.id }
         #endif
     }
 }

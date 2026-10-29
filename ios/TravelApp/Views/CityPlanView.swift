@@ -14,6 +14,8 @@ struct CityPlanView: View {
     @State private var route: WalkingRoutes.DayRoute?
     @State private var mapKind: MapKind = .standard
     @State private var sheet: AddSheet?
+    /// Pine dokununca alttan açılan yer penceresi.
+    @State private var sheetPlaceID: UUID?
 
     private var plan: (days: [[Place]], leftOver: [Place]) { store.dayPlan(for: city) }
     private var trip: Trip { store.trip(for: city) }
@@ -54,6 +56,18 @@ struct CityPlanView: View {
         .animation(.snappy, value: store.undoMessage)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { $0.view }
+        .sheet(isPresented: Binding(get: { sheetPlaceID != nil }, set: { if !$0 { sheetPlaceID = nil } })) {
+            if let id = sheetPlaceID {
+                PlaceSheet(placeID: id) { place in
+                    sheetPlaceID = nil
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(350))
+                        path.append(.place(place.id))
+                    }
+                }
+                .placeSheetPresentation()
+            }
+        }
         .task(id: routeKey) { await loadRoute() }
     }
 
@@ -65,7 +79,10 @@ struct CityPlanView: View {
                 ForEach(stops) { place in
                     // Türün renkli pini (müze, kafe...) + köşede gün numarası.
                     Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
-                        Button { selectedDay = dayIndex } label: {
+                        Button {
+                            selectedDay = dayIndex
+                            sheetPlaceID = place.id
+                        } label: {
                             CategoryPin(category: place.category, size: dayIndex == selectedDay ? 32 : 24)
                                 .overlay(alignment: .topTrailing) {
                                     DayBadge(number: dayIndex + 1, size: dayIndex == selectedDay ? 18 : 15)

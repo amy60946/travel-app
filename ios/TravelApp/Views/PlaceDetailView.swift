@@ -6,7 +6,6 @@ import SwiftUI
 struct PlaceDetailView: View {
     let placeID: UUID
     @EnvironmentObject private var store: AppStore
-    @ObservedObject private var narrator = Narrator.shared
     @Environment(\.dismiss) private var dismiss
     @State private var summary: WikipediaService.Summary?
     @State private var isLoading = true
@@ -59,7 +58,7 @@ struct PlaceDetailView: View {
                             .foregroundStyle(Theme.muted)
                     }
 
-                    listenCard(place)
+                    ListenCard(title: place.name, summary: summary)
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
@@ -132,35 +131,6 @@ struct PlaceDetailView: View {
             .foregroundStyle(Theme.ink)
         }
         .accessibilityHint(Text("Türü değiştir"))
-    }
-
-    private func listenCard(_ place: Place) -> some View {
-        let isPlaying = narrator.currentTitle == place.name
-        return HStack(spacing: 14) {
-            Image(systemName: isPlaying && !narrator.isPaused ? "pause.fill" : "play.fill")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(Theme.ink, in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Dinle").font(Theme.headline)
-                Text(summary == nil ? LocalizedStringKey("Anlatım hazırlanıyor") : LocalizedStringKey("Rehber anlatımı · iPhone sesi"))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.muted)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isPlaying {
-                narrator.togglePause()
-            } else if let summary {
-                narrator.speak(summary.extract, title: place.name, language: summary.language)
-            }
-        }
-        .opacity(summary == nil ? 0.5 : 1)
     }
 
     private func bottomBar(_ place: Place) -> some View {
