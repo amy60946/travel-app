@@ -94,20 +94,28 @@ jobs:
           done
           echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
 
+      # GitHub'ın Mac'inde resim derleyicisi (actool) ara sıra takılıp hiç
+      # bitmiyor: arşivleme 30 dakikada kesilir ve bir kez daha denenir.
       - name: Arşivle (imzalı)
         run: |
-          xcodebuild archive \
-            -project TravelApp.xcodeproj -scheme TravelApp \
-            -configuration Release -destination generic/platform=iOS \
-            -archivePath build/TravelApp.xcarchive \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            GEMINI_API_KEY="$GEMINI_API_KEY" \
-            GROQ_API_KEY="$GROQ_API_KEY" \
-            GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+          xcrun simctl list runtimes > /dev/null || true
+          for attempt in 1 2; do
+            perl -e 'alarm shift; exec @ARGV' 1800 xcodebuild archive \
+              -project TravelApp.xcodeproj -scheme TravelApp \
+              -configuration Release -destination generic/platform=iOS \
+              -archivePath build/TravelApp.xcarchive \
+              DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="Apple Distribution" \
+              PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+              GEMINI_API_KEY="$GEMINI_API_KEY" \
+              GROQ_API_KEY="$GROQ_API_KEY" \
+              GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
+              CURRENT_PROJECT_VERSION="${{ github.run_number }}" && exit 0
+            echo "::warning::Arşivleme $attempt. denemede bitmedi"
+            killall -9 actool ibtoold AssetCatalogSimulatorAgent 2>/dev/null || true
+          done
+          exit 1
 
       - name: TestFlight'a yükle
         run: |
