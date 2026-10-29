@@ -17,6 +17,7 @@ struct PlaceSheet: View {
     /// Fotoğraflar sayfadan değil, yakında çekilenlerden mi geldi?
     @State private var photosAreNearby = false
     @State private var isLoading = true
+    @State private var isLoadingPhotos = true
     /// Tam ekran açılan fotoğrafın sırası.
     @State private var viewerIndex: Int?
     @State private var guidance: GuidanceDestination?
@@ -85,7 +86,7 @@ struct PlaceSheet: View {
     /// Yana kayan fotoğraflar; yüklenirken gri kutular.
     @ViewBuilder
     private func photoStrip(_ place: Place) -> some View {
-        if isLoading && photos.isEmpty {
+        if isLoadingPhotos && photos.isEmpty {
             HStack(spacing: 10) {
                 ForEach(0..<2, id: \.self) { _ in
                     RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.surface)
@@ -154,6 +155,7 @@ struct PlaceSheet: View {
     /// yere kaydeder; fotoğraf sayfada yoksa yakında çekilenler gösterilir.
     private func load(_ place: Place) async {
         isLoading = true
+        isLoadingPhotos = true
         summary = nil
         photos = []
         photosAreNearby = false
@@ -168,20 +170,25 @@ struct PlaceSheet: View {
                 store.update(updated)
             }
         }
-        if let title {
-            async let foundSummary = WikipediaService.shared.summary(englishTitle: title)
-            async let foundPhotos = WikipediaService.shared.photos(englishTitle: title)
-            summary = await foundSummary
-            photos = await foundPhotos
-        }
+        // Fotoğraflar yazıyı (çeviri sürebilir) beklemeden gelsin.
+        let englishTitle = title
+        async let foundSummary = loadSummary(englishTitle)
+        if let englishTitle { photos = await WikipediaService.shared.photos(englishTitle: englishTitle) }
         if photos.isEmpty {
             photos = await WikipediaService.shared.nearbyPhotos(latitude: place.latitude, longitude: place.longitude)
             photosAreNearby = !photos.isEmpty
         }
+        isLoadingPhotos = false
+        summary = await foundSummary
         #if DEBUG
         // Ekran görüntüsü için: `-screen photo` fotoğrafı tam ekran açar.
         if UserDefaults.standard.string(forKey: "screen") == "photo", !photos.isEmpty { viewerIndex = 0 }
         #endif
+    }
+
+    private func loadSummary(_ englishTitle: String?) async -> WikipediaService.Summary? {
+        guard let englishTitle else { return nil }
+        return await WikipediaService.shared.summary(englishTitle: englishTitle)
     }
 }
 

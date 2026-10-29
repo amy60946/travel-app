@@ -2,9 +2,11 @@ import SwiftUI
 import Translation
 
 /// İngilizce metni Türkçeye çevirir (Türkçe kaynağı olmayan anlatımlar
-/// için). Önce iPhone'un kendi çevirisi (ücretsiz, iOS 18 ve sonrası; ilk
-/// seferde iPhone Türkçe dil paketini indirmeyi sorar), olmazsa Gemini /
-/// Groq ücretsiz katmanı. İkisi de olmazsa nil.
+/// için). iPhone'da Türkçe çeviri paketi zaten iniyse iPhone'un kendi
+/// çevirisi (ücretsiz, iOS 18 ve sonrası), değilse Gemini / Groq ücretsiz
+/// katmanı. Paket inmemişken iPhone çevirisi indirme penceresi açıyordu; o
+/// pencere yer penceresinin arkasında kalıp yazıyı bekletiyordu, bu yüzden
+/// indirme hiç sorulmaz. İkisi de olmazsa nil.
 @MainActor
 final class Translator: ObservableObject {
     static let shared = Translator()
@@ -24,10 +26,18 @@ final class Translator: ObservableObject {
     fileprivate var isDraining = false
 
     func toTurkish(_ text: String) async -> String? {
-        if hostAttached, let translated = await systemTranslation(text) {
+        if hostAttached, await turkishIsInstalled(), let translated = await systemTranslation(text) {
             return translated
         }
         return await PlaceAI.translateToTurkish(text)
+    }
+
+    /// iPhone'un İngilizce → Türkçe çeviri paketi telefonda hazır mı?
+    private func turkishIsInstalled() async -> Bool {
+        guard #available(iOS 18.0, *) else { return false }
+        let status = await LanguageAvailability().status(from: Locale.Language(identifier: "en"),
+                                                         to: Locale.Language(identifier: "tr"))
+        return status == .installed
     }
 
     private func systemTranslation(_ text: String) async -> String? {
@@ -35,9 +45,9 @@ final class Translator: ObservableObject {
             let request = Request(text: text, done: continuation)
             pending.append(request)
             pendingCount = pending.count
-            // Dil paketi indirilmezse ya da çeviri hiç başlamazsa beklemede kalmasın.
+            // Çeviri hiç başlamazsa beklemede kalmasın.
             Task {
-                try? await Task.sleep(for: .seconds(30))
+                try? await Task.sleep(for: .seconds(10))
                 self.finish(request.id, with: nil)
             }
         }

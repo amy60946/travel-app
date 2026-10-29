@@ -23,7 +23,9 @@ struct HomeView: View {
     @State private var region: MKCoordinateRegion?
     @State private var mapKind: MapKind = .standard
     @State private var section = 0
-    @State private var panelExpanded = true
+    /// Alttaki panel: küçük (yalnızca sekmeler), içeriği kadar, büyük.
+    @State private var panelStop = 1
+    @State private var panelHeight: CGFloat = 300
 
     @State private var selectedFeature: MapFeature?
     /// Alttan açılan yer penceresi (fotoğraflar, Dinle, bilgi).
@@ -38,10 +40,9 @@ struct HomeView: View {
     @State private var locationManager = CLLocationManager()
     /// Haritanın ekrandaki yüksekliği (yer penceresi yarısını kaplar).
     @State private var mapHeight: CGFloat = 800
-    /// Alttaki panelin üst kenarı ve listenin yüksekliği: panel içeriği
-    /// kadar yer kaplar (tek gezi varsa altta boşluk kalmaz).
-    @State private var panelTop: CGFloat = 500
-    @State private var listHeight: CGFloat = 0
+    /// Listenin yüksekliği: panelin orta yüksekliği içeriği kadar olur
+    /// (tek gezi varsa altta boşluk kalmaz).
+    @State private var listHeight: CGFloat = 160
     @State private var showLocationDenied = false
 
     /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
@@ -79,16 +80,14 @@ struct HomeView: View {
         ZStack(alignment: .top) {
             map
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top) {
-                    Spacer()
-                    controls
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                Spacer(minLength: 0)
-                bottom
+            HStack(alignment: .top) {
+                Spacer()
+                controls
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            bottom
         }
         .task {
             centerOnCities()
@@ -98,7 +97,7 @@ struct HomeView: View {
             if !isZoomedIn { centerOnCities() }
         }
         .onChange(of: isZoomedIn) { _, zoomedIn in
-            withAnimation(.snappy) { panelExpanded = !zoomedIn }
+            withAnimation(.snappy) { panelStop = zoomedIn ? 0 : 1 }
         }
         .onChange(of: selectedFeature) { _, feature in
             Task { await show(feature) }
@@ -161,8 +160,7 @@ struct HomeView: View {
         })
         // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
         // alanın ortasında dursun.
-        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2
-                          : panelExpanded && card == nil ? max(mapHeight - panelTop, 170) : 170)
+        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2 : card == nil ? panelHeight + 30 : 170)
         .ignoresSafeArea()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
     }
@@ -182,11 +180,19 @@ struct HomeView: View {
     private var bottom: some View {
         Group {
             if let card {
-                cardView(card)
-            } else if panelExpanded {
-                bottomPanel
+                cardView(card).frame(maxHeight: .infinity, alignment: .bottom)
             } else {
-                collapsedPanel
+                DraggablePanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
+                    Picker("", selection: $section) {
+                        Text("Gezilerim").tag(0)
+                        Text("Kayıtlarım").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                } content: {
+                    panelList
+                }
             }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -217,90 +223,46 @@ struct HomeView: View {
         }
     }
 
-    private var collapsedPanel: some View {
-        Button {
-            withAnimation(.snappy) { panelExpanded = true }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "chevron.up")
-                Text("Gezilerim ve kayıtlarım")
-            }
-            .font(Theme.font(14, .semibold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.white, in: Capsule())
-            .softShadow()
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 84)
+    /// Panelin yükseklikleri: yalnızca sekmeler (altta sekme çubuğu), içeriği
+    /// kadar (en çok yarım ekran), büyük (üstteki düğmeler görünür kalır).
+    private var panelStops: [PanelStop] {
+        let tabBar: CGFloat = 96
+        let fitting = min(64 + listHeight + tabBar, mapHeight * 0.5)
+        return [.height(150), .height(max(fitting, 151)), .fraction(0.85)]
     }
 
-    private var bottomPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(.snappy) { panelExpanded = false }
-            } label: {
-                Capsule().fill(Theme.hairline)
-                    .frame(width: 36, height: 5)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Paneli küçült"))
-
-            Picker("", selection: $section) {
-                Text("Gezilerim").tag(0)
-                Text("Kayıtlarım").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.bottom, 4)
-
+    private var panelList: some View {
+        VStack(alignment: .leading, spacing: 0) {
             if section == 1 && listedCities.isEmpty {
                 Text("Henüz kayıt yok. Büyüteçle yer ekle ya da veri aktar.")
                     .font(Theme.font(14))
                     .foregroundStyle(Theme.muted)
                     .padding(.vertical, 12)
             }
-            ScrollView {
-                VStack(spacing: 0) {
-                    if section == 0 {
-                        ForEach(store.journeys) { journey in
-                            Button { path.append(.journey(journey.id)) } label: { journeyRow(journey) }
-                                .buttonStyle(.plain)
-                            Divider().padding(.leading, 70)
-                        }
-                        Button { sheet = .newTrip } label: { newTripRow }
-                            .buttonStyle(.plain)
-                    } else {
-                        ForEach(listedCities) { city in
-                            Button { open(city) } label: {
-                                CityRow(city: city, days: store.trip(for: city.name).days)
-                            }
-                            .buttonStyle(.plain)
-                            if city.id != listedCities.last?.id {
-                                Divider().padding(.leading, 70)
-                            }
-                        }
+            if section == 0 {
+                ForEach(store.journeys) { journey in
+                    Button { path.append(.journey(journey.id)) } label: { journeyRow(journey) }
+                        .buttonStyle(.plain)
+                    Divider().padding(.leading, 70)
+                }
+                Button { sheet = .newTrip } label: { newTripRow }
+                    .buttonStyle(.plain)
+            } else {
+                ForEach(listedCities) { city in
+                    Button { open(city) } label: {
+                        CityRow(city: city, days: store.trip(for: city.name).days)
+                    }
+                    .buttonStyle(.plain)
+                    if city.id != listedCities.last?.id {
+                        Divider().padding(.leading, 70)
                     }
                 }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
-            .frame(height: min(listHeight, 220))
-            .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(16)
-        .padding(.top, -6)
-        .padding(.bottom, 80)
-        .background {
-            // Panel ekranın alt kenarına kadar uzansın; altta harita görünmesin.
-            UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius, topTrailingRadius: Theme.sheetRadius)
-                .fill(.white)
-                .ignoresSafeArea(edges: .bottom)
-        }
-        .softShadow()
-        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { panelTop = $0 }
+        .padding(.horizontal, 16)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+        // Altta yüzen sekme çubuğu son satırı örtmesin.
+        .padding(.bottom, 96)
     }
 
     private func journeyRow(_ journey: Journey) -> some View {

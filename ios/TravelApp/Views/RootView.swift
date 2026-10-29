@@ -132,7 +132,7 @@ struct RootView: View {
                                           englishTitle: "Kyoto"))]
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
+        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
         case "player":
             path = [.city(city)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
