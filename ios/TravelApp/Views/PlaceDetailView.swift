@@ -34,9 +34,11 @@ struct PlaceDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(place.name).font(Theme.title)
-                        Text("\(place.category.title) · \(place.city)")
-                            .font(Theme.body)
-                            .foregroundStyle(Theme.muted)
+                        HStack(spacing: 6) {
+                            categoryMenu(place)
+                            Text(verbatim: "· \(place.city)").foregroundStyle(Theme.muted)
+                        }
+                        .font(Theme.body)
                         HStack {
                             if let note = place.source.savedNote {
                                 Label(note, systemImage: "bookmark.fill")
@@ -108,6 +110,28 @@ struct PlaceDetailView: View {
             }
             isLoading = false
         }
+    }
+
+    /// Tür (haritadaki pinin rengi ve simgesi); yanlış tahmin edildiyse
+    /// buradan değiştirilir.
+    private func categoryMenu(_ place: Place) -> some View {
+        Menu {
+            Picker("Tür", selection: Binding(get: { place.category }, set: { category in
+                var updated = place
+                updated.category = category
+                store.update(updated)
+            })) {
+                ForEach(PlaceCategory.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                CategoryIcon(category: place.category, size: 22)
+                Text(place.category.title)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(Theme.ink)
+        }
+        .accessibilityHint(Text("Türü değiştir"))
     }
 
     private func listenCard(_ place: Place) -> some View {

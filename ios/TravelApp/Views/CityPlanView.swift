@@ -63,9 +63,14 @@ struct CityPlanView: View {
         Map(position: $position) {
             ForEach(Array(plan.days.enumerated()), id: \.offset) { dayIndex, stops in
                 ForEach(stops) { place in
+                    // Türün renkli pini (müze, kafe...) + köşede gün numarası.
                     Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
                         Button { selectedDay = dayIndex } label: {
-                            DayBadge(number: dayIndex + 1, size: dayIndex == selectedDay ? 30 : 22)
+                            CategoryPin(category: place.category, size: dayIndex == selectedDay ? 32 : 24)
+                                .overlay(alignment: .topTrailing) {
+                                    DayBadge(number: dayIndex + 1, size: dayIndex == selectedDay ? 18 : 15)
+                                        .offset(x: 7, y: -5)
+                                }
                                 .opacity(dayIndex == selectedDay ? 1 : 0.55)
                         }
                         .buttonStyle(.plain)
@@ -112,19 +117,7 @@ struct CityPlanView: View {
     }
 
     private var mapKindMenu: some View {
-        Menu {
-            Picker("Harita türü", selection: $mapKind) {
-                ForEach(MapKind.allCases) { Text($0.title).tag($0) }
-            }
-        } label: {
-            Image(systemName: "map")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 40, height: 40)
-                .background(.white, in: Circle())
-                .softShadow()
-        }
-        .padding(12)
+        MapKindMenu(selection: $mapKind).padding(12)
     }
 
     // MARK: - Kontroller

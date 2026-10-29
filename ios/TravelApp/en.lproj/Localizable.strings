@@ -226,3 +226,26 @@
 "boş cevap" = "empty reply";
 "Yapay zekâyla yeniden ara" = "Search again with AI";
 "Aranıyor…" = "Searching…";
+
+/* Harita (Google Maps gibi) ve Yer ekle (Polarsteps gibi) */
+"Bar" = "Bar";
+"Konaklama" = "Stay";
+"Yer ara ve ekle" = "Search and add places";
+"Konumum" = "My location";
+"Konum izni kapalı" = "Location access is off";
+"Ayarları aç" = "Open Settings";
+"Konumunu haritada görmek için Ayarlar'da Location → While Using the App seç." = "To see yourself on the map, choose Location → While Using the App in Settings.";
+"Yükleniyor…" = "Loading…";
+"Kaydediliyor…" = "Saving…";
+"Ayrıntılar" = "Details";
+"Yol tarifi" = "Directions";
+"Rotayı aç" = "Open route";
+"Gezilerim ve kayıtlarım" = "My trips and saves";
+"Paneli küçült" = "Collapse panel";
+"Kapat" = "Close";
+"Temizle" = "Clear";
+"Sonuç bulunamadı." = "No results.";
+"Kayıtlı yerler" = "Saved places";
+"Tümünü göster" = "Show all";
+"Arama: Apple Haritalar · Popüler yerler: Wikipedia" = "Search: Apple Maps · Popular places: Wikipedia";
+"Türü değiştir" = "Change type";

@@ -67,7 +67,7 @@ jobs:
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
           i=1
-          for screen in home saved downloads city place walk add import camera custom; do
+          for screen in home map saved downloads city place walk add import camera custom; do
             xcrun simctl terminate "$DEVICE_ID" io.travelapp.ios 2>/dev/null || true
             xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen"
             sleep 8

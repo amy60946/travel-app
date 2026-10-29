@@ -167,7 +167,7 @@ struct CameraAddView: View {
                                        knownCities: store.cities)
         var place = Place(name: candidate.item.name ?? String(localized: "Yer"), city: city,
                           latitude: c.latitude, longitude: c.longitude,
-                          category: PlaceCategory(candidate.item.pointOfInterestCategory),
+                          category: PlaceCategory(candidate.item),
                           source: .photo, isEstimated: true)
         if let id { place.id = id }
         return place

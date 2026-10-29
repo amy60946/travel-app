@@ -143,6 +143,49 @@ final class AppStore: ObservableObject {
         save()
     }
 
+    /// Aynı adla 200 m içinde kayıtlı yer (haritadan eklerken iki kez
+    /// kaydedilmesin).
+    func savedPlace(named name: String, near coordinate: CLLocationCoordinate2D) -> Place? {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return places.first {
+            $0.name.caseInsensitiveCompare(name) == .orderedSame && $0.location.distance(from: location) < 200
+        }
+    }
+
+    /// Türü bilinmeyen ("Görülecek yer") aktarılmış yerlerin türünü bulur:
+    /// önce addan, olmazsa Apple Haritalar'da aynı adla yakında arayarak.
+    /// Haritadaki pinler böylece müze, kafe, tapınak diye ayrılır. Her yer
+    /// bir kez denenir; Apple'ın dakikalık sınırına takılmamak için
+    /// aramalar arasında beklenir.
+    func refineCategories() async {
+        let defaults = UserDefaults.standard
+        var checked = Set(defaults.stringArray(forKey: Self.categoryCheckedKey) ?? [])
+        let imported: Set<PlaceSource> = [.instagram, .tiktok, .googleMaps, .text]
+        let candidates = places.filter {
+            $0.category == .sight && imported.contains($0.source) && !checked.contains($0.id.uuidString)
+        }
+        for place in candidates {
+            var category = PlaceCategory.guess(name: place.name)
+            if category == nil {
+                if Task.isCancelled { return }
+                switch await PlaceSearch.category(of: place.name, near: place.coordinate) {
+                case .throttled: return
+                case .found(let found): category = found
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
+            checked.insert(place.id.uuidString)
+            defaults.set(Array(checked), forKey: Self.categoryCheckedKey)
+            // "Diğer" (istasyon, otopark...) büyük ihtimalle yanındaki yerdir; alınmaz.
+            if let category, ![.sight, .other].contains(category), var current = self.place(place.id), current.category == .sight {
+                current.category = category
+                update(current)
+            }
+        }
+    }
+
+    private static let categoryCheckedKey = "categoryChecked"
+
     /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
     /// Yeri böylece bulunan gönderiler "Yeri belirle" listesinden çıkar.
     /// Eklenen sayısını döndürür.

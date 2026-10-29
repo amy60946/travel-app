@@ -1,21 +1,22 @@
 import MapKit
 import SwiftUI
 
-/// Haritadaki yer pini: beyaz hap içinde ikon + ad; aktifse siyah.
+/// Haritadaki yer pini: beyaz hap içinde türün renkli simgesi + ad;
+/// aktifse siyah.
 struct PlacePin: View {
     let place: Place
     var isActive = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: place.category.symbol)
-                .font(.system(size: 11, weight: .semibold))
+            CategoryIcon(category: place.category, size: 20)
             Text(place.name)
                 .font(Theme.font(12, .semibold))
                 .lineLimit(1)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.leading, 4)
+        .padding(.trailing, 10)
+        .padding(.vertical, 4)
         .foregroundStyle(isActive ? .white : Theme.ink)
         .background(isActive ? Theme.ink : .white, in: Capsule())
         .softShadow()
@@ -221,11 +222,22 @@ enum MapKind: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Rota haritası: yalnızca bizim pinlerimiz görünür.
     var style: MapStyle {
         switch self {
         case .standard: .standard(elevation: .realistic, pointsOfInterest: .excludingAll)
         case .satellite: .imagery(elevation: .realistic)
         case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: .excludingAll)
+        }
+    }
+
+    /// Keşfet haritası: Google Maps gibi Apple'ın yerleri de (müze, kafe,
+    /// istasyon) görünür ve dokunulabilir.
+    var exploreStyle: MapStyle {
+        switch self {
+        case .standard: .standard(elevation: .realistic, pointsOfInterest: .all)
+        case .satellite: .imagery(elevation: .realistic)
+        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: .all)
         }
     }
 }

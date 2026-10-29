@@ -58,6 +58,9 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await openImportIfNewExport() } }
         }
+        // Aktarılan yerlerin türünü (müze, kafe...) arka planda bulur;
+        // yeni yer gelince kaldığı yerden devam eder.
+        .task(id: store.places.count) { await store.refineCategories() }
         // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
         .onOpenURL { url in
             if url.isFileURL { sheet = .importFile(url) }
