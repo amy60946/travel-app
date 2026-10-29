@@ -8,10 +8,13 @@ struct PhotoViewer: View {
     @Environment(\.dismiss) private var dismiss
     @State private var drag: CGFloat = 0
 
+    /// Çektikçe arka plan açılır (en çok %60).
+    private var fade: Double { min(Double(abs(drag)) / 500, 0.6) }
+
     var body: some View {
         ZStack {
             Color.black
-                .opacity(1 - min(abs(drag) / 500, 0.6))
+                .opacity(1 - fade)
                 .ignoresSafeArea()
             TabView(selection: $index) {
                 ForEach(Array(photos.enumerated()), id: \.offset) { offset, url in
