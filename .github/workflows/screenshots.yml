@@ -12,13 +12,14 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: screenshots
-  cancel-in-progress: true
-
 jobs:
   shots:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ekran]')
+    # İşin içinde: "[ekran]" olmayan bir gönderim (iş atlanır) süren
+    # çekimi iptal etmesin; yalnızca yeni bir çekim eskisini keser.
+    concurrency:
+      group: screenshots
+      cancel-in-progress: true
     # Intel Mac: GitHub'ın Apple çipli (arm64) Mac'lerinde yoğunluk var; işler
     # 15 dakika sırada bekleyip iptal oluyordu. Açık depoda bu da ücretsiz.
     runs-on: macos-15-intel
