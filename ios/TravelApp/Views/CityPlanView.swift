@@ -252,13 +252,19 @@ struct CityPlanView: View {
         .accessibilityHint(Text("Günü değiştir"))
     }
 
+    /// Listede bir yer ("Add a spot" gibi): solda fotoğraf (köşesinde türün
+    /// simgesi), yanında tür ve ad; adını hatırlamayan fotoğraftan tanır.
     private func row(_ place: Place) -> some View {
         Button { focus(place) } label: {
-            HStack(spacing: 12) {
-                CategoryIcon(category: place.category, size: 34)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(place.name).font(Theme.font(15, .semibold)).lineLimit(1)
-                    Text(place.category.title).font(Theme.caption).foregroundStyle(place.category.color)
+            HStack(spacing: 14) {
+                PlaceRowThumbnail(place: place)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(place.category.title)
+                        .font(Theme.font(11, .bold))
+                        .textCase(.uppercase)
+                        .tracking(0.6)
+                        .foregroundStyle(place.category.color)
+                    Text(place.name).font(Theme.font(16, .semibold)).lineLimit(2)
                 }
                 Spacer(minLength: 8)
                 if place.isEstimated { EstimatedTag() }
@@ -351,7 +357,7 @@ struct CityPlanView: View {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
         if screen == "all" { selectedDay = Self.allDays }
-        guard ["spot", "moved", "movedList", "photo", "sheetTall"].contains(screen),
+        guard ["spot", "moved", "movedList", "photo", "sheetTall", "listen"].contains(screen),
               let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
               let day = store.dayIndex(of: place) else { return }
         if screen == "movedList" { try? await Task.sleep(for: .seconds(3)) }
@@ -364,6 +370,14 @@ struct CityPlanView: View {
         if screen == "sheetTall" {
             try? await Task.sleep(for: .seconds(1.5))
             sheetDetent = .placeTall
+        }
+        if screen == "listen" {
+            try? await Task.sleep(for: .seconds(1))
+            Narrator.shared.speak("Meiji Tapınağı, Tokyo'nun Shibuya semtinde bulunan bir Şinto tapınağıdır. "
+                                  + "Tapınak İmparator Meiji ile İmparatoriçe Shōken'in ruhlarına adanmıştır.",
+                                  title: place.name, language: "tr")
+            try? await Task.sleep(for: .seconds(2))
+            Narrator.shared.togglePause()
         }
         #endif
     }

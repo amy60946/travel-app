@@ -43,7 +43,8 @@ struct PlaceSheet: View {
         .background(.white)
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
-        .narrationBarInset()
+        // Bu yer çalıyorsa oynatıcı "Dinle" kartının kendisi; alttaki çubuk gizlenir.
+        .narrationBarInset(hiding: place.name)
         .fullScreenCover(isPresented: Binding(get: { viewerIndex != nil }, set: { if !$0 { viewerIndex = nil } })) {
             PhotoViewer(photos: photos, index: viewerIndex ?? 0)
         }

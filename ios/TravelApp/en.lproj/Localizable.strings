@@ -251,7 +251,11 @@
 "Bu yer hakkında Wikipedia'da yazı bulunamadı." = "No Wikipedia article found for this place.";
 
 /* Anlatım çubuğu, yol tarifi, tüm yerler (2026-10-29) */
-"Türkçe anlatım · iPhone sesi" = "Turkish narration · iPhone voice";
+"%lld dk · Türkçe anlatım" = "%lld min · Turkish narration";
+"%lld dk · İngilizce anlatım" = "%lld min · English narration";
+"Dinleniyor" = "Playing";
+"Duraklatıldı" = "Paused";
+"Anlatımın ilerlemesi" = "Narration progress";
 "Kaynak: İngilizce Wikipedia (CC BY-SA), Türkçeye çevrildi" = "Source: English Wikipedia (CC BY-SA), translated into Turkish";
 "10 saniye geri" = "Back 10 seconds";
 "10 saniye ileri" = "Forward 10 seconds";

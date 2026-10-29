@@ -47,7 +47,7 @@ struct RootView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .city(let name): CityPlanView(city: name, path: $path).narrationBarInset()
-                case .place(let id): PlaceDetailView(placeID: id).narrationBarInset()
+                case .place(let id): PlaceDetailView(placeID: id).narrationBarInset(hiding: store.place(id)?.name)
                 // Yürüyüş ekranının kendi çalar düğmeleri var; orada çubuk yok.
                 case .walk(let city, let day): WalkView(city: city, dayIndex: day)
                 }
@@ -95,7 +95,7 @@ struct RootView: View {
         switch screen {
         case "saved": tab = .saved
         case "downloads": tab = .downloads
-        case "city", "spot", "moved", "movedList", "photo", "sheetTall", "all": path = [.city(city)]
+        case "city", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen": path = [.city(city)]
         case "player":
             path = [.city(city)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "

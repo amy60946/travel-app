@@ -2,7 +2,8 @@ import AVFoundation
 
 /// Anlatımları iPhone'un kendi sesiyle okur (ücretsiz, internetsiz).
 /// Yeni anlatım başlarken öncekini durdurur; anlatımlar üst üste binmez.
-/// Ekranın altındaki çubuktan duraklatılır, 10 sn geri ya da ileri sarılır.
+/// Ekranın altındaki çubuktan duraklatılır, 10 sn geri ya da ileri ya da
+/// çizgiden istenen yere sarılır.
 @MainActor
 final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     static let shared = Narrator()
@@ -31,6 +32,21 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
 
     var isActive: Bool { currentTitle != nil }
     var isSpeaking: Bool { synthesizer.isSpeaking && !synthesizer.isPaused }
+
+    /// Çalan anlatımın yaklaşık süresi ve geçen süre (saniye).
+    var duration: Double { Double(text.length) / Self.charactersPerSecond }
+    var elapsed: Double { progress * duration }
+
+    /// Bir yazının okunması yaklaşık kaç saniye sürer.
+    static func estimatedDuration(of text: String) -> Double {
+        Double((text as NSString).length) / charactersPerSecond
+    }
+
+    /// "1:05" gibi dakika:saniye.
+    static func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
 
     func speak(_ text: String, title: String, language: String) {
         stop()
@@ -62,6 +78,17 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             return
         }
         play(from: wordStart(atOrBefore: max(target, 0)))
+    }
+
+    /// Çizginin bir yerine dokununca oradan (kelime başından) devam eder.
+    func seek(to fraction: Double) {
+        guard isActive, text.length > 1 else { return }
+        let target = Int(Double(text.length) * min(max(fraction, 0), 1))
+        guard target < text.length - 1 else {
+            stop()
+            return
+        }
+        play(from: wordStart(atOrBefore: target))
     }
 
     func stop() {

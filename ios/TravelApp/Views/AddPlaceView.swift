@@ -337,20 +337,6 @@ private struct SpotRow<Thumbnail: View>: View {
     }
 }
 
-/// Fotoğrafı olmayan yer: türün açık renginde kare, ortada türün simgesi.
-private struct CategoryTile: View {
-    let category: PlaceCategory
-
-    var body: some View {
-        category.color.opacity(0.14)
-            .overlay {
-                Image(systemName: category.symbol)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(category.color)
-            }
-    }
-}
-
 extension View {
     /// Apple Haritalar yer kartı: fotoğraflar, puanlar, çalışma saatleri.
     /// iOS 18'den eski telefonlarda yer Apple Haritalar'da açılır.

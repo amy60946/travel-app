@@ -95,3 +95,6 @@ cevapları.
 | 2026-10-29 | Gün düğmesinde **"Tüm yerler"** seçeneği: şehirdeki bütün yerler birlikte (haritada gün numaralı pinler, liste günlere göre). |
 | 2026-10-29 | Yer penceresi yarım ekran açılır, yukarı kaydırınca **ekranın %70'ine** çıkar; üstte harita görünür kalır, haritaya dokununca pencere küçülür. |
 | 2026-10-29 | Ana sayfada üstteki arama çubuğu kalktı; sağ alttaki siyah düğme **büyüteç** oldu ve doğrudan "Yer ekle"yi (haritadaki şehir için) açar. |
+| 2026-10-29 | Şehir planı listesinde (gün ve "Tüm yerler") her yerin solunda **fotoğrafı** (köşesinde tür simgesi), yanında tür ve ad; Polarsteps "Add a spot" gibi. |
+| 2026-10-29 | Yol tarifindeki rota çizgisi **yarı saydam**; altındaki harita ayrıntısı görünür. |
+| 2026-10-29 | Dinleme arayüzü sade: "Dinle" kartı süreyi gösterir, çalarken kartın kendisi oynatıcı olur (10 sn geri/ileri, duraklat, dokunulunca sarılan çizgi, geçen/kalan süre); alttaki çubukta ad, süre, düğmeler; aşağı itince kapanır. Oguz bu değişikliklerden sonra **TestFlight'a yüklenmesini** istedi. |

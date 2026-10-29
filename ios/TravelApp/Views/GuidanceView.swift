@@ -53,8 +53,9 @@ struct GuidanceView: View {
             Map(position: $position) {
                 UserAnnotation()
                 if let route = guide.route {
+                    // Yarı saydam: altındaki sokak adları ve ayrıntılar görünsün.
                     MapPolyline(route.polyline)
-                        .stroke(Theme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+                        .stroke(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
                 }
                 Annotation(destination.name, coordinate: destination.coordinate, anchor: .center) {
                     CategoryPin(category: destination.category, size: 36)
