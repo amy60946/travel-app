@@ -152,6 +152,9 @@ struct Place: Identifiable, Codable, Hashable {
     var addedAt = Date()
     /// Yerin geldiği gönderi ya da harita linki (Instagram, TikTok, Google Maps).
     var sourceURL: URL?
+    /// Yerin Google kimliği: puan, yorumlar ve fotoğraflar Google'dan bununla
+    /// istenir (Google'ın kuralına göre saklanabilen tek Google bilgisi).
+    var googlePlaceID: String?
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

@@ -10,6 +10,7 @@ struct PlaceDetailView: View {
     @State private var summary: WikipediaService.Summary?
     @State private var article: WikipediaService.Article?
     @State private var isLoading = true
+    @State private var google: GooglePlaces.Details?
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -79,17 +80,15 @@ struct PlaceDetailView: View {
                         }
                     }
 
-                    Map(initialPosition: .region(MKCoordinateRegion(
-                        center: place.coordinate, latitudinalMeters: 800, longitudinalMeters: 800))) {
-                        Annotation(place.name, coordinate: place.coordinate, anchor: .bottom) {
-                            PlacePin(place: place, isActive: true)
-                        }
-                        .annotationTitles(.hidden)
-                        UserAnnotation()
-                    }
+                    if let google { GooglePlaceInfo(details: google) }
+
+                    StaticGoogleMap(center: place.coordinate, zoom: 15.5, markers: [
+                        GoogleMap.Marker(id: "place", coordinate: place.coordinate, key: place.name, anchorsBottom: true) {
+                            PlacePin(place: place, isActive: true).padding(6)
+                        },
+                    ])
                     .frame(height: 180)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
-                    .allowsHitTesting(false)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 110)
@@ -108,6 +107,7 @@ struct PlaceDetailView: View {
                 article = await WikipediaService.shared.article(englishTitle: title)
             }
         }
+        .task(id: place.id) { google = await GooglePlaces.shared.details(for: place, store: store) }
     }
 
     /// Tür (haritadaki pinin rengi ve simgesi); yanlış tahmin edildiyse

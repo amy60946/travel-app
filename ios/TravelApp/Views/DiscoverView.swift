@@ -16,8 +16,9 @@ struct DiscoverView: View {
     @State private var section = 0
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
-    @State private var position: MapCameraPosition = .camera(
-        MapCamera(centerCoordinate: CLLocationCoordinate2D(latitude: 30, longitude: 25), distance: 24_000_000))
+    @State private var mapFocus: MapFocus? = .point(CLLocationCoordinate2D(latitude: 30, longitude: 25), zoom: 1.2,
+                                                    animated: false)
+    @ObservedObject private var pinPhotos = PinPhotos.shared
     @FocusState private var searchFocused: Bool
 
     private var countries: [Country] {
@@ -82,45 +83,52 @@ struct DiscoverView: View {
 
     // MARK: - Harita
 
+    /// Uydu görüntülü dünya haritası: "Senin için" ülkeleri bayrakla,
+    /// Koleksiyonlar'da kaydedilenler fotoğrafla.
     private var globe: some View {
-        Map(position: $position, interactionModes: [.pan, .zoom]) {
-            if section == 0 {
-                ForEach(countries) { country in
-                    if let info = countryInfo[country.title], let latitude = info.latitude, let longitude = info.longitude {
-                        Annotation(country.name, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                                   anchor: .center) {
-                            Button { path.append(.country(country.code)) } label: {
-                                Text(country.flag)
-                                    .font(.system(size: 17))
-                                    .frame(width: 30, height: 30)
-                                    .background(.white, in: Circle())
-                                    .softShadow()
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .annotationTitles(.hidden)
-                    }
-                }
-            } else {
-                ForEach(collected) { item in
-                    if let coordinate = item.coordinate {
-                        Annotation(item.displayName, coordinate: coordinate, anchor: .center) {
-                            CollectionItemPhoto(item: item)
-                                .frame(width: 34, height: 34)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(.white, lineWidth: 2.5))
-                                .softShadow()
-                        }
-                        .annotationTitles(.hidden)
-                    }
+        GoogleMap(focus: $mapFocus, markers: globeMarkers, kind: .satellite, showsGooglePlaces: false,
+                  padding: EdgeInsets(top: 40, leading: 0, bottom: panelHeight, trailing: 0), minZoom: 1)
+            .ignoresSafeArea()
+            .task(id: section == 1 ? collected.map(\.key) : []) {
+                guard section == 1 else { return }
+                for item in collected {
+                    pinPhotos.load(key: "collection|\(item.key)") { await CollectionItemPhoto.photo(for: item) }
                 }
             }
-            UserAnnotation()
+    }
+
+    private var globeMarkers: [GoogleMap.Marker] {
+        if section == 0 {
+            return countries.compactMap { country -> GoogleMap.Marker? in
+                guard let info = countryInfo[country.title], let latitude = info.latitude,
+                      let longitude = info.longitude else { return nil }
+                return GoogleMap.Marker(id: "country-\(country.code)",
+                                        coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                                        key: country.code, onTap: { path.append(.country(country.code)) }) {
+                    FlagPin(flag: country.flag)
+                }
+            }
         }
-        .mapStyle(.imagery(elevation: .realistic))
-        .safeAreaPadding(.top, 40)
-        .safeAreaPadding(.bottom, panelHeight)
-        .ignoresSafeArea()
+        return collected.compactMap { item -> GoogleMap.Marker? in
+            guard let coordinate = item.coordinate else { return nil }
+            let photo = pinPhotos.image(key: "collection|\(item.key)")
+            return GoogleMap.Marker(id: "item-\(item.key)", coordinate: coordinate,
+                                    key: photo.map { "\($0.hash)" } ?? "-") {
+                Color.white
+                    .overlay {
+                        if let photo {
+                            Image(uiImage: photo).resizable().scaledToFill()
+                        } else {
+                            Text(item.countryCode.map(Country.flag) ?? "📍").font(.system(size: 17))
+                        }
+                    }
+                    .frame(width: 34, height: 34)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(.white, lineWidth: 2.5))
+                    .softShadow()
+                    .padding(8)
+            }
+        }
     }
 
     // MARK: - Keşfet bölümü
@@ -275,12 +283,14 @@ struct ContinentView: View {
     @Binding var path: [Route]
     @Environment(\.dismiss) private var dismiss
     @State private var info: [String: DiscoverService.PageInfo] = [:]
-    @State private var position: MapCameraPosition
+    @State private var mapFocus: MapFocus?
 
     init(continent: Continent, path: Binding<[Route]>) {
         self.continent = continent
         _path = path
-        _position = State(initialValue: .camera(MapCamera(centerCoordinate: continent.center, distance: continent.distance)))
+        // Kıtanın uzaklığından (metre) Google'ın yakınlık düzeyine (300 pt yükseklik).
+        let zoom = Float(log2(156_543 * 300 / (0.6 * continent.distance)))
+        _mapFocus = State(initialValue: .point(continent.center, zoom: zoom, animated: false))
     }
 
     private var countries: [Country] { continent.countries.sorted { $0.name < $1.name } }
@@ -326,26 +336,28 @@ struct ContinentView: View {
     }
 
     private var map: some View {
-        Map(position: $position, interactionModes: [.pan, .zoom]) {
-            ForEach(countries) { country in
-                if let page = info[country.title], let latitude = page.latitude, let longitude = page.longitude {
-                    Annotation(country.name, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                               anchor: .center) {
-                        Button { path.append(.country(country.code)) } label: {
-                            Text(country.flag)
-                                .font(.system(size: 17))
-                                .frame(width: 30, height: 30)
-                                .background(.white, in: Circle())
-                                .softShadow()
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .annotationTitles(.hidden)
-                }
+        let markers = countries.compactMap { country -> GoogleMap.Marker? in
+            guard let page = info[country.title], let latitude = page.latitude, let longitude = page.longitude else { return nil }
+            return GoogleMap.Marker(id: country.code, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                                    key: country.code, onTap: { path.append(.country(country.code)) }) {
+                FlagPin(flag: country.flag)
             }
-            UserAnnotation()
         }
-        .mapStyle(.standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: .excludingAll))
+        return GoogleMap(focus: $mapFocus, markers: markers, showsGooglePlaces: false)
+    }
+}
+
+/// Haritada ülke: beyaz daire içinde bayrak.
+struct FlagPin: View {
+    let flag: String
+
+    var body: some View {
+        Text(flag)
+            .font(.system(size: 17))
+            .frame(width: 30, height: 30)
+            .background(.white, in: Circle())
+            .softShadow()
+            .padding(8)
     }
 }
 
@@ -375,7 +387,7 @@ struct CountryView: View {
     /// Türkçe açıklamalar. Uygulama Türkçeyken İngilizcesi hiç gösterilmez;
     /// çeviri gelmezse satırda yalnızca ad kalır.
     @State private var descriptions: [String]?
-    @State private var position: MapCameraPosition = .automatic
+    @State private var mapFocus: MapFocus?
     @State private var expanded = false
     @State private var planTarget: CityChoice?
 
@@ -454,22 +466,18 @@ struct CountryView: View {
     }
 
     private var map: some View {
-        Map(position: $position) {
-            ForEach(choices) { city in
-                Annotation(city.name, coordinate: city.coordinate, anchor: .bottom) {
-                    Button { open(city) } label: {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(.white, Theme.ink)
-                            .softShadow()
-                    }
-                    .buttonStyle(.plain)
-                }
+        let markers = choices.map { city in
+            GoogleMap.Marker(id: city.id, coordinate: city.coordinate, key: city.name, anchorsBottom: true,
+                             onTap: { open(city) }) {
+                Image(systemName: "mappin.circle.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(.white, Theme.ink)
+                    .softShadow()
+                    .padding(6)
             }
-            UserAnnotation()
         }
-        .mapStyle(.standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: .excludingAll))
-        .safeAreaPadding(.top, 40)
+        return GoogleMap(focus: $mapFocus, markers: markers, showsGooglePlaces: false,
+                         padding: EdgeInsets(top: 40, leading: 0, bottom: 0, trailing: 0))
     }
 
     private func cityRow(_ city: DiscoverService.GuideCity, index: Int) -> some View {
@@ -552,7 +560,7 @@ struct CountryView: View {
         wiki = await wikiTask
         voyage = await voyageTask
         if let region = MKCoordinateRegion(fitting: choices.map(\.coordinate), padding: 1.3) {
-            position = .region(region)
+            mapFocus = .region(region)
         }
         if DiscoverService.language == "tr" {
             descriptions = await DiscoverService.shared.turkishLines(cities.map(\.summary), key: "cities|\(title)")

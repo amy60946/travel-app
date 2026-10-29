@@ -12,7 +12,7 @@ struct JourneyView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var position: MapCameraPosition = .automatic
+    @State private var mapFocus: MapFocus?
     @State private var sheet: JourneySheet?
     @State private var renaming = false
     @State private var newName = ""
@@ -53,8 +53,7 @@ struct JourneyView: View {
         let ranges = Journey.dayRanges(days: days)
         return ZStack(alignment: .bottom) {
             map(journey)
-                .safeAreaPadding(.bottom, panelHeight + 30)
-                .ignoresSafeArea(edges: .bottom)
+                .ignoresSafeArea()
                 .overlay(alignment: .top) { header(journey) }
 
             DraggablePanel(stops: [.height(140), .fraction(0.55), .fraction(0.9)], selection: $panelStop,
@@ -96,32 +95,28 @@ struct JourneyView: View {
 
     // MARK: - Harita
 
+    /// Numaralı şehirler ve aralarında kesik çizgi.
     private func map(_ journey: Journey) -> some View {
-        Map(position: $position) {
-            ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
-                Annotation(stop.city, coordinate: stop.coordinate, anchor: .center) {
-                    Button { path.append(.city(stop.city)) } label: {
-                        DayBadge(number: index + 1, size: 30)
-                    }
-                    .buttonStyle(.plain)
-                }
+        let markers = journey.stops.enumerated().map { index, stop in
+            GoogleMap.Marker(id: stop.id.uuidString, coordinate: stop.coordinate, key: "\(index + 1)",
+                             onTap: { path.append(.city(stop.city)) }) {
+                DayBadge(number: index + 1, size: 30).padding(8)
             }
-            if journey.stops.count > 1 {
-                MapPolyline(coordinates: journey.stops.map(\.coordinate), contourStyle: .geodesic)
-                    .stroke(Theme.ink, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [6, 6]))
-            }
-            UserAnnotation()
         }
-        .mapStyle(.standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: .excludingAll))
-        .safeAreaPadding(.top, 52)
+        let lines = journey.stops.count > 1
+            ? [GoogleMap.Line(id: "journey", coordinates: journey.stops.map(\.coordinate), color: UIColor(Theme.ink),
+                              width: 2.5, dashed: true, geodesic: true)]
+            : []
+        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines, showsGooglePlaces: false,
+                         padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0))
     }
 
     private func fitMap(_ journey: Journey) {
         let coordinates = journey.stops.map(\.coordinate)
         if coordinates.count == 1, let only = coordinates.first {
-            position = .region(MKCoordinateRegion(center: only, latitudinalMeters: 60_000, longitudinalMeters: 60_000))
+            mapFocus = .region(MKCoordinateRegion(center: only, latitudinalMeters: 60_000, longitudinalMeters: 60_000))
         } else if let region = MKCoordinateRegion(fitting: coordinates, padding: 1.6) {
-            position = .region(region)
+            mapFocus = .region(region)
         }
     }
 

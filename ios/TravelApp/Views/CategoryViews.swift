@@ -64,39 +64,3 @@ enum PinStyle: String, CaseIterable, Identifiable {
         }
     }
 }
-
-/// Haritada kayıtlı yer: Ayarlar'daki seçime göre türün renkli pini ya da
-/// yerin yuvarlak fotoğrafı (köşesinde türün küçük simgesi). Fotoğraf
-/// bulunamazsa türün pini.
-struct PlaceMapPin: View {
-    let place: Place
-    var size: CGFloat = 32
-    @AppStorage(PinStyle.storageKey) private var style = PinStyle.icon
-    @State private var photo: URL?
-
-    var body: some View {
-        if style == .photo, let photo {
-            AsyncImage(url: photo) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                place.category.color.opacity(0.3)
-            }
-            .frame(width: size + 10, height: size + 10)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(.white, lineWidth: 2.5))
-            .overlay(alignment: .bottomTrailing) {
-                CategoryBadge(category: place.category, size: 16).offset(x: 3, y: 3)
-            }
-            .softShadow()
-            .accessibilityLabel(Text(place.category.title))
-        } else {
-            CategoryPin(category: place.category, size: size)
-                .task(id: style) {
-                    guard style == .photo, photo == nil else { return }
-                    photo = await WikipediaService.shared.photo(name: place.name, city: place.city,
-                                                                latitude: place.latitude, longitude: place.longitude,
-                                                                englishTitle: place.wikipediaTitle)
-                }
-        }
-    }
-}

@@ -11,7 +11,9 @@ struct WalkView: View {
     @StateObject private var tracker = LocationTracker()
     @Environment(\.dismiss) private var dismiss
 
-    @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var mapFocus: MapFocus?
+    /// Konum ilk bulununca harita bir kez oraya gider.
+    @State private var centeredOnUser = false
     @State private var nextIndex = 0
     @State private var narrated: Set<UUID> = []
     @State private var route: WalkingRoutes.DayRoute?
@@ -32,28 +34,19 @@ struct WalkView: View {
 
     var body: some View {
         ZStack {
-            Map(position: $position) {
-                UserAnnotation()
-                ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
-                    Annotation(place.name, coordinate: place.coordinate, anchor: .bottom) {
-                        PlacePin(place: place, isActive: index == nextIndex)
-                    }
-                    .annotationTitles(.hidden)
-                }
-                if let route {
-                    ForEach(Array(route.polylines.enumerated()), id: \.offset) { _, line in
-                        MapPolyline(line).stroke(Theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    }
-                }
-            }
-            .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
-            .mapControls { MapUserLocationButton() }
-            .ignoresSafeArea()
+            GoogleMap(focus: $mapFocus, markers: markers, lines: lines, showsGooglePlaces: false,
+                      padding: EdgeInsets(top: 110, leading: 0, bottom: 90, trailing: 0))
+                .ignoresSafeArea()
 
             VStack(spacing: 10) {
                 HStack(alignment: .top) {
                     CircleIconButton(systemImage: "xmark") { narrator.stop(); dismiss() }
                     directionCard
+                }
+                HStack {
+                    Spacer()
+                    CircleIconButton(systemImage: "location") { mapFocus = .user(zoom: 16) }
+                        .accessibilityLabel(Text("Konumum"))
                 }
                 if let arrivedBanner {
                     Text(arrivedBanner)
@@ -70,14 +63,39 @@ struct WalkView: View {
             .padding(16)
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { tracker.start() }
+        .onAppear {
+            tracker.start()
+            mapFocus = .fitting(stops.map(\.coordinate), animated: false)
+        }
         .onDisappear { tracker.stop() }
         .onReceive(tracker.$location) { location in
-            if let location { checkArrival(at: location) }
+            guard let location else { return }
+            if !centeredOnUser {
+                centeredOnUser = true
+                mapFocus = .point(location.coordinate, zoom: 16)
+            }
+            checkArrival(at: location)
         }
         .task { route = await WalkingRoutes.route(through: stops) }
         .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
         .animation(.snappy, value: arrivedBanner)
+    }
+
+    /// Günün durakları (sıradaki siyah) ve aralarındaki yürüme yolu.
+    private var markers: [GoogleMap.Marker] {
+        stops.enumerated().map { index, place in
+            GoogleMap.Marker(id: place.id.uuidString, coordinate: place.coordinate,
+                             key: "\(place.name)|\(place.category.rawValue)|\(index == nextIndex)",
+                             anchorsBottom: true, zIndex: index == nextIndex ? 1 : 0) {
+                PlacePin(place: place, isActive: index == nextIndex).padding(6)
+            }
+        }
+    }
+
+    private var lines: [GoogleMap.Line] {
+        (route?.lines ?? []).enumerated().map { index, line in
+            GoogleMap.Line(id: "route-\(index)", coordinates: line, color: UIColor(Theme.accent))
+        }
     }
 
     private var directionCard: some View {

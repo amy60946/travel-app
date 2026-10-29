@@ -24,21 +24,39 @@ struct PlaceSheet: View {
     /// Tam ekran açılan fotoğrafın sırası.
     @State private var viewerIndex: Int?
     @State private var guidance: GuidanceDestination?
+    /// Google'dan puan, saatler, telefon, yorumlar (ve Wikipedia'da yoksa fotoğraflar).
+    @State private var google: GooglePlaces.Details?
 
     var body: some View {
         if let place = store.place(placeID) {
             content(place)
                 .task(id: placeID) { await load(place) }
+                .task(id: placeID) {
+                    google = nil
+                    google = await GooglePlaces.shared.details(for: place, store: store)
+                }
         }
+    }
+
+    /// Wikipedia'da yerin kendi fotoğrafı yoksa (restoran, kafe...) Google'ın fotoğrafları.
+    private var usesGooglePhotos: Bool {
+        guard let google, !google.photos.isEmpty else { return false }
+        return !isLoadingPhotos && (photos.isEmpty || photosAreNearby)
     }
 
     private func content(_ place: Place) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header(place)
+                if let google { GooglePlaceInfo(details: google, showsPhotos: false, showsDetails: false) }
                 actions(place)
-                photoStrip(place)
+                if usesGooglePhotos, let google {
+                    GooglePlaceInfo(details: google, showsRating: false, showsDetails: false)
+                } else {
+                    photoStrip(place)
+                }
                 about(place)
+                if let google { GooglePlaceInfo(details: google, showsRating: false, showsPhotos: false) }
             }
             .padding(.horizontal, 20)
             .padding(.top, 22)

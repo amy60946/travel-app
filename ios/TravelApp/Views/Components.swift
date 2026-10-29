@@ -608,27 +608,6 @@ enum MapKind: String, CaseIterable, Identifiable {
         case .hybrid: "Karma"
         }
     }
-
-    /// Rota haritası: yalnızca bizim pinlerimiz görünür.
-    var style: MapStyle {
-        switch self {
-        case .standard: .standard(elevation: .realistic, pointsOfInterest: .excludingAll)
-        case .satellite: .imagery(elevation: .realistic)
-        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: .excludingAll)
-        }
-    }
-
-    /// Keşfet haritası: zemin soluk, bizim renkli pinler öne çıksın.
-    /// Sokak düzeyine inince Google Maps gibi Apple'ın yerleri de (müze,
-    /// kafe, istasyon) görünür ve dokunulabilir.
-    func exploreStyle(showingApplePlaces: Bool) -> MapStyle {
-        let places: PointOfInterestCategories = showingApplePlaces ? .all : .excludingAll
-        return switch self {
-        case .standard: .standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: places)
-        case .satellite: .imagery(elevation: .realistic)
-        case .hybrid: .hybrid(elevation: .realistic, pointsOfInterest: places)
-        }
-    }
 }
 
 extension MKCoordinateRegion {

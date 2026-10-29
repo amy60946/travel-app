@@ -41,6 +41,9 @@ jobs:
           xcodegen generate
 
       - name: Simülatör için derle
+        env:
+          # Google haritası ekran görüntülerinde de görünsün.
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
@@ -55,7 +58,8 @@ jobs:
           xcodebuild build \
             -project TravelApp.xcodeproj -scheme TravelApp \
             -configuration Debug -destination "id=$DEVICE_ID" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY"
 
       - name: Ekranları çek
         run: |
@@ -92,13 +96,13 @@ jobs:
               || echo "açılmadı: $screen"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
-              guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall) sleep 14 ;;
+              guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall|sheet|googlePlace|googleTall|map) sleep 14 ;;
               *) sleep 8 ;;
             esac
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
           }
           i=1
-          SCREENS="home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          SCREENS="home settings map sheet sheetTall googlePlace googleTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
           for screen in $SCREENS; do
             shoot "$screen" "$OUT/$(printf '%02d' $i)-$screen.png"
             i=$((i+1))

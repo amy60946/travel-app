@@ -243,7 +243,6 @@
 "Sonuç bulunamadı." = "No results.";
 "Kayıtlı yerler" = "Saved places";
 "Tümünü göster" = "Show all";
-"Arama: Apple Haritalar · Popüler yerler: Wikipedia" = "Search: Apple Maps · Popular places: Wikipedia";
 "Türü değiştir" = "Change type";
 "Fotoğraflar: yakında çekilenler, Wikimedia Commons" = "Photos: taken nearby, Wikimedia Commons";
 "Fotoğraflar: Wikipedia / Wikimedia Commons" = "Photos: Wikipedia / Wikimedia Commons";
@@ -412,3 +411,17 @@
 "Ülke ve şehirler" = "Destinations";
 "Şu an Türkçeye çevrilemedi." = "Couldn't translate right now.";
 "Tekrar dene" = "Try again";
+"Arama: Google Maps · Popüler yerler: Wikipedia" = "Search: Google Maps · Popular places: Wikipedia";
+"Google Haritalar anahtarı henüz girilmedi" = "Google Maps key not set yet";
+"Google'dan bilgi şu an alınamadı." = "Couldn't get info from Google right now.";
+"Ücretsiz" = "Free";
+"Ucuz" = "Inexpensive";
+"Orta fiyat" = "Moderate";
+"Pahalı" = "Expensive";
+"Çok pahalı" = "Very expensive";
+"Şu an açık" = "Open now";
+"Şu an kapalı" = "Closed now";
+"Açılış saatleri" = "Opening hours";
+"Google Maps'te aç" = "Open in Google Maps";
+"Yorumlar" = "Reviews";
+"Bilgiler: Google Maps" = "Info: Google Maps";

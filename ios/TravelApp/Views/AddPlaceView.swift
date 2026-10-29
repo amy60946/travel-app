@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Yer ekle (Polarsteps'teki "Add a spot" gibi): arama (Apple Haritalar),
+/// Yer ekle (Polarsteps'teki "Add a spot" gibi): arama (Google Haritalar),
 /// Kendi yerini oluştur, Fotoğrafla ekle, Kayıtlı yerler ve Popüler yerler
 /// (Wikipedia okunma sayısı). Her satırda türün renkli etiketi ve "+";
 /// "+" yeri rotada sağ üstte seçili güne ekler, haritada türünün
@@ -12,12 +12,13 @@ struct AddPlaceView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
-    @State private var results: [MKMapItem] = []
+    @State private var results: [GooglePlaces.SearchResult] = []
     @State private var searching = false
     @State private var popular: [WikipediaService.PopularPlace] = []
     @State private var popularFailed = false
     @State private var showAllSaved = false
-    @State private var detailItem: MKMapItem?
+    /// Arama sonucuna dokununca Google'ın bilgileriyle penceresi.
+    @State private var detailPlace: GooglePlaceRef?
     @State private var showCustom = false
     @State private var showCamera = false
     /// Eklenen yerlerin günü (şehir planında bakılan gün).
@@ -51,7 +52,7 @@ struct AddPlaceView: View {
                         if !searching && results.isEmpty {
                             Text("Sonuç bulunamadı.").font(Theme.font(14)).foregroundStyle(Theme.muted)
                         }
-                        ForEach(results, id: \.self) { item in resultRow(item) }
+                        ForEach(results) { result in resultRow(result) }
                     }
 
                     if !saved.isEmpty {
@@ -86,13 +87,19 @@ struct AddPlaceView: View {
             #endif
             await loadPopular()
         }
-        // Yazarken arar (her harfte değil, yazmaya ara verince).
+        // Yazarken arar (her harfte değil, yazmaya ara verince; her arama
+        // Google'ın ücretsiz kotasından düşer).
         .task(id: query) {
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(700))
             guard !Task.isCancelled else { return }
             await search()
         }
-        .appleDetailSheet(item: $detailItem)
+        .sheet(item: $detailPlace) { place in
+            GooglePlaceSheet(place: place) { _ in detailPlace = nil }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(Theme.sheetRadius)
+        }
         .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, day: day) }
         .sheet(isPresented: $showCamera) { CameraAddView() }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
@@ -161,7 +168,7 @@ struct AddPlaceView: View {
             .padding(.horizontal, 14)
             .frame(height: 50)
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.hairline, lineWidth: 1.5))
-            Text("Arama: Apple Haritalar · Popüler yerler: Wikipedia")
+            Text("Arama: Google Maps · Popüler yerler: Wikipedia")
                 .font(Theme.font(12))
                 .foregroundStyle(Theme.muted)
                 .padding(.leading, 4)
@@ -213,15 +220,14 @@ struct AddPlaceView: View {
 
     // MARK: - Satırlar
 
-    private func resultRow(_ item: MKMapItem) -> some View {
-        let coordinate = item.placemark.coordinate
-        let category = PlaceCategory(item)
-        return SpotRow(category: category, title: item.name ?? "",
-                       subtitle: item.placemark.locality ?? item.placemark.title ?? "",
-                       isAdded: store.savedPlace(named: item.name ?? "", near: coordinate) != nil,
-                       onAdd: { add(item) }, onTap: { detailItem = item }) {
-            LocationPhoto(name: item.name ?? "", category: category, city: city,
-                          latitude: coordinate.latitude, longitude: coordinate.longitude,
+    private func resultRow(_ result: GooglePlaces.SearchResult) -> some View {
+        let category = result.category
+        return SpotRow(category: category, title: result.name, subtitle: result.address,
+                       isAdded: store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate) != nil,
+                       onAdd: { add(result) },
+                       onTap: { detailPlace = GooglePlaceRef(id: result.id, name: result.name, coordinate: result.coordinate) }) {
+            LocationPhoto(name: result.name, category: category, city: city,
+                          latitude: result.latitude, longitude: result.longitude,
                           size: 64, cornerRadius: 14)
         }
     }
@@ -253,13 +259,12 @@ struct AddPlaceView: View {
 
     private func search() async {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
+        guard text.count >= 2 else {
             results = []
             return
         }
         searching = true
-        let found = await PlaceSearch.search(text, in: MKCoordinateRegion(
-            center: center, latitudinalMeters: 40_000, longitudinalMeters: 40_000))
+        let found = await GooglePlaces.shared.search(text, near: center)
         searching = false
         if query.trimmingCharacters(in: .whitespacesAndNewlines) == text { results = found }
     }
@@ -273,11 +278,9 @@ struct AddPlaceView: View {
         }
     }
 
-    private func add(_ item: MKMapItem) {
-        let c = item.placemark.coordinate
-        store.add(Place(name: item.name ?? String(localized: "Yer"), city: city,
-                        latitude: c.latitude, longitude: c.longitude,
-                        category: PlaceCategory(item), source: .search),
+    private func add(_ result: GooglePlaces.SearchResult) {
+        store.add(Place(name: result.name, city: city, latitude: result.latitude, longitude: result.longitude,
+                        category: result.category, source: .search, googlePlaceID: result.id),
                   plan: true, day: day)
     }
 
@@ -329,22 +332,5 @@ private struct SpotRow<Thumbnail: View>: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
-    }
-}
-
-extension View {
-    /// Apple Haritalar yer kartı: fotoğraflar, puanlar, çalışma saatleri.
-    /// iOS 18'den eski telefonlarda yer Apple Haritalar'da açılır.
-    @ViewBuilder
-    func appleDetailSheet(item: Binding<MKMapItem?>) -> some View {
-        if #available(iOS 18.0, *) {
-            mapItemDetailSheet(item: item)
-        } else {
-            onChange(of: item.wrappedValue) { _, newItem in
-                guard let newItem else { return }
-                newItem.openInMaps()
-                item.wrappedValue = nil
-            }
-        }
     }
 }

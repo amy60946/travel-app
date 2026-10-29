@@ -369,6 +369,12 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Haritada dokunulan Google yeri kayıtlı mı: Google kimliğiyle ya da
+    /// aynı adla yakında.
+    func savedPlace(googleID: String, named name: String, near coordinate: CLLocationCoordinate2D) -> Place? {
+        places.first { $0.googlePlaceID == googleID } ?? savedPlace(named: name, near: coordinate)
+    }
+
     /// Türü bilinmeyen ("Görülecek yer") aktarılmış yerlerin türünü bulur:
     /// önce addan, olmazsa Apple Haritalar'da aynı adla yakında arayarak.
     /// Haritadaki pinler böylece müze, kafe, tapınak diye ayrılır. Her yer
