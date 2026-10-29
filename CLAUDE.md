@@ -79,3 +79,5 @@ cevapları.
 | 2026-10-29 | Harita **Google Maps gibi çalışır** ama Apple Haritalar üzerine kuruludur (Google Maps SDK kredi kartlı Google Cloud hesabı istiyor). Eklenen yerler haritada **türünün renk ve simgesiyle** görünür (müze, kafe, tapınak, yemek, bar, konaklama...). |
 | 2026-10-29 | Hızlı ekleme (Polarsteps'teki "Add a spot" gibi) **ücretsiz Apple Haritalar verisi** ve Wikipedia ile yapılır; **TripAdvisor kullanılmaz** (ücretsiz API 31 Ağustos 2026'da kapandı, yenisi ömür boyu 1.000 yerden sonra ücretli). Oguz karar kartında "Ücretsiz: Apple Haritalar verisi"ni seçti. |
 | 2026-10-29 | Arayüz **basit ve sade** olacak; örnek Oguz'un gönderdiği Polarsteps ekranları (Add a spot listesi, haritada simgeli pinler). |
+| 2026-10-29 | Arayüz değişikliklerinde önce **simülatör ekran görüntüleri** Oguz'a gönderilir; Oguz onaylayınca birleştirilir ve TestFlight'a yüklenir. |
+| 2026-10-29 | Haritada kayıtlı yere dokununca Google Maps gibi **alttan pencere** açılır: yana kayan fotoğraflar, Wikipedia'dan bilgi ve yazıyı sesli okuyan **Dinle** düğmesi. |
