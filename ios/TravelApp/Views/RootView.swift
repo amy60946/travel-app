@@ -9,6 +9,7 @@ enum Route: Hashable {
     case continent(String)
     case country(String)
     case cityGuide(CityChoice)
+    case collection(UUID)
 }
 
 enum RootTab: Hashable {
@@ -69,6 +70,7 @@ struct RootView: View {
                             .narrationBarInset()
                     }
                 case .cityGuide(let city): CityGuideView(city: city, path: $path).narrationBarInset(hiding: city.name)
+                case .collection(let id): CollectionDetailView(collectionID: id, path: $path).narrationBarInset()
                 }
             }
         }
@@ -136,7 +138,10 @@ struct RootView: View {
         case "trips": _ = demoJourney()
         case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
         case "newTrip": sheet = .newTrip
-        case "discover": tab = .discover
+        case "discover", "discoverTall", "newCollection": tab = .discover
+        case "collections": tab = .discover; _ = demoCollection()
+        case "collection": tab = .discover; path = [.collection(demoCollection())]
+        case "saveTo": tab = .discover; _ = demoCollection(); path = [.country("JP")]
         case "continent": tab = .discover; path = [.continent("asia")]
         case "country": tab = .discover; path = [.country("JP")]
         case "cityGuide", "addToPlan":
@@ -169,6 +174,22 @@ struct RootView: View {
     }
 
     #if DEBUG
+    /// Ekran görüntüleri için örnek koleksiyonlar (yerler, şehir, ülkeler).
+    private func demoCollection() -> UUID {
+        if let existing = store.collections.first(where: { $0.name == "Tokyo favorileri" }) { return existing.id }
+        let europe = store.createCollection(name: "Avrupa hayalleri", emoji: "🏛️", color: 0)
+        for code in ["IT", "FR", "GR"] {
+            if let country = Country.find(code) { store.toggle(.country(country), in: europe) }
+        }
+        let id = store.createCollection(name: "Tokyo favorileri", emoji: "🍜", color: 2)
+        for place in store.places(in: "Tokyo").prefix(5) { store.toggle(.place(place), in: id) }
+        store.toggle(.city(CityChoice(name: "Kyoto", countryCode: "JP", latitude: 35.0116, longitude: 135.7681,
+                                      englishTitle: "Kyoto")), in: id)
+        if let japan = Country.find("JP") { store.toggle(.country(japan), in: id) }
+        store.dismissUndo()
+        return id
+    }
+
     /// Ekran görüntüleri için örnek çok şehirli gezi (Polarsteps'teki İstanbul → Ankara gibi).
     private func demoJourney() -> UUID {
         if let existing = store.journeys.first(where: { $0.name == "Türkiye" }) { return existing.id }

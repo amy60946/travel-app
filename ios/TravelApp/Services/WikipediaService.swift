@@ -15,6 +15,24 @@ actor WikipediaService {
         var translatedFrom: String? = nil
     }
 
+    /// Sayfanın tamamı, başlıklarıyla (Giriş özetin içinde; kaynakça ve dış
+    /// bağlantılar yok). Okunur ve dinlenir.
+    struct Article: Codable, Equatable {
+        struct Section: Codable, Equatable, Identifiable {
+            var heading: String
+            var text: String
+            var id: String { heading }
+        }
+        var sections: [Section]
+        var language: String
+        var translatedFrom: String? = nil
+
+        /// Dinlemek için: başlıklar ve yazılar art arda.
+        var spokenText: String {
+            sections.map { "\($0.heading).\n\($0.text)" }.joined(separator: "\n\n")
+        }
+    }
+
     struct PopularPlace: Identifiable, Equatable {
         /// İngilizce Wikipedia başlığı.
         var title: String
@@ -37,6 +55,7 @@ actor WikipediaService {
     private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
     private let photoLists = DiskCache<[URL]>(name: "wikipedia-photos")
     private let placePhotos = DiskCache<URL>(name: "place-photos")
+    private let articles = DiskCache<Article>(name: "wikipedia-articles")
     /// Bu açılışta fotoğrafı bulunamayan yerler (yeniden sorulmaz).
     private var missingPhotos: Set<String> = []
     private let session: URLSession = {
@@ -65,6 +84,102 @@ actor WikipediaService {
         result.language = "tr"
         result.translatedFrom = "en"
         summaries[key] = result
+        return result
+    }
+
+    /// Sayfanın tamamı, başlık başlık. İstenen dilde sayfa yoksa İngilizcesi
+    /// bölüm bölüm Türkçeye çevrilir (Türkçe istenmişse).
+    func article(englishTitle: String, language: String = WikipediaService.narrationLanguage) async -> Article? {
+        let key = "\(language)|\(englishTitle)"
+        if let cached = articles[key] { return cached }
+        if language != "en", let local = try? await localTitle(for: englishTitle, language: language),
+           let sections = await fetchSections(title: local, language: language), !sections.isEmpty {
+            let result = Article(sections: sections, language: language)
+            articles[key] = result
+            return result
+        }
+        guard let english = await fetchSections(title: englishTitle, language: "en"), !english.isEmpty else { return nil }
+        guard language == "tr" else {
+            let result = Article(sections: english, language: "en")
+            articles[key] = result
+            return result
+        }
+        let headings = await Translator.shared.toTurkish(english.map(\.heading).joined(separator: "\n"))?
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        var translated: [Article.Section] = []
+        for (index, section) in english.enumerated() {
+            guard let text = await Translator.shared.toTurkish(section.text) else { break }
+            let heading = headings?.count == english.count ? headings?[index] ?? section.heading : section.heading
+            translated.append(Article.Section(heading: heading, text: text))
+        }
+        guard !translated.isEmpty else { return nil }
+        let result = Article(sections: translated, language: "tr", translatedFrom: "en")
+        if translated.count == english.count { articles[key] = result }
+        return result
+    }
+
+    private func fetchSections(title: String, language: String) async -> [Article.Section]? {
+        var components = URLComponents(string: "https://\(language).wikipedia.org/w/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "prop", value: "extracts"),
+            .init(name: "explaintext", value: "1"),
+            .init(name: "exsectionformat", value: "wiki"),
+            .init(name: "redirects", value: "1"),
+            .init(name: "titles", value: title),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable {
+                struct Page: Decodable { var extract: String? }
+                var pages: [Page]?
+            }
+            var query: Query?
+        }
+        guard let url = components.url, let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let extract = try? JSONDecoder().decode(Response.self, from: data).query?.pages?.first?.extract
+        else { return nil }
+        return Self.articleSections(fromExtract: extract)
+    }
+
+    /// Düz yazı sayfadan (== Başlık ==) ana bölümler; alt başlıklar yazının
+    /// içinde kalır. Kaynakça, dış bağlantılar gibi bölümler alınmaz; toplam
+    /// yaklaşık `limit` harfe kadar.
+    static func articleSections(fromExtract text: String, limit: Int = 8000) -> [Article.Section] {
+        let skipped: Set<String> = [
+            "references", "see also", "external links", "notes", "further reading", "bibliography",
+            "sources", "citations", "gallery", "footnotes", "explanatory notes",
+            "kaynakça", "kaynaklar", "dış bağlantılar", "ayrıca bakınız", "notlar", "dipnotlar",
+            "galeri", "konuyla ilgili yayınlar", "ek okumalar",
+        ]
+        var sections: [(heading: String, lines: [String], hasText: Bool)] = []
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("=="), trimmed.hasSuffix("==") {
+                let level = trimmed.prefix { $0 == "=" }.count
+                let heading = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "= "))
+                if level == 2 {
+                    sections.append((heading, [], false))
+                } else if !sections.isEmpty {
+                    sections[sections.count - 1].lines.append(heading + ".")
+                }
+            } else if !sections.isEmpty, !trimmed.isEmpty {
+                sections[sections.count - 1].lines.append(trimmed)
+                sections[sections.count - 1].hasText = true
+            }
+        }
+        var result: [Article.Section] = []
+        var total = 0
+        for section in sections where section.hasText && !skipped.contains(section.heading.lowercased()) {
+            let body = DiscoverService.excerpt(section.lines.joined(separator: "\n"), limit: min(limit, 3500))
+            if total > 0 && total + body.count > limit { break }
+            result.append(Article.Section(heading: section.heading, text: body))
+            total += body.count
+        }
         return result
     }
 

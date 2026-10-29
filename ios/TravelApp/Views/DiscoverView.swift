@@ -1,38 +1,160 @@
 import MapKit
 import SwiftUI
 
-/// Keşfet (Polarsteps arama gibi): şehir ya da ülke ara; ya da kıtadan
-/// ülkeye, ülkeden şehre gez. Şehir rehberinden "Plana ekle" ile geziye
-/// eklenir. İçerik Wikipedia ve Wikivoyage'dan (ücretsiz, kaynaklı).
+/// Keşfet (Polarsteps Explore gibi): dünya haritasının üstünde kayan
+/// panel; "Keşfet" bölümünde arama, "Senin için" ülke kartları (fotoğraf,
+/// "N yer", kaydet) ve kıtalar; "Koleksiyonlar" bölümünde kullanıcının
+/// koleksiyonları. Panel ortada açılır, yukarı çekince ekranı kaplar.
+/// İçerik Wikipedia ve Wikivoyage'dan (ücretsiz, kaynaklı).
 struct DiscoverView: View {
     @Binding var path: [Route]
+    @EnvironmentObject private var store: AppStore
     @StateObject private var search = CitySearch()
     @State private var photos: [String: URL] = [:]
+    @State private var countryInfo: [String: DiscoverService.PageInfo] = [:]
     @State private var resolving: String?
+    @State private var section = 0
+    @State private var panelStop = 1
+    @State private var panelHeight: CGFloat = 400
+    @State private var position: MapCameraPosition = .camera(
+        MapCamera(centerCoordinate: CLLocationCoordinate2D(latitude: 30, longitude: 25), distance: 24_000_000))
+    @FocusState private var searchFocused: Bool
+
+    private var countries: [Country] {
+        Country.forYou(visited: store.journeys.flatMap(\.stops).compactMap(\.countryCode))
+    }
+
+    /// Koleksiyonlardaki konumu bilinen şeyler (haritada).
+    private var collected: [CollectionItem] {
+        var seen = Set<String>()
+        return store.collections.flatMap(\.items).filter { $0.coordinate != nil && seen.insert($0.key).inserted }
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Keşfet").font(Theme.title).padding(.top, 12)
-                Text("Nereye gitmek istersin?")
-                    .font(Theme.font(16))
-                    .foregroundStyle(Theme.muted)
-                    .padding(.bottom, 14)
-                SearchField(text: $search.query, prompt: "Şehir ya da ülke ara", isSearching: search.isSearching)
-                if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    continents
-                } else {
-                    results
+        ZStack(alignment: .topLeading) {
+            globe
+
+            Text(section == 0 ? LocalizedStringKey("Keşfet") : LocalizedStringKey("Koleksiyonlar"))
+                .font(Theme.font(34, .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.5), radius: 6)
+                .padding(.horizontal, 20)
+                .padding(.top, 6)
+
+            DraggablePanel(stops: [.height(150), .fraction(0.55), .fraction(1)], selection: $panelStop,
+                           onSettle: { panelHeight = $0 }) {
+                Picker("", selection: $section) {
+                    Text("Keşfet").tag(0)
+                    Text("Koleksiyonlar").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            } content: {
+                VStack(alignment: .leading, spacing: 0) {
+                    if section == 0 {
+                        discover
+                    } else {
+                        CollectionsSection(path: $path)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 130)
+            }
+        }
+        .onChange(of: searchFocused) { _, focused in
+            // Yazarken sonuçlar görünsün: panel ekranı kaplar.
+            if focused { withAnimation(.snappy) { panelStop = 2 } }
+        }
+        .task {
+            #if DEBUG
+            let screen = UserDefaults.standard.string(forKey: "screen")
+            if screen == "collections" || screen == "newCollection" { section = 1 }
+            if screen == "discoverTall" { panelStop = 2 }
+            #endif
+            let titles = countries.map(\.title)
+            async let continentTask = DiscoverService.shared.info(Continent.all.map(\.photoTitle), from: .wikipedia)
+            async let countryTask = DiscoverService.shared.info(titles, from: .wikivoyage)
+            photos = await continentTask.compactMapValues(\.photo)
+            countryInfo = await countryTask
+        }
+    }
+
+    // MARK: - Harita
+
+    private var globe: some View {
+        Map(position: $position, interactionModes: [.pan, .zoom]) {
+            if section == 0 {
+                ForEach(countries) { country in
+                    if let info = countryInfo[country.title], let latitude = info.latitude, let longitude = info.longitude {
+                        Annotation(country.name, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                                   anchor: .center) {
+                            Button { path.append(.country(country.code)) } label: {
+                                Text(country.flag)
+                                    .font(.system(size: 17))
+                                    .frame(width: 30, height: 30)
+                                    .background(.white, in: Circle())
+                                    .softShadow()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .annotationTitles(.hidden)
+                    }
+                }
+            } else {
+                ForEach(collected) { item in
+                    if let coordinate = item.coordinate {
+                        Annotation(item.displayName, coordinate: coordinate, anchor: .center) {
+                            CollectionItemPhoto(item: item)
+                                .frame(width: 34, height: 34)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(.white, lineWidth: 2.5))
+                                .softShadow()
+                        }
+                        .annotationTitles(.hidden)
+                    }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 120)
+            UserAnnotation()
         }
-        .scrollDismissesKeyboard(.immediately)
-        .background(.white)
-        .task {
-            let info = await DiscoverService.shared.info(Continent.all.map(\.photoTitle), from: .wikipedia)
-            photos = info.compactMapValues(\.photo)
+        .mapStyle(.imagery(elevation: .realistic))
+        .safeAreaPadding(.top, 40)
+        .safeAreaPadding(.bottom, panelHeight)
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Keşfet bölümü
+
+    @ViewBuilder
+    private var discover: some View {
+        SearchField(text: $search.query, prompt: "Şehir ya da ülke ara", isSearching: search.isSearching,
+                    focus: $searchFocused)
+            .padding(.top, 4)
+        if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
+            forYou
+            continents
+        } else {
+            results
+        }
+    }
+
+    /// "Senin için": iki sütun ülke kartları.
+    private var forYou: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle("Senin için")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(countries) { country in
+                    // Kartın içinde kaydet düğmesi var; kartın kendisi düğme değil, dokunulur.
+                    CountryCard(country: country, photo: countryInfo[country.title]?.photo)
+                        .contentShape(Rectangle())
+                        .onTapGesture { path.append(.country(country.code)) }
+                        .accessibilityAddTraits(.isButton)
+                }
+            }
+            Text("Fotoğraflar ve yer sayısı: Wikivoyage (CC BY-SA)")
+                .font(Theme.font(12))
+                .foregroundStyle(Theme.muted)
+                .padding(.top, 10)
         }
     }
 
@@ -63,10 +185,7 @@ struct DiscoverView: View {
             ForEach(search.countries) { country in
                 Button { path.append(.country(country.code)) } label: {
                     ResultRow(title: country.name, subtitle: Continent.of(country.code)?.name ?? "") {
-                        Text(country.flag)
-                            .font(.system(size: 30))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Theme.surface)
+                        CollectionItemPhoto(item: .country(country))
                     } trailing: {
                         Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
                     }
@@ -101,6 +220,50 @@ struct DiscoverView: View {
         let choice = await CitySearch.resolve(completion)
         resolving = nil
         if let choice { path.append(.cityGuide(choice)) }
+    }
+}
+
+/// "Senin için" ülke kartı (Polarsteps gibi): manzara fotoğrafı, solda
+/// bayrak, sağ üstte kaydet, altta ad ve kaç yer olduğu (Wikivoyage'daki
+/// şehirler ve diğer yerler).
+struct CountryCard: View {
+    let country: Country
+    let photo: URL?
+    @State private var placeCount: Int?
+
+    var body: some View {
+        RemoteImage(url: photo)
+            .overlay {
+                if photo == nil { Text(country.flag).font(.system(size: 44)) }
+            }
+            .frame(height: 190)
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(country.name).font(Theme.font(19, .bold)).lineLimit(2)
+                    if let placeCount, placeCount > 0 {
+                        Text("\(placeCount) yer").font(Theme.font(12, .semibold)).opacity(0.9)
+                    }
+                }
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.4), radius: 3)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                Text(country.flag)
+                    .font(.system(size: 15))
+                    .frame(width: 28, height: 28)
+                    .background(.white, in: Circle())
+                    .padding(10)
+            }
+            .overlay(alignment: .topTrailing) {
+                CollectButton(item: .country(country), size: 32).padding(8)
+            }
+            .task(id: country.code) {
+                placeCount = await DiscoverService.shared.places(countryTitle: country.title).count
+            }
     }
 }
 
@@ -228,6 +391,11 @@ struct CountryView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                 }
+                .overlay(alignment: .topTrailing) {
+                    CollectButton(item: .country(country), size: 40, opensForScreenshot: true)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
@@ -256,7 +424,7 @@ struct CountryView: View {
                         WikipediaCredit(summary: summary)
                     }
 
-                    SectionTitle("Şehirler")
+                    SectionTitle("Şehirler ve yerler")
                     if loading {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 20)
                     } else if cities.isEmpty {
@@ -268,7 +436,7 @@ struct CountryView: View {
                         cityRow(city, index: index)
                     }
                     if !cities.isEmpty {
-                        Text("Şehir listesi: Wikivoyage (CC BY-SA)")
+                        Text("Liste: Wikivoyage (CC BY-SA)")
                             .font(Theme.font(12))
                             .foregroundStyle(Theme.muted)
                             .padding(.top, 10)
@@ -374,7 +542,7 @@ struct CountryView: View {
         guard cities.isEmpty else { return }
         let title = country.title
         async let summaryTask = WikipediaService.shared.summary(englishTitle: title)
-        async let citiesTask = DiscoverService.shared.cities(countryTitle: title)
+        async let citiesTask = DiscoverService.shared.places(countryTitle: title)
         summary = await summaryTask
         cities = await citiesTask
         loading = false
@@ -433,6 +601,7 @@ struct CityGuideView: View {
                 CircleIconButton(systemImage: "chevron.left") { dismiss() }
                     .accessibilityLabel(Text("Geri"))
                 Spacer()
+                CollectButton(item: .city(city), size: 40)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

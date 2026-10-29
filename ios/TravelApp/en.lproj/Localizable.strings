@@ -378,3 +378,35 @@
 "Haritada yerler" = "Places on the map";
 "Simge" = "Icon";
 "Simge: türün renkli işareti. Fotoğraf: yerin kendi fotoğrafı, köşesinde türün simgesi." = "Icon: the colored category marker. Photo: the place's own photo with the category icon in the corner.";
+
+/* Koleksiyonlar */
+"Koleksiyonlar" = "Collections";
+"Koleksiyona kaydet" = "Save to collection";
+"Yeni koleksiyon" = "New collection";
+"Koleksiyonu düzenle" = "Edit collection";
+"Koleksiyon adı" = "Collection name";
+"Renk %lld" = "Color %lld";
+"Henüz koleksiyonun yok. \"Yeni koleksiyon\" ile ilkini oluştur." = "You have no collections yet. Create your first one with \"New collection\".";
+"Sonra dönmek istediğin ülke, şehir ve yerleri koleksiyonlarda topla." = "Gather the countries, cities and places you want to come back to in collections.";
+"Sonra dönmek istediğin her şeyi kaydet. Sağ alttaki + ile yer ya da şehir ekle." = "Save anything you want to come back to later. Add a place or city with the + at the bottom right.";
+"Koleksiyon silinsin mi?" = "Delete this collection?";
+"Koleksiyonu sil" = "Delete collection";
+"Düzenle" = "Edit";
+"Koleksiyon menüsü" = "Collection menu";
+"Koleksiyondan çıkar" = "Remove from collection";
+"Yerler" = "Places";
+"Şehir" = "City";
+"Ülke" = "Country";
+"Şehir ya da ülke" = "City or country";
+"Şehir ya da ülke ekle" = "Add a city or country";
+"Yer, restoran ya da otel ara" = "Search places, restaurants or hotels";
+"%@ %@ koleksiyonuna eklendi" = "%1$@ added to %2$@";
+"%@ %@ koleksiyonundan çıkarıldı" = "%1$@ removed from %2$@";
+
+/* Keşfet */
+"Senin için" = "For you";
+"Fotoğraflar ve yer sayısı: Wikivoyage (CC BY-SA)" = "Photos and place counts: Wikivoyage (CC BY-SA)";
+"Şehirler ve yerler" = "Cities and places";
+"Liste: Wikivoyage (CC BY-SA)" = "List: Wikivoyage (CC BY-SA)";
+"Yazının devamı hazırlanıyor" = "Preparing the full article";
+"Ülke ve şehirler" = "Destinations";

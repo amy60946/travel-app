@@ -654,3 +654,50 @@ extension MKCoordinateRegion {
         self.init(center: place.coordinate, latitudinalMeters: meters, longitudinalMeters: meters)
     }
 }
+
+/// Wikipedia yazısının tamamı, başlık başlık (dokununca açılır). "Dinle"
+/// kartı özeti ve bu bölümleri art arda okur.
+struct ArticleSections: View {
+    let article: WikipediaService.Article
+    @State private var expanded: Set<String> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(article.sections) { section in
+                Button {
+                    withAnimation(.snappy) {
+                        if expanded.contains(section.id) { expanded.remove(section.id) } else { expanded.insert(section.id) }
+                    }
+                } label: {
+                    HStack {
+                        Text(section.heading).font(Theme.font(16, .semibold)).multilineTextAlignment(.leading)
+                        Spacer()
+                        Image(systemName: expanded.contains(section.id) ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if expanded.contains(section.id) {
+                    Text(section.text)
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.ink.opacity(0.85))
+                        .padding(.bottom, 12)
+                }
+                Divider()
+            }
+        }
+    }
+}
+
+extension WikipediaService.Summary {
+    /// Dinlemek için özet ve yazının tamamı art arda.
+    func adding(_ article: WikipediaService.Article?) -> WikipediaService.Summary {
+        guard let article, !article.sections.isEmpty else { return self }
+        var full = self
+        full.extract = extract + "\n\n" + article.spokenText
+        return full
+    }
+}

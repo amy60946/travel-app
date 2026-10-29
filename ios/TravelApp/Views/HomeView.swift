@@ -366,6 +366,9 @@ struct HomeView: View {
             select(saved)
         } else {
             card = .item(item, PlaceCategory(item))
+            // Apple'ın yer kartı doğrudan açılır: puan, fotoğraflar, saatler
+            // (Oguz, 2026-10-29). Kapatınca altta Kaydet ve Yol tarifi kalır.
+            if #available(iOS 18.0, *) { detailItem = item }
         }
     }
 

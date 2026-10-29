@@ -8,6 +8,7 @@ struct PlaceDetailView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var summary: WikipediaService.Summary?
+    @State private var article: WikipediaService.Article?
     @State private var isLoading = true
 
     var body: some View {
@@ -58,12 +59,13 @@ struct PlaceDetailView: View {
                             .foregroundStyle(Theme.muted)
                     }
 
-                    ListenCard(title: place.name, summary: summary)
+                    ListenCard(title: place.name, summary: summary?.adding(article))
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Hakkında").font(Theme.headline)
                             Text(summary.extract).font(Theme.body)
+                            if let article { ArticleSections(article: article).padding(.top, 4) }
                             WikipediaCredit(summary: summary)
                         }
                     } else if isLoading {
@@ -102,6 +104,9 @@ struct PlaceDetailView: View {
                 summary = await WikipediaService.shared.summary(englishTitle: title)
             }
             isLoading = false
+            if let title = place.wikipediaTitle, summary != nil {
+                article = await WikipediaService.shared.article(englishTitle: title)
+            }
         }
     }
 
