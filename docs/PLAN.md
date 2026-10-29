@@ -51,6 +51,8 @@ mümkün. Bu ürünün yapması gereken, yapay zekânın tek başına yapamadı�
 | Google Maps liste aktarımı | Google Takeout dosyası yüklenir: Yıldızlı yerler (GeoJSON, koordinatlı) doğrudan eklenir; Favoriler, "Gitmek istiyorum" ve özel listeler (CSV, koordinatsız) başlık ve linkten haritada eşleştirilir. Önce dosya yükleme, sonra liste linki paylaşma denenir | Listedeki yerler doğru konumda ve doğru şehre eklenir |
 | Gezim | Şehre göre liste ve Google Maps gibi çalışan harita (Apple Haritalar: konumum, uydu görünümü, haritadaki bir yere dokunup kaydetme). Yol tarifi uygulamanın içinde, araba GPS'i gibi sesli yürüyüş rehberi (Haritalar uygulamasına geçmez). Her yer türünün renk ve simgesiyle görünür (müze, kafe, tapınak...). Polarsteps'teki "Add a spot" gibi sade "Yer ekle" listesi (ana sayfada sağ alttaki büyüteçten): arama, kayıtlı yerler, popüler yerler, tek dokunuşla "+". Yer penceresi yarım ekran açılır, yukarı kaydırınca %70'e çıkar; fotoğrafa dokununca tam ekran açılır | Yerler haritada doğru konumda; türü pinden anlaşılıyor |
 | Otomatik rota | Gün sayısı seçimi (tempo şimdilik yok); her yerin gününü kullanıcı seçer (otomatik bölme yok, 2026-10-29); gün içinde yürüme sırası otomatik; bölgeye göre gruplama, her gün tek bölgede kalmaya çalışma, sıralama; "güzel sokak puanı" ile yürüyüş rotası; bölgeler arası toplu taşıma veya taksi önerisi | Rota 5 saniyeden kısa sürede; hiçbir yer dışarıda kalmaz |
+| Çok şehirli gezi | Polarsteps gibi: gezi sırayla şehirlerden oluşur, tarih yok, şehirler "1-3. gün, 4-5. gün" diye görünür (2026-10-29). Gezi planında haritada numaralı şehirler ve kesik çizgi; şehir kartında fotoğraf, gün −/+, konaklamalar; şehirler arasında araba süresi ya da uçuş. Kartın "Ekle" menüsü: yer, konaklama, geliş uçuşu, sonrasına şehir. Yeni gezi: şehir ya da ülke ara, kayıtlı şehirlerden seç. Uçuş ve konaklama yalnızca plana not (rezervasyon yok) | Geziye şehir eklemek 3 dokunuşu geçmez |
+| Keşfet | Şehir ya da ülke arama; kıta → ülke → şehir gezinme; şehir rehberi (Türkçe Wikipedia özeti ve Dinle, Wikivoyage'dan "Bilmen gerekenler": nasıl bir yer, ne zaman gidilir, nasıl gidilir, nerede kalınır, güvenlik; popüler yerler) ve "Plana ekle". İçerik otomatik ve kaynaklı (Wikipedia, Wikivoyage; CC BY-SA), Türkçeye çevrilir; manuel küratörlük, kullanıcı içeriği ya da puanlama yok | Her metnin kaynağı görünür |
 | Düzenleme | Şehir planında tek gün ya da "Tüm yerler" görünür, gün tek düğmeden değişir; yeri başka güne taşıma (yer penceresinde "n. gün ⌄" düğmesi, listede basılı tutup menü), rotadan çıkarma, her işlemde geri al. Yere bakarken harita görünür kalır ve o yere yakınlaşır | Metin yazma gerektirmez |
 | Yürüyüş modu | Telefon cepteyken tek kulaklıkla (mono) yön tarifi; konuma göre otomatik anlatım; anlatımlar üst üste binmez; çevrimdışı ses ve harita; sade ekran (sıradaki durak, mesafe, duraklat/devam) | 30 dk yürüyüşte kesintisiz ses, makul pil tüketimi |
 | Anlatım | Yapay zekâ üretir, kaynak gösterir, birden fazla açık kaynakla çapraz kontrol; aynı yer için bir kez üretilip saklanır; "Yanlış bilgi bildir" düğmesi | Her anlatımda en az bir kaynak |
@@ -64,13 +66,15 @@ mümkün. Bu ürünün yapması gereken, yapay zekânın tek başına yapamadı�
 | Normal | 5-6 | orta | 1-2 | orta |
 | Tempolu | 7+ | kısa, dışarıdan görüp geçme | 1 | uzun |
 
-**MVP ekranları:** Kaydet, Gezim (liste + harita), Rota, Yürüyüş modu,
-İndirme (çevrimdışı). Öneriler ekranı Aşama 2.
+**MVP ekranları:** Harita (Gezilerim / Kayıtlarım), Keşfet, Gezi planı,
+Şehir planı (rota), Yürüyüş modu, İndirme (çevrimdışı). Öneriler ekranı
+Aşama 2.
 
 ## 5. Kapsam dışı
 
-Rezervasyon, ödeme, sosyal özellikler, kendi keşif platformu, masraf
-takibi. Kaydırmalı öneri kartları Aşama 2'de, Apple Watch Aşama 3'te.
+Rezervasyon, ödeme, sosyal özellikler, kendi keşif platformu (kullanıcı
+içeriği, puanlama; Keşfet sekmesi yalnızca Wikipedia/Wikivoyage'dan
+otomatik içerik gösterir, 2026-10-29), masraf takibi. Kaydırmalı öneri kartları Aşama 2'de, Apple Watch Aşama 3'te.
 
 ## 6. Aşamalar
 

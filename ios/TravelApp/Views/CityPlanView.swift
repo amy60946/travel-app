@@ -331,6 +331,9 @@ struct CityPlanView: View {
         let shown = stops.isEmpty ? days.flatMap { $0 } : stops
         if let region = MKCoordinateRegion(fitting: shown.map(\.coordinate)) {
             withAnimation { position = .region(region) }
+        } else if let center = store.center(of: city) {
+            // Henüz yeri olmayan şehir (gezide yeni eklenen): şehrin ortası.
+            position = .region(MKCoordinateRegion(center: center, latitudinalMeters: 15_000, longitudinalMeters: 15_000))
         }
     }
 

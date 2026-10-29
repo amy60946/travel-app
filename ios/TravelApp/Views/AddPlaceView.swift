@@ -29,8 +29,7 @@ struct AddPlaceView: View {
     }
 
     private var center: CLLocationCoordinate2D {
-        store.cities.first { $0.name == city }?.coordinate
-            ?? CLLocationCoordinate2D(latitude: 35.68, longitude: 139.76)
+        store.center(of: city) ?? CLLocationCoordinate2D(latitude: 35.68, longitude: 139.76)
     }
 
     /// Şehirdeki kayıtlar; rotada olmayanlar önce.
