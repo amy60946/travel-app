@@ -332,7 +332,7 @@ struct CityPlanView: View {
     }
 
     /// Yalnızca geliştirme sürümünde (ekran görüntüleri için): `-screen spot`
-    /// Sensō-ji'ye bakar; `moved` onu bir önceki güne taşınmış gösterir;
+    /// Meiji Tapınağı'na bakar; `moved` onu başka güne taşınmış gösterir;
     /// `movedList` taşıdıktan sonra listeyi ve "Geri al" bildirimini gösterir.
     private func openLaunchScreen() async {
         #if DEBUG
@@ -341,7 +341,7 @@ struct CityPlanView: View {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
         guard ["spot", "moved", "movedList"].contains(screen),
-              let place = all.first(where: { $0.name == "Sensō-ji" }) ?? all.first,
+              let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
               let day = store.dayIndex(of: place) else { return }
         if screen == "movedList" { try? await Task.sleep(for: .seconds(4)) }
         if screen != "spot" {
