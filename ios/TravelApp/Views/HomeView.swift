@@ -138,6 +138,7 @@ struct HomeView: View {
                   padding: EdgeInsets(top: 0, leading: 0,
                                       bottom: mapSheet != nil ? mapHeight / 2 - 30 : panelHeight,
                                       trailing: 0),
+                  minZoom: 1,
                   onPlaceTap: { id, name, coordinate in showGooglePlace(id: id, name: name, coordinate: coordinate) },
                   onMapTap: {
                       // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
@@ -350,13 +351,19 @@ struct HomeView: View {
         }?.name ?? "Tokyo"
     }
 
-    /// Dünya haritasını kayıtlı şehirlerin ortasına çevirir.
+    /// Dünya haritasını kayıtlı şehirlerin ortasına çevirir; uzak şehirler
+    /// (İstanbul ve Tokyo) adlarıyla birlikte ekrana sığsın diye uzaklaşır.
     private func centerOnCities() {
         let cities = store.cities
         guard !cities.isEmpty else { return }
-        let latitude = cities.map(\.latitude).reduce(0, +) / Double(cities.count)
-        let longitude = cities.map(\.longitude).reduce(0, +) / Double(cities.count)
-        mapFocus = .point(CLLocationCoordinate2D(latitude: latitude, longitude: longitude), zoom: 2, animated: false)
+        let latitudes = cities.map(\.latitude), longitudes = cities.map(\.longitude)
+        let center = CLLocationCoordinate2D(latitude: (latitudes.min()! + latitudes.max()!) / 2,
+                                            longitude: (longitudes.min()! + longitudes.max()!) / 2)
+        // Yakınlık z'de ekranın (~390 nokta) gösterdiği boylam: 360 * 390 / (256 * 2^z).
+        // Şehirlerin arasının 1,8 katı görünür; en çok 2, en az 1.
+        let span = max(longitudes.max()! - longitudes.min()!, 1)
+        let zoom = min(2, max(1, Float(log2(360 * 390 / (256 * 1.8 * span)))))
+        mapFocus = .point(center, zoom: zoom, animated: false)
     }
 
     /// Yalnızca geliştirme sürümünde: `-screen map` ilk şehre yaklaşır,
