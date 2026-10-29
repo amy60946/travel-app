@@ -2,7 +2,7 @@ import MapKit
 import SwiftUI
 
 /// Kendi yerin: ad, harita üstünde konum (harita kaydırılarak düzeltilir),
-/// tür ve not. Gün kendiliğinden seçilir (en yakın gün).
+/// tür, not ve rotadaki günü.
 struct CustomPlaceView: View {
     let city: String
     @EnvironmentObject private var store: AppStore
@@ -11,8 +11,14 @@ struct CustomPlaceView: View {
     @State private var name = ""
     @State private var category: PlaceCategory = .sight
     @State private var note = ""
+    @State private var day: Int
     @State private var center: CLLocationCoordinate2D?
     @State private var position: MapCameraPosition = .automatic
+
+    init(city: String, day: Int = 0) {
+        self.city = city
+        _day = State(initialValue: day)
+    }
 
     var body: some View {
         NavigationStack {
@@ -44,8 +50,12 @@ struct CustomPlaceView: View {
                 Section("Not") {
                     TextField("İsteğe bağlı", text: $note, axis: .vertical)
                 }
-                Section {
-                    LabeledContent("Gün", value: String(localized: "Otomatik (en yakın gün)"))
+                if store.trip(for: city).days > 1 {
+                    Section {
+                        Picker("Gün", selection: $day) {
+                            ForEach(0..<store.trip(for: city).days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
+                        }
+                    }
                 }
             }
             .navigationTitle("Kendi yerin")
@@ -70,7 +80,7 @@ struct CustomPlaceView: View {
         store.add(Place(name: name.trimmingCharacters(in: .whitespaces), city: city,
                         latitude: center.latitude, longitude: center.longitude,
                         category: category, source: .manual, note: note),
-                  plan: true)
+                  plan: true, day: day)
         dismiss()
     }
 }

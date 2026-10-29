@@ -46,18 +46,28 @@ struct PrimaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(Theme.font(16, .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 13)
-            .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        Button(action: action) { PrimaryLabel(title: title, systemImage: systemImage) }
+            .buttonStyle(.plain)
+    }
+}
+
+/// Ana düğmenin görünümü (menü düğmelerinde de kullanılır).
+struct PrimaryLabel: View {
+    let title: LocalizedStringKey
+    var systemImage: String?
+    var showsChevron = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(title)
+            if showsChevron { Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)) }
         }
-        .buttonStyle(.plain)
+        .font(Theme.font(16, .semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 13)
+        .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
     }
 }
 
@@ -68,19 +78,69 @@ struct SecondaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(Theme.font(14, .semibold))
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
+        Button(action: action) { SecondaryLabel(title: title, systemImage: systemImage) }
+            .buttonStyle(.plain)
+    }
+}
+
+/// İkincil düğmenin görünümü (menü düğmelerinde de kullanılır).
+struct SecondaryLabel: View {
+    let title: LocalizedStringKey
+    var systemImage: String?
+    var showsChevron = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(title)
+            if showsChevron { Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)) }
         }
-        .buttonStyle(.plain)
+        .font(Theme.font(14, .semibold))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
+    }
+}
+
+/// Yerin rotadaki günü tek düğmede. Rotadaysa "2. gün ⌄": menüden başka
+/// güne taşınır ya da rotadan çıkarılır. Değilse "Rotaya ekle"; birden çok
+/// gün varsa hangi güne ekleneceği sorulur.
+struct PlanDayButton: View {
+    let place: Place
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        let days = store.trip(for: place.city).days
+        if let current = store.dayIndex(of: place) {
+            Menu {
+                Picker("Gün", selection: Binding(get: { current }, set: { store.move(place, toDay: $0) })) {
+                    ForEach(0..<days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
+                }
+                .pickerStyle(.inline)
+                Button(role: .destructive) { store.removeFromPlan(place) } label: {
+                    Label("Rotadan çıkar", systemImage: "minus.circle")
+                }
+            } label: {
+                SecondaryLabel(title: "\(current + 1). gün", systemImage: "calendar", showsChevron: true)
+            }
+            .menuOrder(.fixed)
+            .accessibilityHint(Text("Günü değiştir"))
+        } else if days > 1 {
+            Menu {
+                ForEach(0..<days, id: \.self) { day in
+                    Button("\(day + 1). güne ekle") { store.addToPlan([place.id], city: place.city, day: day) }
+                }
+            } label: {
+                PrimaryLabel(title: "Rotaya ekle", systemImage: "plus")
+            }
+            .menuOrder(.fixed)
+        } else {
+            PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
+                store.addToPlan([place.id], city: place.city)
+            }
+        }
     }
 }
 

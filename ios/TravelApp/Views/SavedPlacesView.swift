@@ -72,10 +72,7 @@ struct SavedPlacesView: View {
         .sheet(isPresented: $showPending) { PendingPostsView() }
         .overlay(alignment: .bottom) {
             if !selection.isEmpty {
-                PrimaryButton(title: "Rotaya ekle (\(selection.count))", systemImage: "plus") {
-                    addSelection()
-                }
-                .padding(.bottom, 84)
+                addButton.padding(.bottom, 84)
             }
         }
     }
@@ -84,11 +81,30 @@ struct SavedPlacesView: View {
         if selection.contains(place.id) { selection.remove(place.id) } else { selection.insert(place.id) }
     }
 
-    /// Gün kendiliğinden seçilir: planlayıcı yeri en yakın güne koyar.
-    private func addSelection() {
+    /// Seçilenler tek şehirdense ve gezisi birden çok günse hangi güne
+    /// ekleneceği sorulur; yoksa 1. güne eklenir.
+    @ViewBuilder
+    private var addButton: some View {
+        let cities = Set(store.places.filter { selection.contains($0.id) }.map(\.city))
+        let days = cities.count == 1 ? store.trip(for: cities.first ?? "").days : 1
+        if days > 1 {
+            Menu {
+                ForEach(0..<days, id: \.self) { day in
+                    Button("\(day + 1). güne ekle") { addSelection(day: day) }
+                }
+            } label: {
+                PrimaryLabel(title: "Rotaya ekle (\(selection.count))", systemImage: "plus", showsChevron: true)
+            }
+            .menuOrder(.fixed)
+        } else {
+            PrimaryButton(title: "Rotaya ekle (\(selection.count))", systemImage: "plus") { addSelection(day: 0) }
+        }
+    }
+
+    private func addSelection(day: Int) {
         let chosen = store.places.filter { selection.contains($0.id) }
         for (city, list) in Dictionary(grouping: chosen, by: \.city) {
-            store.addToPlan(list.map(\.id), city: city)
+            store.addToPlan(list.map(\.id), city: city, day: day)
         }
         selection.removeAll()
     }

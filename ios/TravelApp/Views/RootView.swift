@@ -100,7 +100,7 @@ struct RootView: View {
 
 /// Uygulama genelinde açılan alt pencereler.
 enum AddSheet: Identifiable {
-    case addPlace(city: String)
+    case addPlace(city: String, day: Int = 0)
     case customPlace(city: String)
     case importData
     case importFile(URL)
@@ -108,7 +108,7 @@ enum AddSheet: Identifiable {
 
     var id: String {
         switch self {
-        case .addPlace(let city): "add-\(city)"
+        case .addPlace(let city, let day): "add-\(city)-\(day)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
         case .importFile(let url): "import-\(url.lastPathComponent)"
@@ -118,7 +118,7 @@ enum AddSheet: Identifiable {
 
     @ViewBuilder var view: some View {
         switch self {
-        case .addPlace(let city): AddPlaceView(city: city)
+        case .addPlace(let city, let day): AddPlaceView(city: city, day: day)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
         case .importFile(let url): ImportView(initialFile: url)

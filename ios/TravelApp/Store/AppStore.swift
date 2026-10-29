@@ -74,37 +74,21 @@ final class AppStore: ObservableObject {
 
     func trip(for city: String) -> Trip {
         trips.first { $0.city == city }
-            ?? Trip(city: city, days: 2, pace: .normal, placeIDs: [])
+            ?? Trip(city: city, days: 2, pace: .normal, placeIDs: [], dayOf: [:])
     }
 
     func isPlanned(_ place: Place) -> Bool {
         trip(for: place.city).placeIDs.contains(place.id)
     }
 
-    /// Şehrin günleri, yürüme sırasıyla. Elle taşıma yapılmadıysa yerler
-    /// günlere eşit bölünür (yakın yerler aynı güne); yapıldıysa her yer
-    /// kendi gününde kalır, sonradan eklenen yer en yakın güne girer.
+    /// Şehrin günleri, yürüme sırasıyla. Her yerin gününü kullanıcı seçer
+    /// (`Trip.dayOf`); gün içindeki sıra yürüme yoluna göre kendiliğinden.
     func dayPlan(for city: String) -> [[Place]] {
         let trip = self.trip(for: city)
         guard trip.days > 0 else { return [] }
-        let planned = trip.placeIDs.compactMap(place)
-        guard let dayOf = trip.dayOf else {
-            let perDay = Int((Double(planned.count) / Double(trip.days)).rounded(.up))
-            let plan = RoutePlanner.plan(planned.map(\.point), days: trip.days, maxPerDay: max(perDay, 1))
-            return plan.days.map { $0.compactMap(place) }
-        }
         var days = Array(repeating: [Place](), count: trip.days)
-        var unassigned: [Place] = []
-        for place in planned {
-            if let day = dayOf[place.id], days.indices.contains(day) {
-                days[day].append(place)
-            } else {
-                unassigned.append(place)
-            }
-        }
-        for place in unassigned {
-            let nearest = days.indices.min { Self.distance(from: place, to: days[$0]) < Self.distance(from: place, to: days[$1]) }
-            days[nearest ?? 0].append(place)
+        for place in trip.placeIDs.compactMap(place) {
+            days[Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)].append(place)
         }
         return days.map { stops in
             RoutePlanner.nearestNeighborOrder(stops.map(\.point)).compactMap { point in stops.first { $0.id == point.id } }
@@ -112,34 +96,39 @@ final class AppStore: ObservableObject {
     }
 
     func dayIndex(of place: Place) -> Int? {
-        dayPlan(for: place.city).firstIndex { $0.contains { $0.id == place.id } }
+        let trip = self.trip(for: place.city)
+        guard trip.placeIDs.contains(place.id) else { return nil }
+        return Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)
     }
 
-    /// Gün sayısını değiştirir. Günler elle düzenlendiyse silinen günün
-    /// yerleri en yakın güne geçer ve orada kalır.
+    /// Gün sayısını değiştirir; silinen günlerin yerleri son güne geçer.
     func setDays(_ days: Int, city: String) {
-        updateTrip(city) { $0.days = min(max(days, 1), 14) }
-        if trip(for: city).dayOf != nil {
-            let plan = dayPlan(for: city)
-            updateTrip(city) { $0.dayOf = Self.assignments(plan) }
+        let days = min(max(days, 1), 14)
+        let current = trip(for: city).days
+        let message = days < current ? String(localized: "\(current). gün silindi") : nil
+        updateTrip(city, undo: message) { trip in
+            trip.days = days
+            trip.dayOf = (trip.dayOf ?? [:]).mapValues { Self.clamp($0, days: days) }
         }
     }
 
-    /// Yeri başka güne taşır. İlk taşımada o anki günler sabitlenir;
-    /// sonra günler kendiliğinden yeniden bölünmez.
+    /// Yeri kullanıcının seçtiği güne taşır.
     func move(_ place: Place, toDay day: Int) {
-        let days = dayPlan(for: place.city)
-        guard days.indices.contains(day), let current = dayIndex(of: place), current != day else { return }
-        updateTrip(place.city, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) { trip in
-            var dayOf = Self.assignments(days)
-            dayOf[place.id] = day
-            trip.dayOf = dayOf
+        let trip = self.trip(for: place.city)
+        guard (0..<trip.days).contains(day), let current = dayIndex(of: place), current != day else { return }
+        updateTrip(place.city, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) {
+            $0.dayOf = ($0.dayOf ?? [:]).merging([place.id: day]) { $1 }
         }
     }
 
-    func addToPlan(_ ids: [UUID], city: String) {
-        updateTrip(city, undo: String(localized: "Rotaya eklendi")) { trip in
-            for id in ids where !trip.placeIDs.contains(id) { trip.placeIDs.append(id) }
+    /// Yerleri rotaya, seçilen güne ekler.
+    func addToPlan(_ ids: [UUID], city: String, day: Int = 0) {
+        let day = Self.clamp(day, days: trip(for: city).days)
+        updateTrip(city, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
+            for id in ids where !trip.placeIDs.contains(id) {
+                trip.placeIDs.append(id)
+                trip.dayOf = (trip.dayOf ?? [:]).merging([id: day]) { $1 }
+            }
         }
     }
 
@@ -150,28 +139,36 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private static func assignments(_ days: [[Place]]) -> [UUID: Int] {
-        var result: [UUID: Int] = [:]
-        for (index, stops) in days.enumerated() {
-            for stop in stops { result[stop.id] = index }
-        }
-        return result
+    private static func clamp(_ day: Int, days: Int) -> Int {
+        min(max(day, 0), max(days - 1, 0))
     }
 
-    /// Yerin o günün en yakın durağına uzaklığı; gün boşsa sonsuz.
-    private static func distance(from place: Place, to stops: [Place]) -> CLLocationDistance {
-        stops.map { $0.location.distance(from: place.location) }.min() ?? .infinity
+    /// Bu sürümden önceki gezilerde gün bilgisi yok: o zamanki otomatik
+    /// bölme bir kez yapılıp kaydedilir, böylece hiçbir yer yer değiştirmez.
+    private func withDays(_ trip: Trip) -> Trip {
+        guard trip.dayOf == nil, trip.days > 0 else { return trip }
+        var trip = trip
+        let planned = trip.placeIDs.compactMap(place)
+        let perDay = Int((Double(planned.count) / Double(trip.days)).rounded(.up))
+        let plan = RoutePlanner.plan(planned.map(\.point), days: trip.days, maxPerDay: max(perDay, 1))
+        var dayOf: [UUID: Int] = [:]
+        for (index, ids) in plan.days.enumerated() {
+            for id in ids { dayOf[id] = index }
+        }
+        trip.dayOf = dayOf
+        return trip
     }
 
     // MARK: - Yerler
 
-    /// Yeni yeri kaydeder; `plan` doğruysa rotaya da ekler.
-    func add(_ place: Place, plan: Bool) {
+    /// Yeni yeri kaydeder; `plan` doğruysa rotaya, seçilen güne de ekler.
+    func add(_ place: Place, plan: Bool, day: Int = 0) {
         snapshot(String(localized: "\(place.name) eklendi"))
         places.append(place)
         if plan {
             var trip = self.trip(for: place.city)
             trip.placeIDs.append(place.id)
+            trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: Self.clamp(day, days: trip.days)]) { $1 }
             replace(trip)
         }
         save()
@@ -326,6 +323,7 @@ final class AppStore: ObservableObject {
             places = SampleData.places
             trips = SampleData.trips(for: places)
         }
+        trips = trips.map(withDays)
     }
 
     private func save() {

@@ -2,7 +2,7 @@ import MapKit
 import SwiftUI
 
 /// Yer sayfası: fotoğraf, ad, tür; Dinle kartı; açıklama ve kaynağı;
-/// alt çubukta "Rotaya ekle" ya da "Rotada · Çıkar".
+/// alt çubukta gün düğmesi ("Rotaya ekle" ya da "2. gün ⌄").
 struct PlaceDetailView: View {
     let placeID: UUID
     @EnvironmentObject private var store: AppStore
@@ -135,22 +135,9 @@ struct PlaceDetailView: View {
 
     private func bottomBar(_ place: Place) -> some View {
         HStack {
-            if store.isPlanned(place) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Rotada").font(Theme.headline)
-                    if let day = store.dayIndex(of: place) {
-                        Text("\(day + 1). gün").font(Theme.caption).foregroundStyle(Theme.muted)
-                    }
-                }
-                Spacer()
-                SecondaryButton(title: "Çıkar", systemImage: "minus") { store.removeFromPlan(place) }
-            } else {
-                Text(place.city).font(Theme.headline)
-                Spacer()
-                PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
-                    store.addToPlan([place.id], city: place.city)
-                }
-            }
+            Text(place.city).font(Theme.headline)
+            Spacer()
+            PlanDayButton(place: place)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

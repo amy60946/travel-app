@@ -31,14 +31,13 @@ final class AppStoreTests: XCTestCase {
         XCTAssertNil(store.undoMessage)
     }
 
-    func testDaysShareAllPlacesEvenly() {
+    func testSampleTripKeepsEveryPlaceInADay() {
         let store = makeStore()
         let planned = store.trip(for: "Tokyo").placeIDs.count
         let days = store.dayPlan(for: "Tokyo")
         XCTAssertEqual(days.count, 3)
         XCTAssertEqual(days.reduce(0) { $0 + $1.count }, planned)
-        let perDay = Int((Double(planned) / 3).rounded(.up))
-        XCTAssertTrue(days.allSatisfy { $0.count <= perDay }, "\(days.map(\.count))")
+        XCTAssertTrue(days.allSatisfy { !$0.isEmpty }, "\(days.map(\.count))")
 
         // Tek günde de hiçbir yer dışarıda kalmaz.
         store.setDays(1, city: "Tokyo")
@@ -66,21 +65,30 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.dayIndex(of: place), 0)
     }
 
-    func testMovedDaysStayAndNewPlaceGoesToNearestDay() throws {
+    func testUserChoosesTheDay() throws {
         let store = makeStore()
         let first = try XCTUnwrap(store.dayPlan(for: "Tokyo")[0].first)
         store.move(first, toDay: 1)
 
-        let neighbor = try XCTUnwrap(store.dayPlan(for: "Tokyo")[2].first)
-        let cafe = Place(name: "Yakın kafe", city: "Tokyo", latitude: neighbor.latitude + 0.0004,
-                         longitude: neighbor.longitude, category: .cafe, source: .manual)
+        // Gün seçilmezse 1. güne; seçilirse o güne eklenir (en yakın güne değil).
+        let near = try XCTUnwrap(store.dayPlan(for: "Tokyo")[2].first)
+        let cafe = Place(name: "Yakın kafe", city: "Tokyo", latitude: near.latitude + 0.0004,
+                         longitude: near.longitude, category: .cafe, source: .manual)
         store.add(cafe, plan: true)
-        XCTAssertEqual(store.dayIndex(of: cafe), 2)
+        XCTAssertEqual(store.dayIndex(of: cafe), 0)
+        let bar = Place(name: "Bar", city: "Tokyo", latitude: 35.66, longitude: 139.70, category: .bar, source: .manual)
+        store.add(bar, plan: true, day: 2)
+        XCTAssertEqual(store.dayIndex(of: bar), 2)
+        store.removeFromPlan(cafe)
+        store.addToPlan([cafe.id], city: "Tokyo", day: 1)
+        XCTAssertEqual(store.dayIndex(of: cafe), 1)
         XCTAssertEqual(store.dayIndex(of: first), 1)
 
-        // Gün silinince o günün yerleri kalan günlere geçer; geri eklenen gün boştur.
+        // Son gün silinince yerleri yeni son güne geçer; geri eklenen gün boştur.
         let planned = store.trip(for: "Tokyo").placeIDs.count
         store.setDays(2, city: "Tokyo")
+        XCTAssertNotNil(store.undoMessage)
+        XCTAssertEqual(store.dayIndex(of: bar), 1)
         XCTAssertEqual(store.dayPlan(for: "Tokyo").reduce(0) { $0 + $1.count }, planned)
         store.setDays(3, city: "Tokyo")
         XCTAssertEqual(store.dayPlan(for: "Tokyo")[2].count, 0)

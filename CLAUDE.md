@@ -81,6 +81,9 @@ cevapları.
 | 2026-10-29 | Arayüz **basit ve sade** olacak; örnek Oguz'un gönderdiği Polarsteps ekranları (Add a spot listesi, haritada simgeli pinler). |
 | 2026-10-29 | Arayüz değişikliklerinde önce **simülatör ekran görüntüleri** Oguz'a gönderilir; Oguz onaylayınca birleştirilir ve TestFlight'a yüklenir. |
 | 2026-10-29 | Haritada kayıtlı yere dokununca Google Maps gibi **alttan pencere** açılır: yana kayan fotoğraflar, Wikipedia'dan bilgi ve yazıyı sesli okuyan **Dinle** düğmesi. |
-| 2026-10-29 | **Tempo seçimi** (rahat / normal / tempolu) ve **"Günü hafiflet"** şimdilik kaldırıldı; yerler günlere eşit bölünür, hiçbiri dışarıda kalmaz. Gün sayısı seçimi duruyor. |
+| 2026-10-29 | **Tempo seçimi** (rahat / normal / tempolu) ve **"Günü hafiflet"** şimdilik kaldırıldı; hiçbir yer dışarıda kalmaz. Gün sayısı seçimi duruyor. (Eşit bölme aynı gün kaldırıldı, aşağıya bak.) |
 | 2026-10-29 | Şehir planındaki gün listesi **sade** olacak. Bir yere bakarken **harita görünür kalır** ve o yere (yanındaki yerlerle birlikte) yakınlaşır; yer penceresi yarım ekranda kalır. |
 | 2026-10-29 | Yerler **günler arasında taşınabilecek**; Oguz tasarımı onaya istedi. Önerilen: yer penceresinde gün düğmeleri, listede basılı tutup sürükleme ya da menüden "n. güne taşı". Ekranlar **tıklanabilir ön izleme** olarak gönderilir. |
+| 2026-10-29 | Yerler günlere **otomatik bölünmez**; her yerin gününü **kullanıcı seçer** (eklerken ya da sonradan). Eklerken gün seçilmezse 1. güne gider. Eski gezilerin günleri bir kez sabitlenir, yerler yer değiştirmez. |
+| 2026-10-29 | Şehir planında **yalnızca seçili gün** görünür (harita ve liste); gün, listenin üstündeki tek **"1. gün ⌄"** düğmesinden değişir (Gün ekle / Son günü sil de orada). Yer penceresinde gün bilgisi tek düğme: rotadaysa "2. gün ⌄" (taşı, rotadan çıkar), değilse "Rotaya ekle". Sürükleyip bırakma kaldırıldı; listede basılı tutunca "n. güne taşı" menüsü duruyor. |
+| 2026-10-29 | Ana sayfada **"Gezim / My travels" başlığı yok**; alttaki gezi paneli içeriği kadar yer kaplar. Oguz bu değişikliklerden sonra **TestFlight'a yüklenmesini** istedi. |

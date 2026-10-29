@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Haritada kayıtlı bir yere dokununca alttan açılan pencere (Google Maps
-/// gibi): ad ve tür, Rotaya ekle / Yol tarifi / Aç, rotadaysa gün
-/// düğmeleri (dokununca yer o güne taşınır), yana kayan fotoğraflar, Dinle
+/// gibi): ad ve tür; tek gün düğmesi (rotadaysa günü değiştirir, değilse
+/// seçilen güne ekler), Aç, Yol tarifi; yana kayan fotoğraflar, Dinle
 /// düğmesi ve Wikipedia'dan bilgi. Yarım ekranda kalır; harita hep görünür
 /// ve kullanılabilir.
 struct PlaceSheet: View {
@@ -29,7 +29,6 @@ struct PlaceSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 header(place)
                 actions(place)
-                dayPicker(place)
                 photoStrip(place)
                 about(place)
             }
@@ -64,49 +63,12 @@ struct PlaceSheet: View {
         }
     }
 
+    /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle"), Aç, Yol tarifi.
     private func actions(_ place: Place) -> some View {
         HStack(spacing: 8) {
-            if store.isPlanned(place) {
-                SecondaryButton(title: "Rotada", systemImage: "checkmark") {}
-                    .allowsHitTesting(false)
-            } else {
-                PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
-                    store.addToPlan([place.id], city: place.city)
-                }
-            }
+            PlanDayButton(place: place)
             SecondaryButton(title: "Aç", systemImage: "arrow.up.right") { onOpen(place) }
             DirectionsButton { PlaceSearch.openDirections(to: place) }
-        }
-    }
-
-    /// Rotadaki yerin günü; başka güne dokununca yer oraya taşınır.
-    @ViewBuilder
-    private func dayPicker(_ place: Place) -> some View {
-        let days = store.dayPlan(for: place.city)
-        if days.count > 1, let current = days.firstIndex(where: { $0.contains { $0.id == place.id } }) {
-            HStack(spacing: 10) {
-                Text("Gün").font(Theme.font(14, .semibold)).foregroundStyle(Theme.muted)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(days.indices, id: \.self) { day in
-                            Button {
-                                if day != current { store.move(place, toDay: day) }
-                            } label: {
-                                Text("\(day + 1). gün")
-                                    .font(Theme.font(14, .semibold))
-                                    .foregroundStyle(day == current ? .white : Theme.ink)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(day == current ? Theme.ink : .white, in: Capsule())
-                                    .overlay(Capsule().stroke(day == current ? .clear : Theme.hairline))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(day == current ? .isSelected : [])
-                        }
-                    }
-                    .padding(1)
-                }
-            }
         }
     }
 

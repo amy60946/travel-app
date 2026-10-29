@@ -4,7 +4,8 @@ import SwiftUI
 /// Yer ekle (Polarsteps'teki "Add a spot" gibi): arama (Apple Haritalar),
 /// Kendi yerini oluştur, Fotoğrafla ekle, Kayıtlı yerler ve Popüler yerler
 /// (Wikipedia okunma sayısı). Her satırda türün renkli etiketi ve "+";
-/// "+" yeri rotaya ekler, haritada türünün simgesiyle görünür.
+/// "+" yeri rotada sağ üstte seçili güne ekler, haritada türünün
+/// simgesiyle görünür.
 struct AddPlaceView: View {
     let city: String
     @EnvironmentObject private var store: AppStore
@@ -19,6 +20,13 @@ struct AddPlaceView: View {
     @State private var detailItem: MKMapItem?
     @State private var showCustom = false
     @State private var showCamera = false
+    /// Eklenen yerlerin günü (şehir planında bakılan gün).
+    @State private var day: Int
+
+    init(city: String, day: Int = 0) {
+        self.city = city
+        _day = State(initialValue: day)
+    }
 
     private var center: CLLocationCoordinate2D {
         store.cities.first { $0.name == city }?.coordinate
@@ -80,7 +88,7 @@ struct AddPlaceView: View {
             await search()
         }
         .appleDetailSheet(item: $detailItem)
-        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city) }
+        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, day: day) }
         .sheet(isPresented: $showCamera) { CameraAddView() }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
         .animation(.snappy, value: store.undoMessage)
@@ -95,11 +103,37 @@ struct AddPlaceView: View {
                 CircleIconButton(systemImage: "xmark") { dismiss() }
                     .accessibilityLabel(Text("Kapat"))
                 Spacer()
+                dayMenu
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 14)
+    }
+
+    /// Hangi güne ekleneceği; tek günlük gezide görünmez.
+    @ViewBuilder
+    private var dayMenu: some View {
+        let days = store.trip(for: city).days
+        if days > 1 {
+            Menu {
+                Picker("Gün", selection: $day) {
+                    ForEach(0..<days, id: \.self) { Text("\($0 + 1). güne ekle").tag($0) }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                HStack(spacing: 5) {
+                    Text("\(min(day, days - 1) + 1). gün").font(Theme.font(14, .semibold))
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                }
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Theme.surface, in: Capsule())
+            }
+            .menuOrder(.fixed)
+            .accessibilityHint(Text("Eklenecek günü değiştir"))
+        }
     }
 
     private var searchField: some View {
@@ -187,7 +221,7 @@ struct AddPlaceView: View {
     private func savedRow(_ place: Place) -> some View {
         SpotRow(category: place.category, title: place.name, subtitle: place.city,
                 isAdded: store.isPlanned(place), showsBadge: place.wikipediaTitle != nil,
-                onAdd: { store.addToPlan([place.id], city: city) }) {
+                onAdd: { store.addToPlan([place.id], city: city, day: day) }) {
             if place.wikipediaTitle != nil {
                 PlaceThumbnail(place: place, cornerRadius: 0)
             } else {
@@ -240,13 +274,13 @@ struct AddPlaceView: View {
         store.add(Place(name: item.name ?? String(localized: "Yer"), city: city,
                         latitude: c.latitude, longitude: c.longitude,
                         category: PlaceCategory(item), source: .search),
-                  plan: true)
+                  plan: true, day: day)
     }
 
     private func addPopular(_ item: WikipediaService.PopularPlace, category: PlaceCategory) {
         store.add(Place(name: item.title, city: city, latitude: item.latitude, longitude: item.longitude,
                         category: category, source: .search, wikipediaTitle: item.title),
-                  plan: true)
+                  plan: true, day: day)
     }
 }
 

@@ -1,7 +1,7 @@
 import MapKit
 import SwiftUI
 
-/// Ana sayfa (Gezim): Google Maps gibi çalışan harita. Uzaktan bakınca
+/// Ana sayfa: Google Maps gibi çalışan harita. Uzaktan bakınca
 /// kürede şehir pinleri; yaklaşınca kayıtlı yerler türlerinin renk ve
 /// simgesiyle (müze mor, kafe kahverengi, tapınak kırmızı...). Üstte arama
 /// ("Yer ekle" listesini açar), sağda harita türü ve konumum. Haritadaki
@@ -34,6 +34,10 @@ struct HomeView: View {
     @State private var locationManager = CLLocationManager()
     /// Haritanın ekrandaki yüksekliği (yer penceresi yarısını kaplar).
     @State private var mapHeight: CGFloat = 800
+    /// Alttaki panelin üst kenarı ve listenin yüksekliği: panel içeriği
+    /// kadar yer kaplar (tek gezi varsa altta boşluk kalmaz).
+    @State private var panelTop: CGFloat = 500
+    @State private var listHeight: CGFloat = 0
     @State private var showLocationDenied = false
 
     /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
@@ -147,17 +151,14 @@ struct HomeView: View {
         }
         // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
         // alanın ortasında dursun.
-        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2 : panelExpanded && card == nil ? 300 : 170)
+        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2
+                          : panelExpanded && card == nil ? max(mapHeight - panelTop, 170) : 170)
         .ignoresSafeArea()
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
     }
 
     private var topBar: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if !isZoomedIn {
-                Text("Gezim").font(Theme.title)
-                    .padding(.horizontal, 20)
-            }
             // Polarsteps'teki gibi: arama "Yer ekle" listesini açar.
             Button {
                 addCity = nearestCity
@@ -290,8 +291,9 @@ struct HomeView: View {
                         }
                     }
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
-            .frame(maxHeight: 220)
+            .frame(height: min(listHeight, 220))
             .scrollBounceBehavior(.basedOnSize)
         }
         .padding(16)
@@ -304,6 +306,7 @@ struct HomeView: View {
                 .ignoresSafeArea(edges: .bottom)
         }
         .softShadow()
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { panelTop = $0 }
     }
 
     // MARK: - İşlemler

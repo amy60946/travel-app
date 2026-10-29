@@ -14,7 +14,6 @@
 "Rotaya ekle (%lld)" = "Add to route (%lld)";
 "Tahmini" = "Estimated";
 "Geri al" = "Undo";
-"Rotaya eklendi" = "Added to route";
 "%@ rotadan çıkarıldı" = "%@ removed from route";
 "%@ eklendi" = "%@ added";
 
@@ -50,13 +49,18 @@
 "Yer ekle" = "Add place";
 "Kendi yerini oluştur" = "Create your own place";
 "%lld durak" = "%lld stops";
-"%lld durak · %lld km yürüyüş" = "%lld stops · %lld km walk";
-"Yeri başka güne taşımak için basılı tut." = "Press and hold a place to move it to another day.";
-"Boş gün. Bir yeri basılı tutup buraya sürükle." = "Empty day. Press and hold a place and drag it here.";
+"%lld durak · %lld km" = "%1$lld stops · %2$lld km";
+"%lld. gün · %lld yer" = "Day %1$lld · %2$lld places";
+"Bu gün boş. Sağ alttaki + ile yer ekle." = "This day is empty. Add a place with + at the bottom right.";
+"Günü değiştir" = "Change the day";
+"Son günü sil" = "Remove last day";
+"%lld. gün silindi" = "Day %lld removed";
+"%lld. güne ekle" = "Add to day %lld";
+"%lld. güne eklendi" = "Added to day %lld";
+"Eklenecek günü değiştir" = "Change the day to add to";
 "%lld. güne taşı" = "Move to day %lld";
 "%@ %lld. güne taşındı" = "%1$@ moved to day %2$lld";
 "Rotadan çıkar" = "Remove from route";
-"Gün çıkar" = "Remove a day";
 "Gün ekle" = "Add a day";
 
 /* Yer sayfası */
@@ -69,7 +73,6 @@
 "Dinle" = "Listen";
 "Anlatım hazırlanıyor" = "Preparing narration";
 "Rehber anlatımı · iPhone sesi" = "Guide narration · iPhone voice";
-"Çıkar" = "Remove";
 
 /* Yer ekle */
 "Arama sonuçları" = "Search results";
@@ -89,7 +92,6 @@
 "Not" = "Note";
 "İsteğe bağlı" = "Optional";
 "Gün" = "Day";
-"Otomatik (en yakın gün)" = "Automatic (nearest day)";
 "Vazgeç" = "Cancel";
 "Kaydet" = "Save";
 
@@ -191,7 +193,6 @@
 "Yazıda yer bulunamadı." = "No places found in the text.";
 "Fotoğraftan yer bulunamadı. Tabelaya daha yakından dene." = "Couldn't find a place from the photo. Try closer to the sign.";
 /* Ana sayfa */
-"Gezim" = "My travels";
 "Yer ara" = "Search places";
 "Henüz gezi yok. Kayıtlarım'dan bir şehir seç, rota oluştur." = "No trips yet. Pick a city from My saves and create a route.";
 "Henüz kayıt yok. + ile yer ekle ya da veri aktar." = "Nothing saved yet. Add a place with + or import your data.";
