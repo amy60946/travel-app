@@ -14,7 +14,11 @@ struct CityPlanView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var position: MapCameraPosition = .automatic
+    @State private var mapFocus: MapFocus?
+    /// Haritanın yakınlığı: yaklaşınca pinlerin adları da yazılır.
+    @State private var zoom: Float = 12
+    @AppStorage(PinStyle.storageKey) private var pinStyle = PinStyle.icon
+    @ObservedObject private var pinPhotos = PinPhotos.shared
     @State private var selectedDay = 0
     @State private var route: WalkingRoutes.DayRoute?
     @State private var mapKind: MapKind = .standard
@@ -48,10 +52,7 @@ struct CityPlanView: View {
         let stops = self.stops
         ZStack(alignment: .bottom) {
             map(stops)
-                // Pinler haritanın görünen kısmının (panelin ya da yer
-                // penceresinin üstünün) ortasında dursun.
-                .safeAreaPadding(.bottom, focusedID == nil ? panelHeight + 30 : screenHeight / 2)
-                .ignoresSafeArea(edges: .bottom)
+                .ignoresSafeArea()
                 .overlay(alignment: .top) { header }
             if focusedID == nil {
                 DraggablePanel(stops: Self.panelStops, selection: $panelStop,
@@ -89,54 +90,45 @@ struct CityPlanView: View {
         .onChange(of: focusedID) { updateCamera() }
         .onChange(of: trip) { followFocusedPlace() }
         .task(id: routeKey) { await loadRoute() }
+        .task(id: "\(pinStyle)|\(routeKey)") {
+            if pinStyle == .photo { pinPhotos.load(stops + days.flatMap { $0 }) }
+        }
         .task { await openLaunchScreen() }
     }
 
     // MARK: - Harita
 
     private func map(_ stops: [Place]) -> some View {
-        Map(position: $position) {
-            // Yalnızca seçili günün yerleri, türün renkli pini ve adıyla.
-            ForEach(stops) { place in
-                Annotation(place.name, coordinate: place.coordinate, anchor: .center) { pin(place) }
-            }
-            // Rotadan çıkarılan yerin penceresi açıksa pini kaybolmasın.
-            if let place = focusedOutsideDay {
-                Annotation(place.name, coordinate: place.coordinate, anchor: .center) { pin(place) }
-            }
-            if let route {
-                ForEach(Array(route.polylines.enumerated()), id: \.offset) { _, line in
-                    MapPolyline(line).stroke(Theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                }
-            }
-            UserAnnotation()
+        // Yalnızca seçili günün yerleri; rotadan çıkarılan yerin penceresi
+        // açıksa pini kaybolmasın.
+        let shown = stops + (focusedOutsideDay.map { [$0] } ?? [])
+        let showsTitles = zoom >= 14 || shown.count <= 15
+        let markers = shown.map { place in
+            GoogleMap.Marker.place(place, size: place.id == focusedID ? 40 : 30,
+                                   photo: pinStyle == .photo ? pinPhotos.image(for: place) : nil,
+                                   day: showsAll ? store.dayIndex(of: place) : nil,
+                                   showsTitle: showsTitles || place.id == focusedID,
+                                   zIndex: place.id == focusedID ? 1 : 0) { focus(place) }
         }
-        .mapStyle(mapKind.exploreStyle(showingApplePlaces: false))
-        // Üstteki geri düğmesi ve şehir adı pinlerin üstüne binmesin.
-        .safeAreaPadding(.top, 52)
-        // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
-        .simultaneousGesture(TapGesture().onEnded {
-            if focusedID != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
-        })
+        let lines = (route?.lines ?? []).enumerated().map { index, line in
+            GoogleMap.Line(id: "route-\(index)", coordinates: line, color: UIColor(Theme.accent))
+        }
+        // Pinler haritanın görünen kısmının (üstteki düğmelerin altı ile
+        // panelin ya da yer penceresinin üstü arası) ortasında dursun.
+        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines, kind: mapKind, showsGooglePlaces: false,
+                         padding: EdgeInsets(top: 52, leading: 0,
+                                             bottom: focusedID == nil ? panelHeight : screenHeight / 2 - 20,
+                                             trailing: 0),
+                         onMapTap: {
+                             // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
+                             if focusedID != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+                         },
+                         onCameraIdle: { zoom = $0.zoom })
     }
 
     private var focusedOutsideDay: Place? {
         guard let id = focusedID, !stops.contains(where: { $0.id == id }) else { return nil }
         return store.place(id)
-    }
-
-    /// Türün renkli pini; "Tüm yerler"de köşesinde gün numarası.
-    private func pin(_ place: Place) -> some View {
-        let day = showsAll ? store.dayIndex(of: place) : nil
-        return Button { focus(place) } label: {
-            PlaceMapPin(place: place, size: place.id == focusedID ? 40 : 30)
-                .overlay(alignment: .topTrailing) {
-                    if let day {
-                        DayBadge(number: day + 1, size: 16).offset(x: 7, y: -5)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
     }
 
     private var header: some View {
@@ -340,15 +332,16 @@ struct CityPlanView: View {
     private func updateCamera() {
         let stops = self.stops
         if let id = focusedID, let place = store.place(id) {
-            withAnimation { position = .region(MKCoordinateRegion(focusing: place, among: stops)) }
+            mapFocus = .region(MKCoordinateRegion(focusing: place, among: stops))
             return
         }
         let shown = stops.isEmpty ? days.flatMap { $0 } : stops
         if let region = MKCoordinateRegion(fitting: shown.map(\.coordinate)) {
-            withAnimation { position = .region(region) }
+            mapFocus = .region(region, animated: mapFocus != nil)
         } else if let center = store.center(of: city) {
             // Henüz yeri olmayan şehir (gezide yeni eklenen): şehrin ortası.
-            position = .region(MKCoordinateRegion(center: center, latitudinalMeters: 15_000, longitudinalMeters: 15_000))
+            mapFocus = .region(MKCoordinateRegion(center: center, latitudinalMeters: 15_000, longitudinalMeters: 15_000),
+                            animated: false)
         }
     }
 

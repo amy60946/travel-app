@@ -1,13 +1,14 @@
 import MapKit
 import SwiftUI
 
-/// Ana sayfa: Google Maps gibi çalışan harita. Uzaktan bakınca
-/// kürede şehir pinleri; yaklaşınca kayıtlı yerler türlerinin renk ve
-/// simgesiyle (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte
-/// harita türü ve konumum; arama sağ alttaki büyüteçte ("Yer ekle"). Haritadaki
-/// herhangi bir yere (Apple'ın müze, kafe... yerleri) dokunup tek dokunuşla
-/// kaydedilir. Altta Gezilerim (çok şehirli geziler, "Yeni gezi") /
-/// Kayıtlarım (şehirler) listesi.
+/// Ana sayfa: Google Maps gibi çalışan Google haritası. Uzaktan bakınca
+/// şehir pinleri; yaklaşınca kayıtlı yerler türlerinin renk ve simgesiyle
+/// (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte ayarlar,
+/// harita türü ve konumum; arama sağ alttaki büyüteçte ("Yer ekle").
+/// Haritadaki herhangi bir yere (Google'ın restoran, müze, kafe... yerleri)
+/// dokununca Google'ın puanı, yorumları ve fotoğraflarıyla penceresi açılır,
+/// tek dokunuşla kaydedilir. Altta Gezilerim (çok şehirli geziler, "Yeni
+/// gezi") / Kayıtlarım (şehirler) listesi.
 struct HomeView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var path: [Route]
@@ -15,28 +16,19 @@ struct HomeView: View {
     @Binding var searchCity: String
     /// Uygulama genelindeki alt pencere ("Yeni gezi" buradan açılır).
     @Binding var sheet: AddSheet?
-    @StateObject private var importer = PlaceImporter()
 
-    @State private var position: MapCameraPosition = .camera(
-        MapCamera(centerCoordinate: .init(latitude: 35.68, longitude: 139.76), distance: 30_000_000))
-    @State private var distance: Double = 30_000_000
-    @State private var region: MKCoordinateRegion?
+    @State private var mapFocus: MapFocus?
+    /// Haritanın şu an gösterdiği alan (kaydırma bitince güncellenir).
+    @State private var viewport: MapViewport?
     @State private var mapKind: MapKind = .standard
     @State private var section = 0
     /// Alttaki panel: küçük (yalnızca sekmeler), içeriği kadar, büyük.
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 300
 
-    @State private var selectedFeature: MapFeature?
-    /// Alttan açılan yer penceresi (fotoğraflar, Dinle, bilgi).
-    @State private var sheetPlaceID: UUID?
+    /// Alttan açılan yer penceresi: kayıtlı yer ya da Google'ın bir yeri.
+    @State private var mapSheet: MapSheet?
     @State private var sheetDetent: PresentationDetent = .placeHalf
-    @State private var guidance: GuidanceDestination?
-    @State private var card: Card?
-    /// Kart haritadaki bir Apple yerine dokunularak mı açıldı?
-    @State private var cardFromFeature = false
-    @State private var saving = false
-    @State private var detailItem: MKMapItem?
     @State private var locationManager = CLLocationManager()
     /// Haritanın ekrandaki yüksekliği (yer penceresi yarısını kaplar).
     @State private var mapHeight: CGFloat = 800
@@ -45,30 +37,42 @@ struct HomeView: View {
     @State private var listHeight: CGFloat = 160
     @State private var showLocationDenied = false
     @State private var showSettings = false
+    @AppStorage(PinStyle.storageKey) private var pinStyle = PinStyle.icon
+    @ObservedObject private var pinPhotos = PinPhotos.shared
 
-    /// Haritada dokunulan, henüz kaydedilmemiş Apple yerinin kartı.
-    private enum Card: Equatable {
-        case item(MKMapItem, PlaceCategory)
-        case loading
+    private enum MapSheet: Identifiable, Equatable {
+        case saved(UUID)
+        case google(GooglePlaceRef)
+
+        var id: String {
+            switch self {
+            case .saved(let id): id.uuidString
+            case .google(let place): place.id
+            }
+        }
     }
 
-    /// Bu yükseklikten (metre) yakına inince şehir pinleri yerine yerler görünür.
-    private static let placesDistance: Double = 400_000
-    private var isZoomedIn: Bool { distance < Self.placesDistance }
-    /// Şehir görünümünde yalnızca bizim pinler; sokak düzeyinde Apple'ın yerleri de.
-    private var showsApplePlaces: Bool { distance < 4_000 }
+    /// Açık penceredeki kayıtlı yer (pini büyük görünür).
+    private var sheetPlaceID: UUID? {
+        if case .saved(let id) = mapSheet { return id }
+        return nil
+    }
+
+    private var zoom: Float { viewport?.zoom ?? 2 }
+    /// Bu yakınlıktan sonra şehir pinleri yerine yerler görünür.
+    private var isZoomedIn: Bool { zoom > 7.5 }
     /// Az yer görünüyorsa ya da yakındaysak pinlerin adları da yazılır.
-    private var showsTitles: Bool { distance < 12_000 || visiblePlaces.count <= 20 }
+    private var showsTitles: Bool { zoom >= 13.5 || visiblePlaces.count <= 20 }
 
     /// Kayıtlarım: kayıtlı yeri olan şehirler.
     private var listedCities: [AppStore.CitySummary] {
         store.cities.filter { $0.placeCount > 0 }
     }
 
-    /// Görünen bölgedeki kayıtlı yerler.
+    /// Görünen bölgedeki (ve kenarındaki) kayıtlı yerler.
     private var visiblePlaces: [Place] {
         var list = store.places
-        if let region {
+        if let region = viewport?.region {
             list = list.filter {
                 abs($0.latitude - region.center.latitude) < region.span.latitudeDelta
                     && abs($0.longitude - region.center.longitude) < region.span.longitudeDelta
@@ -92,25 +96,28 @@ struct HomeView: View {
         }
         .task {
             centerOnCities()
+            pinPhotos.load(store.cities.compactMap(\.coverPlace))
             await openLaunchScreen()
         }
         .onChange(of: store.cities.map(\.name)) {
             if !isZoomedIn { centerOnCities() }
+            pinPhotos.load(store.cities.compactMap(\.coverPlace))
         }
         .onChange(of: isZoomedIn) { _, zoomedIn in
             withAnimation(.snappy) { panelStop = zoomedIn ? 0 : 1 }
         }
-        .onChange(of: selectedFeature) { _, feature in
-            Task { await show(feature) }
-        }
-        .appleDetailSheet(item: $detailItem)
-        .sheet(isPresented: Binding(get: { sheetPlaceID != nil }, set: { if !$0 { sheetPlaceID = nil } })) {
-            if let id = sheetPlaceID {
-                PlaceSheet(placeID: id) { place in open(place) }
-                    .placeSheetPresentation(detent: $sheetDetent)
+        .onChange(of: pinStyle) { loadPinPhotos() }
+        .sheet(item: $mapSheet) { shown in
+            Group {
+                switch shown {
+                case .saved(let id):
+                    PlaceSheet(placeID: id) { place in open(place) }
+                case .google(let place):
+                    GooglePlaceSheet(place: place) { saved in select(saved) }
+                }
             }
+            .placeSheetPresentation(detent: $sheetDetent)
         }
-        .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("Konum izni kapalı", isPresented: $showLocationDenied) {
             Button("Ayarları aç") {
@@ -125,46 +132,52 @@ struct HomeView: View {
     // MARK: - Harita
 
     private var map: some View {
-        // Döndürme kapalı: pusula olmadan kuzey hep yukarıda kalsın.
-        Map(position: $position, interactionModes: [.pan, .zoom], selection: $selectedFeature) {
-            if isZoomedIn {
-                ForEach(visiblePlaces) { place in
-                    Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
-                        Button { select(place) } label: {
-                            PlaceMapPin(place: place, size: sheetPlaceID == place.id ? 42 : 32)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .annotationTitles(showsTitles || sheetPlaceID == place.id ? .visible : .hidden)
-                }
-            } else {
-                ForEach(store.cities) { city in
-                    Annotation(city.name, coordinate: city.coordinate, anchor: .bottom) {
-                        Button { path.append(.city(city.name)) } label: {
-                            CityPin(city: city)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .annotationTitles(.hidden)
-                }
-            }
-            UserAnnotation()
-        }
-        .mapStyle(mapKind.exploreStyle(showingApplePlaces: showsApplePlaces))
-        .onMapCameraChange(frequency: .onEnd) { context in
-            distance = context.camera.distance
-            region = context.region
-            searchCity = nearestCity
-        }
-        // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
-        .simultaneousGesture(TapGesture().onEnded {
-            if sheetPlaceID != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
-        })
         // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
         // alanın ortasında dursun.
-        .safeAreaPadding(.bottom, sheetPlaceID != nil ? mapHeight / 2 : card == nil ? panelHeight + 30 : 170)
-        .ignoresSafeArea()
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
+        GoogleMap(focus: $mapFocus, markers: markers, kind: mapKind,
+                  padding: EdgeInsets(top: 0, leading: 0,
+                                      bottom: mapSheet != nil ? mapHeight / 2 - 30 : panelHeight,
+                                      trailing: 0),
+                  onPlaceTap: { id, name, coordinate in showGooglePlace(id: id, name: name, coordinate: coordinate) },
+                  onMapTap: {
+                      // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
+                      if mapSheet != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+                  },
+                  onCameraIdle: { shown in
+                      viewport = shown
+                      searchCity = nearestCity
+                      loadPinPhotos()
+                  })
+            .ignoresSafeArea()
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
+    }
+
+    /// Yakından kayıtlı yerler (Ayarlar'a göre simge ya da fotoğraf),
+    /// uzaktan şehirler.
+    private var markers: [GoogleMap.Marker] {
+        guard isZoomedIn else {
+            return store.cities.map { city in
+                let photo = city.coverPlace.flatMap { pinPhotos.image(for: $0) }
+                return GoogleMap.Marker(id: "city-\(city.name)", coordinate: city.coordinate,
+                                        key: "\(city.name)|\(city.placeCount)|\(city.hasTrip)|\(photo.map { "\($0.hash)" } ?? "-")",
+                                        anchorsBottom: true, onTap: { path.append(.city(city.name)) }) {
+                    CityPin(city: city, photo: photo).padding(6)
+                }
+            }
+        }
+        let titles = showsTitles
+        return visiblePlaces.map { place in
+            let selected = sheetPlaceID == place.id
+            return GoogleMap.Marker.place(place, size: selected ? 42 : 32,
+                                          photo: pinStyle == .photo ? pinPhotos.image(for: place) : nil,
+                                          showsTitle: titles || selected, zIndex: selected ? 1 : 0) { select(place) }
+        }
+    }
+
+    /// Fotoğraflı pin seçiliyse görünen yerlerin fotoğrafları.
+    private func loadPinPhotos() {
+        guard pinStyle == .photo, isZoomedIn else { return }
+        pinPhotos.load(visiblePlaces)
     }
 
     /// Sağdaki düğmeler: ayarlar (dil), harita türü ve konumum.
@@ -180,50 +193,17 @@ struct HomeView: View {
 
     // MARK: - Alt bölüm
 
-    @ViewBuilder
     private var bottom: some View {
-        Group {
-            if let card {
-                cardView(card).frame(maxHeight: .infinity, alignment: .bottom)
-            } else {
-                DraggablePanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
-                    Picker("", selection: $section) {
-                        Text("Gezilerim").tag(0)
-                        Text("Kayıtlarım").tag(1)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                } content: {
-                    panelList
-                }
+        DraggablePanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
+            Picker("", selection: $section) {
+                Text("Gezilerim").tag(0)
+                Text("Kayıtlarım").tag(1)
             }
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .animation(.snappy, value: card)
-    }
-
-    @ViewBuilder
-    private func cardView(_ card: Card) -> some View {
-        switch card {
-        case .loading:
-            MapPlaceCard(category: .other, title: String(localized: "Yükleniyor…"), subtitle: "", onClose: closeCard) {
-                ProgressView()
-            }
-            .floatingAboveTabBar()
-        case .item(let item, let category):
-            MapPlaceCard(category: category, title: item.name ?? "",
-                         subtitle: [category.title, item.placemark.title ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
-                         onClose: closeCard) {
-                PrimaryButton(title: saving ? LocalizedStringKey("Kaydediliyor…") : LocalizedStringKey("Kaydet"),
-                              systemImage: "bookmark") {
-                    Task { await save(item, category: category) }
-                }
-                .disabled(saving)
-                SecondaryButton(title: "Ayrıntılar", systemImage: "info.circle") { detailItem = item }
-                DirectionsButton { guidance = GuidanceDestination(item: item, category: category) }
-            }
-            .floatingAboveTabBar()
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        } content: {
+            panelList
         }
     }
 
@@ -321,76 +301,32 @@ struct HomeView: View {
         }
     }
 
-    private func isShowing(_ item: MKMapItem) -> Bool {
-        if case .item(let shown, _) = card { return shown == item }
-        return false
-    }
-
     /// Yerin penceresini açar; harita o yere ve yanındaki yerlere yakınlaşır.
     private func select(_ place: Place) {
-        cardFromFeature = false
-        selectedFeature = nil
-        card = nil
         sheetDetent = .placeHalf
-        sheetPlaceID = place.id
-        withAnimation {
-            position = .region(MKCoordinateRegion(focusing: place, among: store.places(in: place.city)))
-        }
+        mapSheet = .saved(place.id)
+        mapFocus = .region(MKCoordinateRegion(focusing: place, among: store.places(in: place.city)))
     }
 
     /// Yer penceresinden tam yer sayfasına geçer (pencere kapanınca).
     private func open(_ place: Place) {
-        sheetPlaceID = nil
+        mapSheet = nil
         Task {
             try? await Task.sleep(for: .milliseconds(350))
             path.append(.place(place.id))
         }
     }
 
-    /// Haritada Apple'ın bir yerine (müze, kafe, istasyon...) dokunuldu.
-    private func show(_ feature: MapFeature?) async {
-        guard let feature else {
-            if cardFromFeature { card = nil }
-            cardFromFeature = false
-            return
-        }
-        cardFromFeature = true
-        card = .loading
-        let item = await PlaceSearch.mapItem(for: feature)
-        guard selectedFeature == feature, cardFromFeature else { return }
-        guard let item else {
-            card = nil
-            return
-        }
-        if let saved = store.savedPlace(named: item.name ?? "", near: item.placemark.coordinate) {
+    /// Haritada Google'ın bir yerine (restoran, müze, istasyon...) dokunuldu:
+    /// kayıtlıysa kendi penceresi, değilse Google'ın bilgileriyle pencere.
+    private func showGooglePlace(id: String, name: String, coordinate: CLLocationCoordinate2D) {
+        let name = name.replacingOccurrences(of: "\n", with: " ")
+        if let saved = store.savedPlace(googleID: id, named: name, near: coordinate) {
             select(saved)
-        } else {
-            card = .item(item, PlaceCategory(item))
-            // Apple'ın yer kartı doğrudan açılır: puan, fotoğraflar, saatler
-            // (Oguz, 2026-10-29). Kapatınca altta Kaydet ve Yol tarifi kalır.
-            if #available(iOS 18.0, *) { detailItem = item }
+            return
         }
-    }
-
-    private func closeCard() {
-        cardFromFeature = false
-        selectedFeature = nil
-        card = nil
-    }
-
-    /// Yeri kaydeder (rotaya eklemez); şehir konumdan bulunur.
-    private func save(_ item: MKMapItem, category: PlaceCategory) async {
-        let coordinate = item.placemark.coordinate
-        guard store.savedPlace(named: item.name ?? "", near: coordinate) == nil else { return }
-        saving = true
-        defer { saving = false }
-        let city = await importer.city(for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-                                       knownCities: store.cities)
-        let place = Place(name: item.name ?? String(localized: "Yer"), city: city,
-                          latitude: coordinate.latitude, longitude: coordinate.longitude,
-                          category: category, source: .search)
-        store.add(place, plan: false)
-        if isShowing(item) { select(place) }
+        sheetDetent = .placeHalf
+        mapSheet = .google(GooglePlaceRef(id: id, name: name, coordinate: coordinate))
     }
 
     private func showMyLocation() {
@@ -399,14 +335,14 @@ struct HomeView: View {
             showLocationDenied = true
         default:
             locationManager.requestWhenInUseAuthorization()
-            withAnimation { position = .userLocation(fallback: position) }
+            mapFocus = .user(zoom: 15)
         }
     }
 
     /// Büyüteç "Yer ekle"yi hangi şehir için açsın: haritanın ortasına en yakın şehir.
     private var nearestCity: String {
         let cities = store.cities
-        guard isZoomedIn, let center = region?.center else { return cities.first?.name ?? "Tokyo" }
+        guard isZoomedIn, let center = viewport?.region.center else { return cities.first?.name ?? "Tokyo" }
         let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
         return cities.min {
             CLLocation(latitude: $0.latitude, longitude: $0.longitude).distance(from: here)
@@ -414,14 +350,16 @@ struct HomeView: View {
         }?.name ?? "Tokyo"
     }
 
-    /// Küreyi kayıtlı şehirlerin ortasına çevirir.
+    /// Dünya haritasını kayıtlı şehirlerin ortasına (en uzak şehirlerin
+    /// arasına) çevirir. Google haritası telefonda 2'den uzağa açılmıyor;
+    /// İstanbul ile Tokyo gibi uzak şehirlerin adları kenarda kalabilir.
     private func centerOnCities() {
         let cities = store.cities
         guard !cities.isEmpty else { return }
-        let latitude = cities.map(\.latitude).reduce(0, +) / Double(cities.count)
-        let longitude = cities.map(\.longitude).reduce(0, +) / Double(cities.count)
-        position = .camera(MapCamera(centerCoordinate: .init(latitude: latitude, longitude: longitude),
-                                     distance: 30_000_000))
+        let latitudes = cities.map(\.latitude), longitudes = cities.map(\.longitude)
+        let center = CLLocationCoordinate2D(latitude: (latitudes.min()! + latitudes.max()!) / 2,
+                                            longitude: (longitudes.min()! + longitudes.max()!) / 2)
+        mapFocus = .point(center, zoom: 2, animated: false)
     }
 
     /// Yalnızca geliştirme sürümünde: `-screen map` ilk şehre yaklaşır,
@@ -430,11 +368,25 @@ struct HomeView: View {
         #if DEBUG
         let screen = UserDefaults.standard.string(forKey: "screen")
         if screen == "settings" { showSettings = true }
+        // `googlePlace`: Shibuya'da bir restoranın Google penceresi (puan,
+        // fotoğraflar); `googleTall` aynısı uzun (saatler, yorumlar).
+        if screen == "googlePlace" || screen == "googleTall" {
+            let shibuya = CLLocationCoordinate2D(latitude: 35.6595, longitude: 139.7005)
+            mapFocus = .point(shibuya, zoom: 16.5, animated: false)
+            guard let found = await GooglePlaces.shared.search("Ichiran Shibuya", near: shibuya).first else { return }
+            sheetDetent = .placeHalf
+            mapSheet = .google(GooglePlaceRef(id: found.id, name: found.name, coordinate: found.coordinate))
+            if screen == "googleTall" {
+                try? await Task.sleep(for: .seconds(1.5))
+                sheetDetent = .placeTall
+            }
+            return
+        }
         guard screen == "map" || screen == "sheet",
               let city = store.cities.first(where: { $0.name == "Tokyo" }) ?? store.cities.first,
               let region = MKCoordinateRegion(fitting: store.places(in: city.name).map(\.coordinate))
         else { return }
-        position = .region(region)
+        mapFocus = .region(region, animated: false)
         if screen == "sheet", let place = store.places(in: city.name).first {
             try? await Task.sleep(for: .seconds(1))
             select(place)
@@ -480,15 +432,20 @@ private struct CityRow: View {
     }
 }
 
-/// Kürede şehir pini: fotoğraf + ad + yer sayısı; sıradaki gezi siyah.
+/// Dünya haritasında şehir pini: fotoğraf + ad + yer sayısı; gezisi olan
+/// şehir siyah. Resme çevrilip haritaya konur (fotoğraf önceden indirilir).
 private struct CityPin: View {
     let city: AppStore.CitySummary
+    var photo: UIImage?
 
     var body: some View {
         HStack(spacing: 6) {
-            if let cover = city.coverPlace {
-                PlaceThumbnail(place: cover, cornerRadius: 12)
+            if let photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
                     .frame(width: 24, height: 24)
+                    .clipShape(Circle())
             }
             Text(city.placeCount > 0 ? "\(city.name) · \(city.placeCount)" : city.name)
                 .font(Theme.font(13, .semibold))

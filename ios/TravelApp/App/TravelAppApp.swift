@@ -9,6 +9,7 @@ struct TravelAppApp: App {
 
     init() {
         AppLanguage.activate()
+        GoogleAPI.configure()
     }
 
     /// Yalnızca geliştirme sürümünde: ekran görüntüsü açılışları (`-screen`)

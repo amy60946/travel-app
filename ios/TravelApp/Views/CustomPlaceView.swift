@@ -13,7 +13,7 @@ struct CustomPlaceView: View {
     @State private var note = ""
     @State private var day: Int
     @State private var center: CLLocationCoordinate2D?
-    @State private var position: MapCameraPosition = .automatic
+    @State private var mapFocus: MapFocus?
 
     init(city: String, day: Int = 0) {
         self.city = city
@@ -30,9 +30,7 @@ struct CustomPlaceView: View {
                     }
                 }
                 Section {
-                    Map(position: $position) { UserAnnotation() }
-                        .mapStyle(.standard(pointsOfInterest: .excludingAll))
-                        .onMapCameraChange { center = $0.region.center }
+                    GoogleMap(focus: $mapFocus, onCameraIdle: { center = $0.region.center })
                         .overlay {
                             Image(systemName: "mappin")
                                 .font(.system(size: 32, weight: .bold))
@@ -70,7 +68,8 @@ struct CustomPlaceView: View {
             .onAppear {
                 let start = store.cities.first { $0.name == city }?.coordinate
                     ?? CLLocationCoordinate2D(latitude: 35.68, longitude: 139.76)
-                position = .region(MKCoordinateRegion(center: start, latitudinalMeters: 3000, longitudinalMeters: 3000))
+                mapFocus = .region(MKCoordinateRegion(center: start, latitudinalMeters: 3000, longitudinalMeters: 3000),
+                                   animated: false)
             }
         }
     }

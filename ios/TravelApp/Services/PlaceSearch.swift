@@ -1,28 +1,9 @@
 import MapKit
 import SwiftUI
 
-/// Apple Haritalar'da yer arama: ücretsiz, anahtar istemez. "Yer ekle"
-/// araması, haritada dokunulan yer ve aktarılan yerlerin türü bunu kullanır.
+/// Apple Haritalar'da yer arama: ücretsiz, anahtar istemez. Aktarılan
+/// yerlerin türü bunu kullanır ("Yer ekle" araması Google'da).
 enum PlaceSearch {
-    /// Bölgede serbest arama ("ramen", "Sensō-ji"). Bölge yoksa her yerde.
-    static func search(_ query: String, in region: MKCoordinateRegion?) async -> [MKMapItem] {
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = query
-        request.resultTypes = .pointOfInterest
-        if let region { request.region = region }
-        return await run(request)
-    }
-
-    /// Haritada dokunulan Apple yerinin (müze, kafe...) bilgileri.
-    static func mapItem(for feature: MapFeature) async -> MKMapItem? {
-        let request = MKMapItemRequest(feature: feature)
-        return await withCheckedContinuation { continuation in
-            request.getMapItem { item, _ in
-                continuation.resume(returning: item)
-            }
-        }
-    }
-
     /// Aktarılan bir yerin Apple Haritalar'daki türü: aynı adla aranır,
     /// 300 m içindeki ilk sonuç alınır. Sınıra takılınca `throttled` döner.
     enum Lookup {
@@ -46,10 +27,6 @@ enum PlaceSearch {
         } catch {
             return .found(nil)
         }
-    }
-
-    private static func run(_ request: MKLocalSearch.Request) async -> [MKMapItem] {
-        (try? await MKLocalSearch(request: request).start().mapItems) ?? []
     }
 }
 

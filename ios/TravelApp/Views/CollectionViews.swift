@@ -451,7 +451,8 @@ struct CollectionDetailView: View {
     @State private var filter: Filter = .all
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
-    @State private var position: MapCameraPosition = .automatic
+    @State private var mapFocus: MapFocus?
+    @ObservedObject private var pinPhotos = PinPhotos.shared
     @State private var showEdit = false
     @State private var confirmDelete = false
     @State private var addSheet: AddKind?
@@ -518,34 +519,26 @@ struct CollectionDetailView: View {
     }
 
     private var map: some View {
-        Map(position: $position) {
-            ForEach(items.filter { $0.coordinate != nil }) { item in
-                if let coordinate = item.coordinate {
-                    Annotation(item.displayName, coordinate: coordinate, anchor: .center) {
-                        Button { open(item) } label: { pin(item) }
-                            .buttonStyle(.plain)
-                    }
+        GoogleMap(focus: $mapFocus, markers: markers, showsGooglePlaces: false,
+                  padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0))
+            .ignoresSafeArea()
+            .task(id: items.map(\.key)) {
+                for item in items where item.kind != .place {
+                    pinPhotos.load(key: "collection|\(item.key)") { await CollectionItemPhoto.photo(for: item) }
                 }
             }
-            UserAnnotation()
-        }
-        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
-        .safeAreaPadding(.top, 52)
-        .safeAreaPadding(.bottom, panelHeight + 20)
-        .ignoresSafeArea(edges: .bottom)
     }
 
-    @ViewBuilder
-    private func pin(_ item: CollectionItem) -> some View {
-        switch item.kind {
-        case .place:
-            CategoryPin(category: item.category ?? .sight, size: 30)
-        case .city, .country:
-            CollectionItemPhoto(item: item)
-                .frame(width: 38, height: 38)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(.white, lineWidth: 2.5))
-                .softShadow()
+    /// Yerler türün renkli pini, şehir ve ülkeler yuvarlak fotoğraf; altında adı.
+    private var markers: [GoogleMap.Marker] {
+        items.compactMap { item -> GoogleMap.Marker? in
+            guard let coordinate = item.coordinate else { return nil }
+            let photo = pinPhotos.image(key: "collection|\(item.key)")
+            return GoogleMap.Marker(id: item.key, coordinate: coordinate,
+                                    key: "\(item.displayName)|\(item.category?.rawValue ?? "")|\(photo.map { "\($0.hash)" } ?? "-")",
+                                    pinHeight: CollectionMapPin.pinHeight(item), onTap: { open(item) }) {
+                CollectionMapPin(item: item, photo: photo)
+            }
         }
     }
 
@@ -705,24 +698,68 @@ struct CollectionDetailView: View {
         let coordinates = (collection?.items ?? []).compactMap(\.coordinate)
         guard !coordinates.isEmpty else { return }
         if coordinates.count == 1, let only = coordinates.first {
-            position = .camera(MapCamera(centerCoordinate: only, distance: 60_000))
+            mapFocus = .point(only, zoom: 10)
         } else if let region = MKCoordinateRegion(fitting: coordinates, padding: 1.4) {
-            position = .region(region)
+            mapFocus = .region(region)
+        }
+    }
+}
+
+/// Koleksiyon haritasında pin (resme çevrilip haritaya konur): yer türün
+/// renkli pini, şehir ve ülke yuvarlak fotoğraf (yoksa bayrak ya da simge);
+/// altında adı.
+private struct CollectionMapPin: View {
+    let item: CollectionItem
+    var photo: UIImage?
+
+    /// Pinin yüksekliği (çevresindeki boşluk dahil); konuma pinin ortası oturur.
+    static func pinHeight(_ item: CollectionItem) -> CGFloat {
+        item.kind == .place ? 30 + 16 : 38 + 16
+    }
+
+    var body: some View {
+        VStack(spacing: -4) {
+            pin.padding(8)
+            MapTitle(text: item.displayName)
+        }
+    }
+
+    @ViewBuilder
+    private var pin: some View {
+        switch item.kind {
+        case .place:
+            CategoryPin(category: item.category ?? .sight, size: 30)
+        case .city, .country:
+            Color.white
+                .overlay {
+                    if let photo {
+                        Image(uiImage: photo).resizable().scaledToFill()
+                    } else if item.kind == .country {
+                        Text(item.countryCode.map(Country.flag) ?? "🌍").font(.system(size: 20))
+                    } else {
+                        Image(systemName: "building.2").font(.system(size: 15)).foregroundStyle(Theme.muted)
+                    }
+                }
+                .frame(width: 38, height: 38)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(.white, lineWidth: 2.5))
+                .softShadow()
         }
     }
 }
 
 // MARK: - Koleksiyona ekle
 
-/// Koleksiyona yer ekle (Polarsteps "Add spot"): Apple Haritalar araması,
+/// Koleksiyona yer ekle (Polarsteps "Add spot"): Google Haritalar araması,
 /// yerin fotoğrafı ve türüyle; dokununca Kayıtlarım'a ve koleksiyona eklenir.
 struct CollectionAddPlaceSheet: View {
     let collectionID: UUID
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var results: [MKMapItem] = []
+    @State private var results: [GooglePlaces.SearchResult] = []
     @State private var searching = false
+    @StateObject private var importer = PlaceImporter()
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -732,7 +769,7 @@ struct CollectionAddPlaceSheet: View {
                 .padding(.horizontal, 16)
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(results, id: \.self) { item in row(item) }
+                    ForEach(results) { result in row(result) }
                     if !query.isEmpty && !searching && results.isEmpty {
                         Text("Sonuç bulunamadı.").font(Theme.font(14)).foregroundStyle(Theme.muted).padding(.top, 20)
                     }
@@ -748,37 +785,36 @@ struct CollectionAddPlaceSheet: View {
         .animation(.snappy, value: store.undoMessage)
         .onAppear { focused = true }
         .task(id: query) {
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(700))
             guard !Task.isCancelled else { return }
             let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else {
+            guard text.count >= 2 else {
                 results = []
                 return
             }
             searching = true
-            let found = await PlaceSearch.search(text, in: nil)
+            let found = await GooglePlaces.shared.search(text, near: nil)
             searching = false
             if !Task.isCancelled { results = found }
         }
     }
 
-    private func row(_ item: MKMapItem) -> some View {
-        let coordinate = item.placemark.coordinate
-        let category = PlaceCategory(item)
-        let saved = store.savedPlace(named: item.name ?? "", near: coordinate)
+    private func row(_ result: GooglePlaces.SearchResult) -> some View {
+        let category = result.category
+        let saved = store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate)
         let isIn = saved.map { store.contains(.place($0), in: collectionID) } ?? false
-        return Button { add(item, category: category) } label: {
+        return Button { Task { await add(result) } } label: {
             HStack(spacing: 14) {
-                LocationPhoto(name: item.name ?? "", category: category, city: item.placemark.locality ?? "",
-                              latitude: coordinate.latitude, longitude: coordinate.longitude, size: 56)
+                LocationPhoto(name: result.name, category: category,
+                              latitude: result.latitude, longitude: result.longitude, size: 56)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(category.title)
                         .font(Theme.font(11, .bold))
                         .textCase(.uppercase)
                         .tracking(0.6)
                         .foregroundStyle(category.color)
-                    Text(item.name ?? "").font(Theme.font(16, .semibold)).lineLimit(1)
-                    Text([item.placemark.locality, item.placemark.country].compactMap { $0 }.joined(separator: ", "))
+                    Text(result.name).font(Theme.font(16, .semibold)).lineLimit(1)
+                    Text(result.address)
                         .font(Theme.font(13))
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
@@ -794,15 +830,15 @@ struct CollectionAddPlaceSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func add(_ item: MKMapItem, category: PlaceCategory) {
-        let coordinate = item.placemark.coordinate
-        var place = store.savedPlace(named: item.name ?? "", near: coordinate)
+    /// Yer kayıtlı değilse Kayıtlarım'a eklenir (şehri konumdan bulunur),
+    /// sonra koleksiyona eklenir ya da çıkarılır.
+    private func add(_ result: GooglePlaces.SearchResult) async {
+        var place = store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate)
         if place == nil {
-            let new = Place(name: item.name ?? String(localized: "Yer"),
-                            city: item.placemark.locality ?? item.placemark.administrativeArea
-                                ?? item.placemark.country ?? String(localized: "Diğer"),
-                            latitude: coordinate.latitude, longitude: coordinate.longitude,
-                            category: category, source: .search)
+            let city = await importer.city(for: CLLocation(latitude: result.latitude, longitude: result.longitude),
+                                           knownCities: store.cities)
+            let new = Place(name: result.name, city: city, latitude: result.latitude, longitude: result.longitude,
+                            category: result.category, source: .search, googlePlaceID: result.id)
             store.add(new, plan: false)
             place = new
         }

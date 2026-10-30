@@ -23,10 +23,10 @@ struct GuidanceDestination: Identifiable, Hashable {
         placeID = place.id
     }
 
-    init(item: MKMapItem, category: PlaceCategory) {
-        name = item.name ?? String(localized: "Yer")
-        latitude = item.placemark.coordinate.latitude
-        longitude = item.placemark.coordinate.longitude
+    init(name: String, coordinate: CLLocationCoordinate2D, category: PlaceCategory) {
+        self.name = name
+        latitude = coordinate.latitude
+        longitude = coordinate.longitude
         self.category = category
     }
 }
@@ -41,7 +41,10 @@ struct GuidanceView: View {
     @StateObject private var guide: WalkingGuide
     @Environment(\.dismiss) private var dismiss
 
-    @State private var position: MapCameraPosition = .userLocation(followsHeading: true, fallback: .automatic)
+    @State private var mapFocus: MapFocus?
+    /// Harita konumu ve yürüme yönünü izliyor mu? Kullanıcı haritayı
+    /// kaydırınca durur; "Konumuma dön" ile yeniden başlar.
+    @State private var following = true
 
     init(destination: GuidanceDestination) {
         self.destination = destination
@@ -50,30 +53,20 @@ struct GuidanceView: View {
 
     var body: some View {
         ZStack {
-            Map(position: $position) {
-                UserAnnotation()
-                if let route = guide.route {
-                    // Yarı saydam: altındaki sokak adları ve ayrıntılar görünsün.
-                    MapPolyline(route.polyline)
-                        .stroke(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
-                }
-                Annotation(destination.name, coordinate: destination.coordinate, anchor: .center) {
-                    CategoryPin(category: destination.category, size: 36)
-                }
-            }
-            .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
-            // Pusula üstteki dönüş kartının arkasında kalıyordu; harita zaten yönüne dönüyor.
-            .mapControls { }
-            .ignoresSafeArea()
+            GoogleMap(focus: $mapFocus, markers: [destinationMarker], lines: routeLines, showsGooglePlaces: false,
+                      padding: EdgeInsets(top: 130, leading: 0, bottom: 150, trailing: 0),
+                      onUserGesture: { following = false })
+                .ignoresSafeArea()
 
             VStack(spacing: 10) {
                 banner
                 Spacer()
-                if !position.followsUserLocation {
+                if !following {
                     HStack {
                         Spacer()
                         CircleIconButton(systemImage: "location.north.line.fill") {
-                            withAnimation { position = .userLocation(followsHeading: true, fallback: .automatic) }
+                            following = true
+                            if let location = guide.location { mapFocus = MapFocus(target: .follow(location, zoom: 17.5)) }
                         }
                         .accessibilityLabel(Text("Konumuma dön"))
                     }
@@ -89,6 +82,11 @@ struct GuidanceView: View {
         .onAppear {
             guide.start()
             UIApplication.shared.isIdleTimerDisabled = true
+            mapFocus = .point(destination.coordinate, zoom: 15, animated: false)
+        }
+        .onReceive(guide.$location) { location in
+            guard following, let location else { return }
+            mapFocus = MapFocus(target: .follow(location, zoom: 17.5))
         }
         .onDisappear {
             guide.stop()
@@ -96,11 +94,26 @@ struct GuidanceView: View {
         }
     }
 
+    private var destinationMarker: GoogleMap.Marker {
+        GoogleMap.Marker(id: "destination", coordinate: destination.coordinate,
+                         key: "\(destination.name)|\(destination.category.rawValue)") {
+            CategoryPin(category: destination.category, size: 36).padding(8)
+        }
+    }
+
+    /// Yürüme yolu yarı saydam: altındaki sokak adları ve ayrıntılar görünsün.
+    private var routeLines: [GoogleMap.Line] {
+        guard let route = guide.route else { return [] }
+        return [GoogleMap.Line(id: "route", coordinates: route.coordinates,
+                               color: UIColor(Theme.accent).withAlphaComponent(0.5), width: 8)]
+    }
+
     // MARK: - Üst: sıradaki dönüş
 
     private var banner: some View {
         HStack(spacing: 14) {
-            Image(systemName: guide.arrived ? "flag.checkered" : Self.symbol(for: guide.nextInstruction))
+            Image(systemName: guide.arrived ? "flag.checkered"
+                  : Self.symbol(maneuver: guide.nextManeuver, instruction: guide.nextInstruction))
                 .font(.system(size: 30, weight: .bold))
                 .frame(width: 44)
             VStack(alignment: .leading, spacing: 2) {
@@ -195,6 +208,20 @@ struct GuidanceView: View {
             .formatted(.measurement(width: .abbreviated, usage: .road))
     }
 
+    /// Google'ın dönüş türünden simge; tür yoksa talimattaki kelimelerden.
+    static func symbol(maneuver: String?, instruction: String) -> String {
+        switch maneuver ?? "" {
+        case "TURN_LEFT", "TURN_SHARP_LEFT", "ROUNDABOUT_LEFT": return "arrow.turn.up.left"
+        case "TURN_RIGHT", "TURN_SHARP_RIGHT", "ROUNDABOUT_RIGHT": return "arrow.turn.up.right"
+        case "TURN_SLIGHT_LEFT", "FORK_LEFT", "RAMP_LEFT", "MERGE": return "arrow.up.left"
+        case "TURN_SLIGHT_RIGHT", "FORK_RIGHT", "RAMP_RIGHT": return "arrow.up.right"
+        case "UTURN_LEFT", "UTURN_RIGHT": return "arrow.uturn.down"
+        case "STRAIGHT", "DEPART", "NAME_CHANGE": return "arrow.up"
+        case "FERRY", "FERRY_TRAIN": return "ferry.fill"
+        default: return symbol(for: instruction)
+        }
+    }
+
     /// Talimattaki kelimelerden dönüş simgesi (Türkçe ve İngilizce).
     static func symbol(for instruction: String) -> String {
         let text = instruction.lowercased()
@@ -218,11 +245,24 @@ final class WalkingGuide: NSObject, ObservableObject, CLLocationManagerDelegate,
 
     @Published private(set) var status: Status = .locating
     @Published private(set) var location: CLLocation?
-    @Published private(set) var route: MKRoute?
+    @Published private(set) var route: Route?
     /// Şu an yüründüğü adım; sıradaki dönüş bir sonraki adımın talimatı.
     @Published private(set) var stepIndex = 0
     @Published private(set) var arrived = false
     @Published var voiceOn = true
+
+    /// Google'dan gelen yol: çizgisi ve adımları (her adımın başında bir dönüş).
+    struct Route {
+        var coordinates: [CLLocationCoordinate2D]
+        var steps: [Step]
+    }
+
+    struct Step {
+        var instructions: String
+        var maneuver: String?
+        var distance: CLLocationDistance
+        var polyline: MKPolyline
+    }
 
     let destination: GuidanceDestination
     private let manager = CLLocationManager()
@@ -266,7 +306,11 @@ final class WalkingGuide: NSObject, ObservableObject, CLLocationManagerDelegate,
 
     // MARK: - Ekrandaki bilgiler
 
-    private var steps: [MKRoute.Step] { route?.steps ?? [] }
+    private var steps: [Step] { route?.steps ?? [] }
+
+    var nextManeuver: String? {
+        steps.indices.contains(stepIndex + 1) ? steps[stepIndex + 1].maneuver : nil
+    }
 
     var nextInstruction: String {
         let next = stepIndex + 1
@@ -323,34 +367,33 @@ final class WalkingGuide: NSObject, ObservableObject, CLLocationManagerDelegate,
             }
             return
         }
-        follow(location, on: route)
+        follow(location, on: route.steps)
     }
 
     private func findRoute(from location: CLLocation) async {
         status = .routing
         lastRouting = .now
-        let request = MKDirections.Request()
-        request.source = MKMapItem(placemark: MKPlacemark(coordinate: location.coordinate))
-        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destination.coordinate))
-        request.transportType = .walking
-        guard let found = try? await MKDirections(request: request).calculate().routes.first,
+        guard let found = await GoogleRoutes.walking(through: [location.coordinate, destination.coordinate]),
               !found.steps.isEmpty else {
             status = route == nil ? .noRoute : .guiding
             return
         }
-        route = found
-        // İlk adım çoğu zaman boş "yola çık" adımı; gerçek yürüyüşten başla.
-        stepIndex = found.steps.count > 1 && found.steps[0].distance < 1 ? 1 : 0
+        let steps = found.steps.map { step in
+            Step(instructions: step.instruction, maneuver: step.maneuver, distance: step.meters,
+                 polyline: MKPolyline(coordinates: step.coordinates, count: step.coordinates.count))
+        }
+        route = Route(coordinates: found.coordinates, steps: steps)
+        // İlk adım boş "yola çık" adımıysa gerçek yürüyüşten başla.
+        stepIndex = steps.count > 1 && steps[0].distance < 1 ? 1 : 0
         announced = []
         offRouteCount = 0
         status = .guiding
-        let first = found.steps[stepIndex].instructions
+        let first = steps[stepIndex].instructions
         say(first.isEmpty ? nextInstruction : first)
     }
 
     /// Hangi adımda olduğunu bulur, dönüşe yaklaşınca söyler, yoldan çıkınca yolu yeniden bulur.
-    private func follow(_ location: CLLocation, on route: MKRoute) {
-        let steps = route.steps
+    private func follow(_ location: CLLocation, on steps: [Step]) {
         guard steps.indices.contains(stepIndex) else { return }
         // Sonraki iki adımın yoluna belirgin şekilde daha yakınsa ilerle.
         var best = stepIndex
@@ -421,7 +464,7 @@ final class WalkingGuide: NSObject, ObservableObject, CLLocationManagerDelegate,
         Task { @MainActor in self.resumeNarrationIfNeeded() }
     }
 
-    /// Talimat hangi dildeyse (Apple'ın talimatları telefonun dilinde) o dilin sesi.
+    /// Talimat hangi dildeyse (Google'ın talimatları uygulamanın dilinde) o dilin sesi.
     private static func voice(for text: String) -> AVSpeechSynthesisVoice? {
         let language = NLLanguageRecognizer.dominantLanguage(for: text)?.rawValue
             ?? Locale.current.language.languageCode?.identifier ?? "en"

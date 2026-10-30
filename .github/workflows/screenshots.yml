@@ -8,21 +8,28 @@ on:
   push:
     branches: ["claude/**"]
   workflow_dispatch:
+    inputs:
+      screens:
+        description: "Yalnızca bu ekranlar, boşlukla ayrılmış (boşsa hepsi)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
-concurrency:
-  group: screenshots
-  cancel-in-progress: true
-
 jobs:
   shots:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ekran]')
+    # İşin içinde: "[ekran]" olmayan bir gönderim (iş atlanır) süren
+    # çekimi iptal etmesin; yalnızca yeni bir çekim eskisini keser.
+    concurrency:
+      group: screenshots
+      cancel-in-progress: true
     # Intel Mac: GitHub'ın Apple çipli (arm64) Mac'lerinde yoğunluk var; işler
     # 15 dakika sırada bekleyip iptal oluyordu. Açık depoda bu da ücretsiz.
     runs-on: macos-15-intel
-    timeout-minutes: 45
+    # Google haritalı 44 ekran ~45 dakika sürüyor.
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: ios
@@ -41,6 +48,9 @@ jobs:
           xcodegen generate
 
       - name: Simülatör için derle
+        env:
+          # Google haritası ekran görüntülerinde de görünsün.
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
@@ -55,9 +65,12 @@ jobs:
           xcodebuild build \
             -project TravelApp.xcodeproj -scheme TravelApp \
             -configuration Debug -destination "id=$DEVICE_ID" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY"
 
       - name: Ekranları çek
+        env:
+          ONLY: ${{ inputs.screens }}
         run: |
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
@@ -92,13 +105,14 @@ jobs:
               || echo "açılmadı: $screen"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
-              guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall) sleep 14 ;;
+              guide|continent|country|cityGuide|addToPlan|journey|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|sheetTall|sheet|googlePlace|googleTall|map) sleep 14 ;;
               *) sleep 8 ;;
             esac
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
           }
           i=1
-          SCREENS="home settings map sheet sheetTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          SCREENS="home settings map sheet sheetTall googlePlace googleTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          [ -n "$ONLY" ] && SCREENS="$ONLY"
           for screen in $SCREENS; do
             shoot "$screen" "$OUT/$(printf '%02d' $i)-$screen.png"
             i=$((i+1))
