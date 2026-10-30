@@ -2,9 +2,9 @@ import MapKit
 import SwiftUI
 
 /// Keşfet (Polarsteps Explore gibi): dünya haritasının üstünde kayan
-/// panel; "Keşfet" bölümünde arama, "Senin için" ülke kartları (fotoğraf,
-/// "N yer", kaydet) ve kıtalar; "Koleksiyonlar" bölümünde kullanıcının
-/// koleksiyonları. Panel ortada açılır, yukarı çekince ekranı kaplar.
+/// panel; arama, "Senin için" ülke kartları (fotoğraf, "N yer", kaydet) ve
+/// kıtalar. Panel ortada açılır, yukarı çekince ekranı kaplar.
+/// Koleksiyonlar ana sayfada (Harita → Koleksiyonlar).
 /// İçerik Wikipedia ve Wikivoyage'dan (ücretsiz, kaynaklı).
 struct DiscoverView: View {
     @Binding var path: [Route]
@@ -13,65 +13,47 @@ struct DiscoverView: View {
     @State private var photos: [String: URL] = [:]
     @State private var countryInfo: [String: DiscoverService.PageInfo] = [:]
     @State private var resolving: String?
-    @State private var section = 0
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
     @State private var mapFocus: MapFocus? = .point(CLLocationCoordinate2D(latitude: 30, longitude: 25), zoom: 1.2,
                                                     animated: false)
-    @ObservedObject private var pinPhotos = PinPhotos.shared
     @FocusState private var searchFocused: Bool
 
     private var countries: [Country] {
         Country.forYou(visited: store.journeys.flatMap(\.stops).compactMap(\.countryCode))
     }
 
-    /// Koleksiyonlardaki konumu bilinen şeyler (haritada).
-    private var collected: [CollectionItem] {
-        var seen = Set<String>()
-        return store.collections.flatMap(\.items).filter { $0.coordinate != nil && seen.insert($0.key).inserted }
-    }
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             globe
 
-            Text(section == 0 ? LocalizedStringKey("Keşfet") : LocalizedStringKey("Koleksiyonlar"))
+            Text("Keşfet")
                 .font(Theme.font(34, .bold))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
-
-            DraggablePanel(stops: [.height(150), .fraction(0.55), .fraction(1)], selection: $panelStop,
-                           onSettle: { panelHeight = $0 }) {
-                Picker("", selection: $section) {
-                    Text("Keşfet").tag(0)
-                    Text("Koleksiyonlar").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
-            } content: {
-                VStack(alignment: .leading, spacing: 0) {
-                    if section == 0 {
-                        discover
-                    } else {
-                        CollectionsSection(path: $path)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 130)
+        }
+        .slidingPanel(stops: [.height(150), .fraction(0.55), .fraction(1)], selection: $panelStop,
+                      onSettle: { panelHeight = $0 }) {
+            EmptyView()
+        } content: {
+            VStack(alignment: .leading, spacing: 0) {
+                discover
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 130)
         }
         .onChange(of: searchFocused) { _, focused in
             // Yazarken sonuçlar görünsün: panel ekranı kaplar.
             if focused { withAnimation(.snappy) { panelStop = 2 } }
         }
+        .onChange(of: search.query.isEmpty) { _, isEmpty in
+            if !isEmpty { withAnimation(.snappy) { panelStop = 2 } }
+        }
         .task {
             #if DEBUG
-            let screen = UserDefaults.standard.string(forKey: "screen")
-            if screen == "collections" || screen == "newCollection" { section = 1 }
-            if screen == "discoverTall" { panelStop = 2 }
+            if UserDefaults.standard.string(forKey: "screen") == "discoverTall" { panelStop = 2 }
             #endif
             let titles = countries.map(\.title)
             async let continentTask = DiscoverService.shared.info(Continent.all.map(\.photoTitle), from: .wikipedia)
@@ -83,50 +65,21 @@ struct DiscoverView: View {
 
     // MARK: - Harita
 
-    /// Uydu görüntülü dünya haritası: "Senin için" ülkeleri bayrakla,
-    /// Koleksiyonlar'da kaydedilenler fotoğrafla.
+    /// Uydu görüntülü dünya haritası: "Senin için" ülkeleri bayrakla.
     private var globe: some View {
         GoogleMap(focus: $mapFocus, markers: globeMarkers, kind: .satellite, showsGooglePlaces: false,
                   padding: EdgeInsets(top: 40, leading: 0, bottom: panelHeight, trailing: 0), minZoom: 1)
             .ignoresSafeArea()
-            .task(id: section == 1 ? collected.map(\.key) : []) {
-                guard section == 1 else { return }
-                for item in collected {
-                    pinPhotos.load(key: "collection|\(item.key)") { await CollectionItemPhoto.photo(for: item) }
-                }
-            }
     }
 
     private var globeMarkers: [GoogleMap.Marker] {
-        if section == 0 {
-            return countries.compactMap { country -> GoogleMap.Marker? in
-                guard let info = countryInfo[country.title], let latitude = info.latitude,
-                      let longitude = info.longitude else { return nil }
-                return GoogleMap.Marker(id: "country-\(country.code)",
-                                        coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                                        key: country.code, onTap: { path.append(.country(country.code)) }) {
-                    FlagPin(flag: country.flag)
-                }
-            }
-        }
-        return collected.compactMap { item -> GoogleMap.Marker? in
-            guard let coordinate = item.coordinate else { return nil }
-            let photo = pinPhotos.image(key: "collection|\(item.key)")
-            return GoogleMap.Marker(id: "item-\(item.key)", coordinate: coordinate,
-                                    key: photo.map { "\($0.hash)" } ?? "-") {
-                Color.white
-                    .overlay {
-                        if let photo {
-                            Image(uiImage: photo).resizable().scaledToFill()
-                        } else {
-                            Text(item.countryCode.map(Country.flag) ?? "📍").font(.system(size: 17))
-                        }
-                    }
-                    .frame(width: 34, height: 34)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(.white, lineWidth: 2.5))
-                    .softShadow()
-                    .padding(8)
+        countries.compactMap { country -> GoogleMap.Marker? in
+            guard let info = countryInfo[country.title], let latitude = info.latitude,
+                  let longitude = info.longitude else { return nil }
+            return GoogleMap.Marker(id: "country-\(country.code)",
+                                    coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                                    key: country.code, onTap: { path.append(.country(country.code)) }) {
+                FlagPin(flag: country.flag)
             }
         }
     }

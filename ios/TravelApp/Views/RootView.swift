@@ -10,20 +10,27 @@ enum Route: Hashable {
     case country(String)
     case cityGuide(CityChoice)
     case collection(UUID)
+    /// Profil → Tüm kayıtlarım.
+    case saved
+    /// Profil → İndirilenler.
+    case downloads
 }
 
 enum RootTab: Hashable {
-    case map, discover, saved, downloads
+    case map, discover, profile
 }
 
-/// Alt çubuk (beyaz hap) + siyah büyüteç ("Yer ekle") ve sekmeler: Harita,
-/// Keşfet (kıta, ülke, şehir), Kayıtlar, İndirilenler. Anlatım çalarken en
-/// altta oynatıcı çubuğu durur; sayfa değişse de görünür.
+/// Alt çubuk (beyaz hap) + siyah büyüteç (genel arama) ve sekmeler: Harita
+/// (Gezilerim | Koleksiyonlar), Keşfet (kıta, ülke, şehir), Profil (bütün
+/// kayıtlar, indirilenler, veri aktarma, dil ve harita ayarları). Anlatım
+/// çalarken en altta oynatıcı çubuğu durur; sayfa değişse de görünür.
 struct RootView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var path: [Route] = []
-    @State private var tab: RootTab = .map
+    /// Dil değişince bütün ekranlar baştan kurulur; açık sekme kalsın.
+    @State private var tab: RootTab = RootView.lastTab
+    private static var lastTab: RootTab = .map
     @State private var sheet: AddSheet?
     /// Büyütecin "Yer ekle"yi açacağı şehir (ana haritada ortaya en yakın şehir).
     @State private var searchCity = ""
@@ -37,8 +44,7 @@ struct RootView: View {
                     switch tab {
                     case .map: HomeView(path: $path, searchCity: $searchCity, sheet: $sheet)
                     case .discover: DiscoverView(path: $path)
-                    case .saved: SavedPlacesView(path: $path)
-                    case .downloads: DownloadsView()
+                    case .profile: ProfileView(path: $path, sheet: $sheet)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,6 +77,8 @@ struct RootView: View {
                     }
                 case .cityGuide(let city): CityGuideView(city: city, path: $path).narrationBarInset(hiding: city.name)
                 case .collection(let id): CollectionDetailView(collectionID: id, path: $path).narrationBarInset()
+                case .saved: SavedPlacesView(path: $path).narrationBarInset()
+                case .downloads: DownloadsView().narrationBarInset()
                 }
             }
         }
@@ -90,6 +98,7 @@ struct RootView: View {
             }
         }
         .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
+        .onChange(of: tab) { _, tab in Self.lastTab = tab }
         // Türkçe kaynağı olmayan anlatımlar iPhone'un kendi çevirisiyle Türkçeye çevrilir.
         .translationHost()
         .task {
@@ -138,9 +147,10 @@ struct RootView: View {
         case "trips": _ = demoJourney()
         case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
         case "newTrip": sheet = .newTrip
-        case "discover", "discoverTall", "newCollection": tab = .discover
-        case "collections": tab = .discover; _ = demoCollection()
-        case "collection": tab = .discover; path = [.collection(demoCollection())]
+        case "discover", "discoverTall": tab = .discover
+        case "collections", "newCollection": _ = demoCollection()
+        case "collection": path = [.collection(demoCollection())]
+        case "profile", "settings": tab = .profile
         case "saveTo": tab = .discover; _ = demoCollection(); path = [.country("JP")]
         case "continent": tab = .discover; path = [.continent("asia")]
         case "country": tab = .discover; path = [.country("JP")]
@@ -148,8 +158,8 @@ struct RootView: View {
             tab = .discover
             path = [.cityGuide(CityChoice(name: "Kyoto", countryCode: "JP", latitude: 35.0116, longitude: 135.7681,
                                           englishTitle: "Kyoto"))]
-        case "saved": tab = .saved
-        case "downloads": tab = .downloads
+        case "saved": path = [.saved]
+        case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins":
             path = [.city(city)]
         case "player":
@@ -165,6 +175,7 @@ struct RootView: View {
         case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
         case "walk": path = [.city(city), .walk(city: city, day: 0)]
         case "add", "addSearch": sheet = .addPlace(city: city)
+        case "search", "searchSave": sheet = .search(city: city)
         case "import": sheet = .importData
         case "camera": sheet = .camera
         case "custom": sheet = .customPlace(city: city)
@@ -213,6 +224,8 @@ struct RootView: View {
 /// Uygulama genelinde açılan alt pencereler.
 enum AddSheet: Identifiable {
     case addPlace(city: String, day: Int = 0)
+    /// Alttaki büyüteç: genel arama (eklerken gezi ya da koleksiyon sorulur).
+    case search(city: String)
     case customPlace(city: String)
     case importData
     case importFile(URL)
@@ -222,6 +235,7 @@ enum AddSheet: Identifiable {
     var id: String {
         switch self {
         case .addPlace(let city, let day): "add-\(city)-\(day)"
+        case .search(let city): "search-\(city)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
         case .importFile(let url): "import-\(url.lastPathComponent)"
@@ -233,6 +247,7 @@ enum AddSheet: Identifiable {
     @ViewBuilder var view: some View {
         switch self {
         case .addPlace(let city, let day): AddPlaceView(city: city, day: day)
+        case .search(let city): AddPlaceView(city: city, general: true)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
         case .importFile(let url): ImportView(initialFile: url)
@@ -252,15 +267,15 @@ private struct TabBar: View {
             HStack(spacing: 0) {
                 item(.map, "Harita", "map")
                 item(.discover, "Keşfet", "globe.europe.africa")
-                item(.saved, "Kayıtlar", "bookmark")
-                item(.downloads, "İndirilenler", "arrow.down.circle")
+                item(.profile, "Profil", "person.crop.circle")
             }
             .padding(6)
             .background(.white, in: Capsule())
             .softShadow()
 
-            // Hızlı erişim: doğrudan "Yer ekle" (arama, kendi yerin, fotoğrafla ekle).
-            Button { sheet = .addPlace(city: city) } label: {
+            // Genel arama: bulunan yer kaydedilir, sonra gezinin bir gününe ya
+            // da koleksiyona eklenir (haritada bakılan şehrin çevresinde arar).
+            Button { sheet = .search(city: city) } label: {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
@@ -269,7 +284,7 @@ private struct TabBar: View {
                     .softShadow()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("Yer ara ve ekle"))
+            .accessibilityLabel(Text("Ara"))
         }
     }
 
@@ -282,7 +297,7 @@ private struct TabBar: View {
                 Text(title).font(Theme.font(11, .semibold))
             }
             .foregroundStyle(tab == value ? Theme.ink : Theme.muted)
-            .frame(width: 70, height: 44)
+            .frame(width: 84, height: 44)
             .background(tab == value ? Theme.surface : .clear, in: Capsule())
         }
         .buttonStyle(.plain)

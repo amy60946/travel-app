@@ -3,12 +3,12 @@ import SwiftUI
 
 /// Ana sayfa: Google Maps gibi çalışan Google haritası. Uzaktan bakınca
 /// şehir pinleri; yaklaşınca kayıtlı yerler türlerinin renk ve simgesiyle
-/// (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte ayarlar,
-/// harita türü ve konumum; arama sağ alttaki büyüteçte ("Yer ekle").
+/// (müze mor, kafe kahverengi, tapınak kırmızı...). Sağ üstte harita
+/// görünümü ve konumum (her haritada aynı); arama sağ alttaki büyüteçte.
 /// Haritadaki herhangi bir yere (Google'ın restoran, müze, kafe... yerleri)
 /// dokununca Google'ın puanı, yorumları ve fotoğraflarıyla penceresi açılır,
-/// tek dokunuşla kaydedilir. Altta Gezilerim (çok şehirli geziler, "Yeni
-/// gezi") / Kayıtlarım (şehirler) listesi.
+/// tek dokunuşla kaydedilir. Altta kayan panelde Gezilerim (çok şehirli
+/// geziler, "Yeni gezi") / Koleksiyonlar ("Yeni koleksiyon").
 struct HomeView: View {
     @EnvironmentObject private var store: AppStore
     @Binding var path: [Route]
@@ -20,7 +20,7 @@ struct HomeView: View {
     @State private var mapFocus: MapFocus?
     /// Haritanın şu an gösterdiği alan (kaydırma bitince güncellenir).
     @State private var viewport: MapViewport?
-    @State private var mapKind: MapKind = .standard
+    /// Paneldeki bölüm: 0 Gezilerim, 1 Koleksiyonlar.
     @State private var section = 0
     /// Alttaki panel: küçük (yalnızca sekmeler), içeriği kadar, büyük.
     @State private var panelStop = 1
@@ -29,14 +29,12 @@ struct HomeView: View {
     /// Alttan açılan yer penceresi: kayıtlı yer ya da Google'ın bir yeri.
     @State private var mapSheet: MapSheet?
     @State private var sheetDetent: PresentationDetent = .placeHalf
-    @State private var locationManager = CLLocationManager()
     /// Haritanın ekrandaki yüksekliği (yer penceresi yarısını kaplar).
     @State private var mapHeight: CGFloat = 800
     /// Listenin yüksekliği: panelin orta yüksekliği içeriği kadar olur
     /// (tek gezi varsa altta boşluk kalmaz).
     @State private var listHeight: CGFloat = 160
-    @State private var showLocationDenied = false
-    @State private var showSettings = false
+    @State private var showNewCollection = false
     @AppStorage(PinStyle.storageKey) private var pinStyle = PinStyle.icon
     @ObservedObject private var pinPhotos = PinPhotos.shared
 
@@ -64,11 +62,6 @@ struct HomeView: View {
     /// Az yer görünüyorsa ya da yakındaysak pinlerin adları da yazılır.
     private var showsTitles: Bool { zoom >= 13.5 || visiblePlaces.count <= 20 }
 
-    /// Kayıtlarım: kayıtlı yeri olan şehirler.
-    private var listedCities: [AppStore.CitySummary] {
-        store.cities.filter { $0.placeCount > 0 }
-    }
-
     /// Görünen bölgedeki (ve kenarındaki) kayıtlı yerler.
     private var visiblePlaces: [Place] {
         var list = store.places
@@ -87,12 +80,21 @@ struct HomeView: View {
 
             HStack(alignment: .top) {
                 Spacer()
-                controls
+                MapControls(focus: $mapFocus)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-
-            bottom
+        }
+        .slidingPanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
+            Picker("", selection: $section) {
+                Text("Gezilerim").tag(0)
+                Text("Koleksiyonlar").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+        } content: {
+            panelList
         }
         .task {
             centerOnCities()
@@ -118,14 +120,13 @@ struct HomeView: View {
             }
             .placeSheetPresentation(detent: $sheetDetent)
         }
-        .sheet(isPresented: $showSettings) { SettingsView() }
-        .alert("Konum izni kapalı", isPresented: $showLocationDenied) {
-            Button("Ayarları aç") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        .sheet(isPresented: $showNewCollection) {
+            CollectionEditor { id in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    path.append(.collection(id))
+                }
             }
-            Button("Vazgeç", role: .cancel) {}
-        } message: {
-            Text("Konumunu haritada görmek için Ayarlar'da Location → While Using the App seç.")
         }
     }
 
@@ -134,7 +135,7 @@ struct HomeView: View {
     private var map: some View {
         // Harita alttaki panelin ya da yer penceresinin üstünde, görünen
         // alanın ortasında dursun.
-        GoogleMap(focus: $mapFocus, markers: markers, kind: mapKind,
+        GoogleMap(focus: $mapFocus, markers: markers,
                   padding: EdgeInsets(top: 0, leading: 0,
                                       bottom: mapSheet != nil ? mapHeight / 2 - 30 : panelHeight,
                                       trailing: 0),
@@ -180,32 +181,7 @@ struct HomeView: View {
         pinPhotos.load(visiblePlaces)
     }
 
-    /// Sağdaki düğmeler: ayarlar (dil), harita türü ve konumum.
-    private var controls: some View {
-        VStack(spacing: 10) {
-            CircleIconButton(systemImage: "gearshape") { showSettings = true }
-                .accessibilityLabel(Text("Ayarlar"))
-            MapKindMenu(selection: $mapKind)
-            CircleIconButton(systemImage: "location", action: showMyLocation)
-                .accessibilityLabel(Text("Konumum"))
-        }
-    }
-
     // MARK: - Alt bölüm
-
-    private var bottom: some View {
-        DraggablePanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
-            Picker("", selection: $section) {
-                Text("Gezilerim").tag(0)
-                Text("Kayıtlarım").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-        } content: {
-            panelList
-        }
-    }
 
     /// Panelin yükseklikleri: yalnızca sekmeler (altta sekme çubuğu), içeriği
     /// kadar (en çok yarım ekran), büyük (üstteki düğmeler görünür kalır).
@@ -217,30 +193,26 @@ struct HomeView: View {
 
     private var panelList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if section == 1 && listedCities.isEmpty {
-                Text("Henüz kayıt yok. Büyüteçle yer ekle ya da veri aktar.")
-                    .font(Theme.font(14))
-                    .foregroundStyle(Theme.muted)
-                    .padding(.vertical, 12)
-            }
             if section == 0 {
                 ForEach(store.journeys) { journey in
                     Button { path.append(.journey(journey.id)) } label: { journeyRow(journey) }
                         .buttonStyle(.plain)
                     Divider().padding(.leading, 70)
                 }
-                Button { sheet = .newTrip } label: { newTripRow }
-                    .buttonStyle(.plain)
-            } else {
-                ForEach(listedCities) { city in
-                    Button { open(city) } label: {
-                        CityRow(city: city, days: store.trip(for: city.name).days)
-                    }
-                    .buttonStyle(.plain)
-                    if city.id != listedCities.last?.id {
-                        Divider().padding(.leading, 70)
-                    }
+                Button { sheet = .newTrip } label: {
+                    addRow("Yeni gezi", subtitle: "Şehirleri seç, sırayla planla")
                 }
+                .buttonStyle(.plain)
+            } else {
+                ForEach(store.collections) { collection in
+                    Button { path.append(.collection(collection.id)) } label: { collectionRow(collection) }
+                        .buttonStyle(.plain)
+                    Divider().padding(.leading, 70)
+                }
+                Button { showNewCollection = true } label: {
+                    addRow("Yeni koleksiyon", subtitle: "Ülke, şehir ve yerleri bir arada topla")
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
@@ -274,15 +246,40 @@ struct HomeView: View {
         .contentShape(Rectangle())
     }
 
-    private var newTripRow: some View {
+    private func collectionRow(_ collection: PlaceCollection) -> some View {
+        HStack(spacing: 14) {
+            CollectionCover(collection: collection)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(alignment: .bottomTrailing) {
+                    Text(collection.emoji)
+                        .font(.system(size: 12))
+                        .frame(width: 22, height: 22)
+                        .background(.white, in: Circle())
+                        .offset(x: 4, y: 4)
+                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(collection.name).font(Theme.font(17, .semibold)).lineLimit(1)
+                Text("\(collection.items.count) öğe")
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private func addRow(_ title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         HStack(spacing: 14) {
             Image(systemName: "plus")
                 .font(.system(size: 20, weight: .semibold))
                 .frame(width: 56, height: 56)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 3) {
-                Text("Yeni gezi").font(Theme.font(17, .semibold))
-                Text("Şehirleri seç, sırayla planla").font(Theme.caption).foregroundStyle(Theme.muted)
+                Text(title).font(Theme.font(17, .semibold))
+                Text(subtitle).font(Theme.caption).foregroundStyle(Theme.muted)
             }
             Spacer()
         }
@@ -291,15 +288,6 @@ struct HomeView: View {
     }
 
     // MARK: - İşlemler
-
-    /// Kayıtlarım'da şehre dokununca: gezisi varsa gezi planı, yoksa şehrin planı.
-    private func open(_ city: AppStore.CitySummary) {
-        if let journey = store.journey(containing: city.name) {
-            path.append(.journey(journey.id))
-        } else {
-            path.append(.city(city.name))
-        }
-    }
 
     /// Yerin penceresini açar; harita o yere ve yanındaki yerlere yakınlaşır.
     private func select(_ place: Place) {
@@ -327,16 +315,6 @@ struct HomeView: View {
         }
         sheetDetent = .placeHalf
         mapSheet = .google(GooglePlaceRef(id: id, name: name, coordinate: coordinate))
-    }
-
-    private func showMyLocation() {
-        switch locationManager.authorizationStatus {
-        case .denied, .restricted:
-            showLocationDenied = true
-        default:
-            locationManager.requestWhenInUseAuthorization()
-            mapFocus = .user(zoom: 15)
-        }
     }
 
     /// Büyüteç "Yer ekle"yi hangi şehir için açsın: haritanın ortasına en yakın şehir.
@@ -367,7 +345,9 @@ struct HomeView: View {
     private func openLaunchScreen() async {
         #if DEBUG
         let screen = UserDefaults.standard.string(forKey: "screen")
-        if screen == "settings" { showSettings = true }
+        if screen == "collections" || screen == "newCollection" { section = 1 }
+        if screen == "newCollection" { showNewCollection = true }
+        if screen == "layers" { panelStop = 0 }
         // `googlePlace`: Shibuya'da bir restoranın Google penceresi (puan,
         // fotoğraflar); `googleTall` aynısı uzun (saatler, yorumlar).
         if screen == "googlePlace" || screen == "googleTall" {
@@ -392,43 +372,6 @@ struct HomeView: View {
             select(place)
         }
         #endif
-    }
-}
-
-/// Alttaki listede bir şehir: fotoğraf, ad, gün ve yer sayısı.
-private struct CityRow: View {
-    let city: AppStore.CitySummary
-    let days: Int
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Group {
-                if let cover = city.coverPlace {
-                    PlaceThumbnail(place: cover, cornerRadius: 10)
-                } else {
-                    RoundedRectangle(cornerRadius: 10).fill(Theme.surface)
-                        .overlay(Image(systemName: "mappin").foregroundStyle(Theme.muted))
-                }
-            }
-            .frame(width: 56, height: 56)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(city.name).font(Theme.font(17, .semibold))
-                Text(city.hasTrip
-                     ? LocalizedStringKey("\(days) gün · \(city.placeCount) yer")
-                     : LocalizedStringKey("\(city.placeCount) kayıtlı yer · rota yok"))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.muted)
-            }
-            Spacer()
-            if city.hasTrip {
-                Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
-            } else {
-                Text("Rota oluştur").font(Theme.font(14, .semibold)).underline()
-            }
-        }
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
     }
 }
 

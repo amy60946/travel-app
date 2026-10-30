@@ -108,9 +108,14 @@ struct CollectButton: View {
 
 /// "Koleksiyona kaydet" (Polarsteps "Save to collection"): koleksiyonlar
 /// listesi, dokununca ekler ya da çıkarır; "Yeni koleksiyon" ile adı sorulup
-/// oluşturulur ve içine eklenir.
+/// oluşturulur ve içine eklenir. Kayıtlı bir yer için ("Nereye eklensin?",
+/// genel aramadan) üstte gezilerin şehirleri de var: gün seçilince yer o
+/// günün rotasına girer (Google Maps'in "Listeye kaydet"i ve Tripadvisor'ın
+/// "Geziye kaydet"i gibi). Yer hem koleksiyonda hem gezide olabilir.
 struct SaveToCollectionSheet: View {
     let item: CollectionItem
+    /// Kayıtlı yer: gezilere de eklenebilir.
+    var place: Place?
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var showNew = false
@@ -122,7 +127,8 @@ struct SaveToCollectionSheet: View {
                     .frame(width: 48, height: 48)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Koleksiyona kaydet").font(Theme.font(17, .bold))
+                    Text(place == nil ? LocalizedStringKey("Koleksiyona kaydet") : LocalizedStringKey("Nereye eklensin?"))
+                        .font(Theme.font(17, .bold))
                     Text(item.displayName).font(Theme.font(13)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
                 Spacer()
@@ -133,19 +139,20 @@ struct SaveToCollectionSheet: View {
             .padding(.top, 20)
             .padding(.bottom, 8)
 
-            HStack {
-                Text("Koleksiyonlar").font(Theme.font(20, .bold))
-                Spacer()
-                Button("Yeni koleksiyon") { showNew = true }
-                    .font(Theme.font(15, .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 4)
-
             ScrollView {
                 VStack(spacing: 0) {
+                    if let place { trips(place) }
+
+                    HStack {
+                        Text("Koleksiyonlar").font(Theme.font(20, .bold))
+                        Spacer()
+                        Button("Yeni koleksiyon") { showNew = true }
+                            .font(Theme.font(15, .semibold))
+                            .foregroundStyle(Theme.accent)
+                    }
+                    .padding(.top, 16)
+                    .padding(.bottom, 4)
+
                     if store.collections.isEmpty {
                         Text("Henüz koleksiyonun yok. \"Yeni koleksiyon\" ile ilkini oluştur.")
                             .font(Theme.font(14))
@@ -171,6 +178,86 @@ struct SaveToCollectionSheet: View {
             CollectionEditor(item: item)
         }
     }
+
+    // MARK: Geziler
+
+    private struct TripCity: Identifiable {
+        let journey: Journey
+        let city: String
+        var id: String { city }
+    }
+
+    /// Gezilerin şehirleri; yerin şehrini içeren gezi önce.
+    private func tripCities(_ place: Place) -> [TripCity] {
+        let first = store.journeys.filter { $0.stops.contains { $0.city == place.city } }
+        let journeys = first + store.journeys.filter { journey in !first.contains { $0.id == journey.id } }
+        var seen = Set<String>()
+        return journeys.flatMap { journey in
+            journey.stops.compactMap { seen.insert($0.city).inserted ? TripCity(journey: journey, city: $0.city) : nil }
+        }
+    }
+
+    @ViewBuilder
+    private func trips(_ place: Place) -> some View {
+        let cities = tripCities(place)
+        if !cities.isEmpty {
+            Text("Geziye ekle")
+                .font(Theme.font(20, .bold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 16)
+                .padding(.bottom, 4)
+            ForEach(cities) { entry in
+                tripRow(place, journey: entry.journey, city: entry.city)
+            }
+        }
+    }
+
+    private func tripRow(_ place: Place, journey: Journey, city: String) -> some View {
+        let trip = store.trip(for: city)
+        let current = store.place(place.id) ?? place
+        let plannedDay = trip.placeIDs.contains(place.id)
+            ? min(max(trip.dayOf?[place.id] ?? 0, 0), max(trip.days - 1, 0)) : nil
+        return HStack(spacing: 14) {
+            CityPhoto(name: city, englishTitle: journey.stops.first { $0.city == city }?.englishTitle,
+                      cover: store.cities.first { $0.name == city }?.coverPlace)
+                .frame(width: 52, height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(city).font(Theme.font(16, .semibold)).lineLimit(1)
+                Text(journey.name).font(Theme.font(13)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            Spacer()
+            Menu {
+                ForEach(0..<max(trip.days, 1), id: \.self) { day in
+                    Button { store.plan(current, city: city, day: day) } label: {
+                        if plannedDay == day {
+                            Label("\(day + 1). gün", systemImage: "checkmark")
+                        } else {
+                            Text("\(day + 1). güne ekle")
+                        }
+                    }
+                }
+                if plannedDay != nil {
+                    Button("Rotadan çıkar", role: .destructive) { store.removeFromPlan(current) }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    if plannedDay != nil { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)) }
+                    Text(plannedDay.map { LocalizedStringKey("\($0 + 1). gün") } ?? LocalizedStringKey("Ekle"))
+                        .font(Theme.font(14, .semibold))
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                }
+                .foregroundStyle(plannedDay != nil ? .white : Theme.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(plannedDay != nil ? Theme.ink : Theme.surface, in: Capsule())
+            }
+            .menuOrder(.fixed)
+        }
+        .padding(.vertical, 8)
+    }
+
+    // MARK: Koleksiyonlar
 
     private func row(_ collection: PlaceCollection) -> some View {
         let isIn = store.contains(item, in: collection.id)
@@ -321,123 +408,6 @@ struct CollectionEditor: View {
     }
 }
 
-// MARK: - Koleksiyonlar listesi (Keşfet → Koleksiyonlar)
-
-/// Keşfet panelindeki "Koleksiyonlar": iki sütun kapaklar ve "Yeni koleksiyon".
-struct CollectionsSection: View {
-    @Binding var path: [Route]
-    @EnvironmentObject private var store: AppStore
-    @State private var showNew = false
-    #if DEBUG
-    private static var openedLaunchScreen = false
-    #endif
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Koleksiyonlar").font(Theme.font(22, .bold))
-                Spacer()
-                Button("Yeni koleksiyon") { showNew = true }
-                    .font(Theme.font(15, .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 14)
-
-            if store.collections.isEmpty {
-                emptyState
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 20) {
-                    ForEach(store.collections) { collection in
-                        Button { path.append(.collection(collection.id)) } label: {
-                            CollectionCard(collection: collection)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-        .task {
-            #if DEBUG
-            // `-screen newCollection`: yeni koleksiyon penceresi açık (ekran görüntüsü için).
-            if !Self.openedLaunchScreen, UserDefaults.standard.string(forKey: "screen") == "newCollection" {
-                Self.openedLaunchScreen = true
-                showNew = true
-            }
-            #endif
-        }
-        .sheet(isPresented: $showNew) {
-            CollectionEditor { id in
-                Task {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    path.append(.collection(id))
-                }
-            }
-        }
-    }
-
-    private var emptyState: some View {
-        Button { showNew = true } label: {
-            VStack(spacing: 10) {
-                Image(systemName: "rectangle.stack.badge.plus")
-                    .font(.system(size: 30))
-                    .foregroundStyle(Theme.muted)
-                Text("Sonra dönmek istediğin ülke, şehir ve yerleri koleksiyonlarda topla.")
-                    .font(Theme.font(14))
-                    .foregroundStyle(Theme.muted)
-                    .multilineTextAlignment(.center)
-                Text("Yeni koleksiyon").font(Theme.font(15, .semibold)).foregroundStyle(Theme.accent)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(24)
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius)
-                .stroke(Theme.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// Koleksiyon kartı: üst üste duran iki kart gibi kapak, ortada simge,
-/// altta ad ve öğe sayısı.
-struct CollectionCard: View {
-    let collection: PlaceCollection
-
-    var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(hex: PlaceCollection.colors[collection.color % PlaceCollection.colors.count]).opacity(0.7))
-                    .rotationEffect(.degrees(-7))
-                    .padding(6)
-                CollectionCover(collection: collection)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .rotationEffect(.degrees(4))
-                    .padding(6)
-                    .softShadow()
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .overlay(alignment: .bottom) {
-                Text(collection.emoji)
-                    .font(.system(size: 15))
-                    .frame(width: 28, height: 28)
-                    .background(.white, in: Circle())
-                    .overlay(Circle().stroke(Theme.hairlineLight))
-                    .offset(y: 8)
-            }
-            Text(collection.name)
-                .font(Theme.font(16, .bold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .padding(.top, 8)
-            Text("\(collection.items.count) öğe")
-                .font(Theme.font(11, .bold))
-                .textCase(.uppercase)
-                .tracking(0.6)
-                .foregroundStyle(Theme.muted)
-        }
-    }
-}
-
 // MARK: - Koleksiyon
 
 /// Koleksiyonun içi (Polarsteps "Deneme koleksiyonu"): haritada içindekiler,
@@ -456,6 +426,9 @@ struct CollectionDetailView: View {
     @State private var showEdit = false
     @State private var confirmDelete = false
     @State private var addSheet: AddKind?
+    /// Haritada dokunulan Google yeri: "Kaydet" onu bu koleksiyona ekler.
+    @State private var googlePlace: GooglePlaceRef?
+    @State private var googleDetent: PresentationDetent = .placeHalf
 
     enum Filter { case all, destinations, spots }
 
@@ -476,26 +449,38 @@ struct CollectionDetailView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .topTrailing) {
             map
 
-            if let collection {
-                // En üstte geri düğmesi görünür kalsın diye ekranın %92'si.
-                DraggablePanel(stops: [.height(170), .fraction(0.55), .fraction(0.92)], selection: $panelStop,
-                               onSettle: { panelHeight = $0 }) {
-                    header(collection)
-                } content: {
-                    grid
-                }
-                .overlay(alignment: .bottomTrailing) { addButton }
-            }
-
+            MapControls(focus: $mapFocus)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+        }
+        // En üstte geri düğmesi görünür kalsın diye ekranın %92'si.
+        .slidingPanel(stops: [.height(170), .fraction(0.55), .fraction(0.92)], selection: $panelStop,
+                      isHidden: googlePlace != nil, onSettle: { panelHeight = $0 }) {
+            if let collection { header(collection) }
+        } content: {
+            grid
+        }
+        .animation(.snappy, value: googlePlace)
+        .overlay(alignment: .bottomTrailing) {
+            if collection != nil && googlePlace == nil { addButton }
+        }
+        .overlay(alignment: .topLeading) {
             CircleIconButton(systemImage: "chevron.left") { dismiss() }
                 .accessibilityLabel(Text("Geri"))
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
         }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $googlePlace) { place in
+            GooglePlaceSheet(place: place) { saved in
+                if !store.contains(.place(saved), in: collectionID) { store.toggle(.place(saved), in: collectionID) }
+                googlePlace = nil
+            }
+            .placeSheetPresentation(detent: $googleDetent)
+        }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 24) }
         .animation(.snappy, value: store.undoMessage)
         .sheet(isPresented: $showEdit) {
@@ -519,8 +504,13 @@ struct CollectionDetailView: View {
     }
 
     private var map: some View {
-        GoogleMap(focus: $mapFocus, markers: markers, showsGooglePlaces: false,
-                  padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0))
+        GoogleMap(focus: $mapFocus, markers: markers,
+                  padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0),
+                  onPlaceTap: { id, name, coordinate in
+                      googleDetent = .placeHalf
+                      googlePlace = GooglePlaceRef(id: id, name: name.replacingOccurrences(of: "\n", with: " "),
+                                                   coordinate: coordinate)
+                  })
             .ignoresSafeArea()
             .task(id: items.map(\.key)) {
                 for item in items where item.kind != .place {

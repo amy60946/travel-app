@@ -3,13 +3,22 @@ import SwiftUI
 
 /// Yer ekle (Polarsteps'teki "Add a spot" gibi): arama (Google Haritalar),
 /// Kendi yerini oluştur, Fotoğrafla ekle, Kayıtlı yerler ve Popüler yerler
-/// (Wikipedia okunma sayısı). Her satırda türün renkli etiketi ve "+";
-/// "+" yeri rotada sağ üstte seçili güne ekler, haritada türünün
-/// simgesiyle görünür.
+/// (Wikipedia okunma sayısı). Her satırda türün renkli etiketi ve "+".
+///
+/// İki türlü açılır:
+/// - Şehir planından: "+" yeri bu şehrin rotasına, sağ üstte seçili güne
+///   ekler; ✓ olan yere yeniden dokununca rotadan çıkar. Bir koleksiyonda
+///   kayıtlı yer de rotaya eklenebilir (koleksiyonda da kalır).
+/// - Genel arama (alttaki büyüteç): "+" yeri kaydeder ve "Nereye
+///   eklensin?" penceresini açar: gezilerden birinin bir günü ya da
+///   koleksiyonlar. Şehir yalnızca aramanın ve popüler yerlerin merkezi.
 struct AddPlaceView: View {
     let city: String
+    /// Genel arama: yer bir rotaya değil, eklerken seçilen yere gider.
+    let general: Bool
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var importer = PlaceImporter()
 
     @State private var query = ""
     @State private var results: [GooglePlaces.SearchResult] = []
@@ -23,9 +32,12 @@ struct AddPlaceView: View {
     @State private var showCamera = false
     /// Eklenen yerlerin günü (şehir planında bakılan gün).
     @State private var day: Int
+    /// Genel aramada kaydedilen yer: "Nereye eklensin?" penceresi.
+    @State private var destination: Place?
 
-    init(city: String, day: Int = 0) {
+    init(city: String, day: Int = 0, general: Bool = false) {
         self.city = city
+        self.general = general
         _day = State(initialValue: day)
     }
 
@@ -35,7 +47,7 @@ struct AddPlaceView: View {
 
     /// Şehirdeki kayıtlar; rotada olmayanlar önce.
     private var saved: [Place] {
-        store.places(in: city).sorted { !store.isPlanned($0) && store.isPlanned($1) }
+        store.places(in: city).sorted { !store.isPlanned($0, in: city) && store.isPlanned($1, in: city) }
     }
 
     var body: some View {
@@ -83,7 +95,15 @@ struct AddPlaceView: View {
         .task {
             #if DEBUG
             // `-screen addSearch`: aramada bir otel (fotoğrafı ve köşesinde tür simgesi).
-            if UserDefaults.standard.string(forKey: "screen") == "addSearch" { query = "Park Hyatt Tokyo" }
+            let screen = UserDefaults.standard.string(forKey: "screen")
+            if screen == "addSearch" || screen == "search" { query = "Park Hyatt Tokyo" }
+            // `searchSave`: genel aramada kayıtlı bir yerin "Nereye eklensin?" penceresi.
+            if screen == "searchSave", let place = store.places(in: city).first {
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    destination = place
+                }
+            }
             #endif
             await loadPopular()
         }
@@ -100,7 +120,8 @@ struct AddPlaceView: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(Theme.sheetRadius)
         }
-        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, day: day) }
+        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, day: day, plans: !general) }
+        .sheet(item: $destination) { place in SaveToCollectionSheet(item: .place(place), place: place) }
         .sheet(isPresented: $showCamera) { CameraAddView() }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
         .animation(.snappy, value: store.undoMessage)
@@ -110,12 +131,12 @@ struct AddPlaceView: View {
 
     private var header: some View {
         ZStack {
-            Text("Yer ekle").font(Theme.font(18, .bold))
+            Text(general ? LocalizedStringKey("Ara") : LocalizedStringKey("Yer ekle")).font(Theme.font(18, .bold))
             HStack {
                 CircleIconButton(systemImage: "xmark") { dismiss() }
                     .accessibilityLabel(Text("Kapat"))
                 Spacer()
-                dayMenu
+                if !general { dayMenu }
             }
         }
         .padding(.horizontal, 16)
@@ -222,9 +243,10 @@ struct AddPlaceView: View {
 
     private func resultRow(_ result: GooglePlaces.SearchResult) -> some View {
         let category = result.category
+        let saved = store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate)
         return SpotRow(category: category, title: result.name, subtitle: result.address,
-                       isAdded: store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate) != nil,
-                       onAdd: { add(result) },
+                       isAdded: isAdded(saved), general: general,
+                       onAdd: { add(result, saved: saved) },
                        onTap: { detailPlace = GooglePlaceRef(id: result.id, name: result.name, coordinate: result.coordinate) }) {
             LocationPhoto(name: result.name, category: category, city: city,
                           latitude: result.latitude, longitude: result.longitude,
@@ -234,8 +256,8 @@ struct AddPlaceView: View {
 
     private func savedRow(_ place: Place) -> some View {
         SpotRow(category: place.category, title: place.name, subtitle: place.city,
-                isAdded: store.isPlanned(place),
-                onAdd: { store.addToPlan([place.id], city: city, day: day) }) {
+                isAdded: isAdded(place), general: general,
+                onAdd: { toggle(place) }) {
             LocationPhoto(name: place.name, category: place.category, city: place.city,
                           latitude: place.latitude, longitude: place.longitude,
                           englishTitle: place.wikipediaTitle, size: 64, cornerRadius: 14)
@@ -245,10 +267,11 @@ struct AddPlaceView: View {
     private func popularRow(_ item: WikipediaService.PopularPlace) -> some View {
         let category = PlaceCategory.guess(name: item.title) ?? .sight
         let coordinate = CLLocationCoordinate2D(latitude: item.latitude, longitude: item.longitude)
+        let saved = store.savedPlace(named: item.name, near: coordinate)
+            ?? store.savedPlace(named: item.title, near: coordinate)
         return SpotRow(category: category, title: item.name, subtitle: city,
-                       isAdded: store.savedPlace(named: item.name, near: coordinate) != nil
-                           || store.savedPlace(named: item.title, near: coordinate) != nil,
-                       onAdd: { addPopular(item, category: category) }) {
+                       isAdded: isAdded(saved), general: general,
+                       onAdd: { addPopular(item, category: category, saved: saved) }) {
             LocationPhoto(name: item.name, category: category, city: city,
                           latitude: item.latitude, longitude: item.longitude, englishTitle: item.title,
                           knownPhoto: item.thumbnailURL, size: 64, cornerRadius: 14)
@@ -278,16 +301,61 @@ struct AddPlaceView: View {
         }
     }
 
-    private func add(_ result: GooglePlaces.SearchResult) {
-        store.add(Place(name: result.name, city: city, latitude: result.latitude, longitude: result.longitude,
-                        category: result.category, source: .search, googlePlaceID: result.id),
-                  plan: true, day: day)
+    /// Satırdaki ✓: şehir planında "bu şehrin rotasında", genel aramada
+    /// "kayıtlı". Başka bir koleksiyonda ya da gezide olması rotaya
+    /// eklemeye engel değil.
+    private func isAdded(_ saved: Place?) -> Bool {
+        guard let saved else { return false }
+        return general || store.isPlanned(saved, in: city)
     }
 
-    private func addPopular(_ item: WikipediaService.PopularPlace, category: PlaceCategory) {
-        store.add(Place(name: item.name, city: city, latitude: item.latitude, longitude: item.longitude,
-                        category: category, source: .search, wikipediaTitle: item.title),
-                  plan: true, day: day)
+    /// Kayıtlı yerin "+" / ✓ düğmesi: genel aramada "Nereye eklensin?",
+    /// şehir planında rotaya ekler ya da rotadan çıkarır.
+    private func toggle(_ place: Place) {
+        if general {
+            destination = place
+        } else if store.isPlanned(place, in: city) {
+            store.removeFromPlan(place)
+        } else {
+            store.plan(place, city: city, day: day)
+        }
+    }
+
+    private func add(_ result: GooglePlaces.SearchResult, saved: Place?) {
+        if let saved { return toggle(saved) }
+        let coordinate = result.coordinate
+        Task {
+            let city = await placeCity(coordinate)
+            let place = Place(name: result.name, city: city, latitude: result.latitude,
+                              longitude: result.longitude, category: result.category, source: .search,
+                              googlePlaceID: result.id)
+            save(place)
+        }
+    }
+
+    private func addPopular(_ item: WikipediaService.PopularPlace, category: PlaceCategory, saved: Place?) {
+        if let saved { return toggle(saved) }
+        let coordinate = CLLocationCoordinate2D(latitude: item.latitude, longitude: item.longitude)
+        Task {
+            let city = await placeCity(coordinate)
+            let place = Place(name: item.name, city: city, latitude: item.latitude,
+                              longitude: item.longitude, category: category, source: .search,
+                              wikipediaTitle: item.title)
+            save(place)
+        }
+    }
+
+    /// Yeni yerin şehri: şehir planında o şehir; genel aramada konumdan
+    /// (yakında kayıtlı bir şehir varsa o).
+    private func placeCity(_ coordinate: CLLocationCoordinate2D) async -> String {
+        guard general else { return city }
+        return await importer.city(for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+                                   knownCities: store.cities)
+    }
+
+    private func save(_ place: Place) {
+        store.add(place, plan: !general, day: day)
+        if general { destination = place }
     }
 }
 
@@ -298,6 +366,8 @@ private struct SpotRow<Thumbnail: View>: View {
     let title: String
     let subtitle: String
     let isAdded: Bool
+    /// Genel aramada ✓ "kayıtlı" demek; dokununca "Nereye eklensin?".
+    var general = false
     let onAdd: () -> Void
     var onTap: (() -> Void)?
     @ViewBuilder let thumbnail: Thumbnail
@@ -326,11 +396,19 @@ private struct SpotRow<Thumbnail: View>: View {
                     .overlay(Circle().stroke(isAdded ? .clear : Theme.hairline, lineWidth: 1.5))
             }
             .buttonStyle(.plain)
-            .disabled(isAdded)
-            .accessibilityLabel(Text(isAdded ? LocalizedStringKey("Rotada") : LocalizedStringKey("Rotaya ekle")))
+            .accessibilityLabel(Text(accessibilityTitle))
         }
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
+    }
+
+    private var accessibilityTitle: LocalizedStringKey {
+        switch (general, isAdded) {
+        case (true, true): "Kayıtlı, nereye ekleneceğini seç"
+        case (true, false): "Kaydet"
+        case (false, true): "Rotadan çıkar"
+        case (false, false): "Rotaya ekle"
+        }
     }
 }

@@ -20,6 +20,9 @@ struct JourneyView: View {
     /// Alttaki şehir listesinin paneli: küçük, yarım, büyük.
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
+    /// Haritada dokunulan Google yeri (restoran, müze...): penceresi açık.
+    @State private var googlePlace: GooglePlaceRef?
+    @State private var googleDetent: PresentationDetent = .placeHalf
     #if DEBUG
     private static var openedLaunchScreen = false
     #endif
@@ -35,6 +38,10 @@ struct JourneyView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { sheetView($0) }
+        .sheet(item: $googlePlace) { place in
+            GooglePlaceSheet(place: place) { _ in googlePlace = nil }
+                .placeSheetPresentation(detent: $googleDetent)
+        }
         .alert("Gezinin adı", isPresented: $renaming) {
             TextField("Gezinin adı", text: $newName)
             Button("Kaydet") { store.renameJourney(journeyID, to: newName) }
@@ -55,36 +62,36 @@ struct JourneyView: View {
             map(journey)
                 .ignoresSafeArea()
                 .overlay(alignment: .top) { header(journey) }
-
-            DraggablePanel(stops: [.height(140), .fraction(0.55), .fraction(0.9)], selection: $panelStop,
-                           onSettle: { panelHeight = $0 }) {
-                Text(journey.stops.count == 1
-                     ? String(localized: "\(days.reduce(0, +)) gün")
-                     : String(localized: "\(journey.stops.count) şehir · \(days.reduce(0, +)) gün"))
-                    .font(Theme.font(15, .semibold))
-                    .foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 10)
-            } content: {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
-                        if index > 0 || stop.flight != nil {
-                            TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop) {
-                                sheet = .flight(stop.id)
-                            }
-                        }
-                        stopCard(stop, index: index, count: journey.stops.count,
-                                 range: ranges[index], days: days[index])
-                    }
-
-                    addCityRow(after: journey.stops.count - 1)
-                        .padding(.top, 14)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 100)
-            }
         }
+        .slidingPanel(stops: [.height(140), .fraction(0.55), .fraction(0.9)], selection: $panelStop,
+                      isHidden: googlePlace != nil, onSettle: { panelHeight = $0 }) {
+            Text(journey.stops.count == 1
+                 ? String(localized: "\(days.reduce(0, +)) gün")
+                 : String(localized: "\(journey.stops.count) şehir · \(days.reduce(0, +)) gün"))
+                .font(Theme.font(15, .semibold))
+                .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+        } content: {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
+                    if index > 0 || stop.flight != nil {
+                        TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop) {
+                            sheet = .flight(stop.id)
+                        }
+                    }
+                    stopCard(stop, index: index, count: journey.stops.count,
+                             range: ranges[index], days: days[index])
+                }
+
+                addCityRow(after: journey.stops.count - 1)
+                    .padding(.top, 14)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 100)
+        }
+        .animation(.snappy, value: googlePlace)
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 16) }
         .animation(.snappy, value: store.undoMessage)
         .task(id: journey.stops.map(\.id)) {
@@ -107,8 +114,13 @@ struct JourneyView: View {
             ? [GoogleMap.Line(id: "journey", coordinates: journey.stops.map(\.coordinate), color: UIColor(Theme.ink),
                               width: 2.5, dashed: true, geodesic: true)]
             : []
-        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines, showsGooglePlaces: false,
-                         padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0))
+        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines,
+                         padding: EdgeInsets(top: 52, leading: 0, bottom: panelHeight, trailing: 0),
+                         onPlaceTap: { id, name, coordinate in
+                             let name = name.replacingOccurrences(of: "\n", with: " ")
+                             googleDetent = .placeHalf
+                             googlePlace = GooglePlaceRef(id: id, name: name, coordinate: coordinate)
+                         })
     }
 
     private func fitMap(_ journey: Journey) {
@@ -121,7 +133,7 @@ struct JourneyView: View {
     }
 
     private func header(_ journey: Journey) -> some View {
-        HStack {
+        HStack(alignment: .top) {
             CircleIconButton(systemImage: "chevron.left") { dismiss() }
                 .accessibilityLabel(Text("Geri"))
             Spacer()
@@ -158,6 +170,10 @@ struct JourneyView: View {
                     .softShadow()
             }
             .accessibilityLabel(Text("Gezi seçenekleri"))
+        }
+        .overlay(alignment: .topTrailing) {
+            // Her haritadaki düğmeler, gezi menüsünün altında.
+            MapControls(focus: $mapFocus).padding(.top, 50)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
