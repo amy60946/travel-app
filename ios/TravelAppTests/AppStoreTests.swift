@@ -31,6 +31,31 @@ final class AppStoreTests: XCTestCase {
         XCTAssertNil(store.undoMessage)
     }
 
+    /// Koleksiyondaki kayıtlı yer bir gezinin gününe de eklenebilir
+    /// (BOHO CO. COFFEE: "Bulgurlu" koleksiyonunda, İstanbul gezisinin 3. günü).
+    func testCollectedPlaceCanBePlannedInATrip() throws {
+        let store = makeStore()
+        store.setDays(3, city: "Tokyo")
+        let cafe = Place(name: "BOHO CO. COFFEE", city: "Shibuya", latitude: 35.66, longitude: 139.70,
+                         category: .cafe, source: .search)
+        store.add(cafe, plan: false)
+        let collection = store.createCollection(name: "Bulgurlu", emoji: "☕️", color: 0)
+        store.toggle(.place(cafe), in: collection)
+        XCTAssertFalse(store.isPlanned(cafe, in: "Tokyo"))
+
+        store.plan(cafe, city: "Tokyo", day: 2)
+        let planned = try XCTUnwrap(store.place(cafe.id))
+        XCTAssertTrue(store.isPlanned(planned, in: "Tokyo"))
+        XCTAssertEqual(planned.city, "Tokyo")
+        XCTAssertEqual(store.dayIndex(of: planned), 2)
+        XCTAssertTrue(store.contains(.place(planned), in: collection), "koleksiyonda da kalır")
+
+        // Tek "Geri al" ikisini birden geri alır.
+        store.undo()
+        XCTAssertEqual(store.place(cafe.id)?.city, "Shibuya")
+        XCTAssertFalse(store.isPlanned(cafe, in: "Tokyo"))
+    }
+
     func testSampleTripKeepsEveryPlaceInADay() {
         let store = makeStore()
         let planned = store.trip(for: "Tokyo").placeIDs.count

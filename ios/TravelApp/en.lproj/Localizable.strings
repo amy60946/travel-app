@@ -425,3 +425,32 @@
 "Google Maps'te aç" = "Open in Google Maps";
 "Yorumlar" = "Reviews";
 "Bilgiler: Google Maps" = "Info: Google Maps";
+
+/* Harita görünümü, genel arama, Profil (2026-10-30) */
+"Ara" = "Search";
+"Kayıtlı, nereye ekleneceğini seç" = "Saved, choose where to add it";
+"Nereye eklensin?" = "Add to…";
+"Geziye ekle" = "Add to a trip";
+"Harita görünümü" = "Map view";
+"Trafik" = "Traffic";
+"Toplu taşıma" = "Transit";
+"3B" = "3D";
+"Bina içi" = "Indoor";
+"Google yerleri" = "Google places";
+"Hepsini gizle" = "Hide all";
+"Hepsini göster" = "Show all";
+"Haritada Google'ın yerlerine dokununca puanı, yorumları ve fotoğrafları açılır." = "Tap a Google place on the map to see its rating, reviews and photos.";
+"Kayıtlı yerlerim" = "My saved places";
+"Arazi" = "Terrain";
+"Gezilecek yerler" = "Attractions";
+"Restoran, kafe, mağaza, otel" = "Restaurants, cafés, shops, hotels";
+"Parklar" = "Parks";
+"İbadet yerleri" = "Places of worship";
+"Hastane, eczane" = "Hospitals, pharmacies";
+"Okullar" = "Schools";
+"Resmi binalar" = "Government buildings";
+"Spor alanları" = "Sports venues";
+"Ülke, şehir ve yerleri bir arada topla" = "Gather countries, cities and places";
+"Profil" = "Profile";
+"Tüm kayıtlarım" = "All my saves";
+"Geziler" = "Trips";

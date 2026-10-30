@@ -21,10 +21,11 @@ struct CityPlanView: View {
     @ObservedObject private var pinPhotos = PinPhotos.shared
     @State private var selectedDay = 0
     @State private var route: WalkingRoutes.DayRoute?
-    @State private var mapKind: MapKind = .standard
     @State private var sheet: AddSheet?
     /// Bakılan yer: harita ona yakınlaşır, alttan penceresi açılır.
     @State private var focusedID: UUID?
+    /// Haritada dokunulan Google yeri (restoran, müze...): penceresi açık.
+    @State private var googlePlace: GooglePlaceRef?
     @State private var sheetDetent: PresentationDetent = .placeHalf
     /// Alttaki listenin paneli: hangi yükseklikte (küçük, yarım, büyük) ve kaç nokta.
     @State private var panelStop = 1
@@ -48,23 +49,23 @@ struct CityPlanView: View {
         return days.indices.contains(selectedDay) ? days[selectedDay] : []
     }
 
+    /// Yer penceresi açık (kayıtlı yer ya da Google'ın yeri): liste paneli iner.
+    private var showsPlaceSheet: Bool { focusedID != nil || googlePlace != nil }
+
     var body: some View {
         let stops = self.stops
         ZStack(alignment: .bottom) {
             map(stops)
                 .ignoresSafeArea()
                 .overlay(alignment: .top) { header }
-            if focusedID == nil {
-                DraggablePanel(stops: Self.panelStops, selection: $panelStop,
-                               onSettle: { panelHeight = $0 }) {
-                    dayBar(stops)
-                } content: {
-                    list(stops)
-                }
-                .transition(.move(edge: .bottom))
-            }
         }
-        .animation(.snappy, value: focusedID)
+        .slidingPanel(stops: Self.panelStops, selection: $panelStop, isHidden: showsPlaceSheet,
+                      onSettle: { panelHeight = $0 }) {
+            dayBar(stops)
+        } content: {
+            list(stops)
+        }
+        .animation(.snappy, value: showsPlaceSheet)
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
         } action: { screenHeight = $0 }
@@ -84,6 +85,17 @@ struct CityPlanView: View {
                 }
                 .placeSheetPresentation(detent: $sheetDetent)
             }
+        }
+        .sheet(item: $googlePlace) { place in
+            GooglePlaceSheet(place: place) { saved in
+                // Kaydedilen yerin kendi penceresi (gün düğmesiyle rotaya eklenir).
+                googlePlace = nil
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    focus(saved)
+                }
+            }
+            .placeSheetPresentation(detent: $sheetDetent)
         }
         .onAppear(perform: updateCamera)
         .onChange(of: selectedDay) { updateCamera() }
@@ -115,13 +127,14 @@ struct CityPlanView: View {
         }
         // Pinler haritanın görünen kısmının (üstteki düğmelerin altı ile
         // panelin ya da yer penceresinin üstü arası) ortasında dursun.
-        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines, kind: mapKind, showsGooglePlaces: false,
+        return GoogleMap(focus: $mapFocus, markers: markers, lines: lines,
                          padding: EdgeInsets(top: 52, leading: 0,
-                                             bottom: focusedID == nil ? panelHeight : screenHeight / 2 - 20,
+                                             bottom: showsPlaceSheet ? screenHeight / 2 - 20 : panelHeight,
                                              trailing: 0),
+                         onPlaceTap: { id, name, coordinate in showGooglePlace(id: id, name: name, coordinate: coordinate) },
                          onMapTap: {
                              // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
-                             if focusedID != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+                             if showsPlaceSheet, sheetDetent == .placeTall { sheetDetent = .placeHalf }
                          },
                          onCameraIdle: { zoom = $0.zoom })
     }
@@ -132,7 +145,7 @@ struct CityPlanView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(alignment: .top) {
             CircleIconButton(systemImage: "chevron.left") { dismiss() }
             Spacer()
             Text(city)
@@ -142,7 +155,7 @@ struct CityPlanView: View {
                 .background(.white, in: Capsule())
                 .softShadow()
             Spacer()
-            MapKindMenu(selection: $mapKind)
+            MapControls(focus: $mapFocus)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -315,6 +328,19 @@ struct CityPlanView: View {
         if !showsAll, let day = store.dayIndex(of: place) { selectedDay = day }
         sheetDetent = .placeHalf
         focusedID = place.id
+    }
+
+    /// Haritada Google'ın bir yerine dokunuldu: kayıtlıysa kendi penceresi,
+    /// değilse Google'ın bilgileriyle pencere (Kaydet, yol tarifi).
+    private func showGooglePlace(id: String, name: String, coordinate: CLLocationCoordinate2D) {
+        let name = name.replacingOccurrences(of: "\n", with: " ")
+        if let saved = store.savedPlace(googleID: id, named: name, near: coordinate) {
+            focus(saved)
+            return
+        }
+        focusedID = nil
+        sheetDetent = .placeHalf
+        googlePlace = GooglePlaceRef(id: id, name: name, coordinate: coordinate)
     }
 
     /// Penceredeki gün düğmesiyle taşınan yerin yeni gününe geçer ("Tüm yerler"de kalır).

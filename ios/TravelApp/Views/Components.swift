@@ -595,9 +595,9 @@ struct UndoToast: View {
     }
 }
 
-/// Harita türü (standart, uydu, karma).
+/// Harita türü (standart, uydu, karma, arazi).
 enum MapKind: String, CaseIterable, Identifiable {
-    case standard, satellite, hybrid
+    case standard, satellite, hybrid, terrain
 
     var id: String { rawValue }
 
@@ -606,6 +606,16 @@ enum MapKind: String, CaseIterable, Identifiable {
         case .standard: "Standart"
         case .satellite: "Uydu"
         case .hybrid: "Karma"
+        case .terrain: "Arazi"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .standard: "map"
+        case .satellite: "globe.europe.africa.fill"
+        case .hybrid: "square.2.layers.3d"
+        case .terrain: "mountain.2"
         }
     }
 }

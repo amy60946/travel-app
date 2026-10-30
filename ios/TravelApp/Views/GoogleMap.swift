@@ -101,8 +101,10 @@ struct GoogleMap: UIViewRepresentable {
     @Binding var focus: MapFocus?
     var markers: [Marker] = []
     var lines: [Line] = []
-    var kind: MapKind = .standard
+    /// Harita türü; nil ise kullanıcının "Harita görünümü"nde seçtiği.
+    var kind: MapKind?
     /// Google'ın kendi yerleri (restoran, müze...) görünsün ve dokunulsun mu?
+    /// Görünenler "Harita görünümü"ndeki yer türleri.
     var showsGooglePlaces = true
     /// Haritanın üstünü/altını örten paneller: haritanın ortası ve Google
     /// yazısı görünen alana göre kayar.
@@ -114,6 +116,14 @@ struct GoogleMap: UIViewRepresentable {
     /// Kullanıcı haritayı parmağıyla kaydırmaya başladı.
     var onUserGesture: (() -> Void)?
 
+    // "Harita görünümü" seçimleri: bütün haritalarda aynı.
+    @AppStorage(MapSettings.kindKey) private var chosenKind = MapKind.standard
+    @AppStorage(MapSettings.trafficKey) private var traffic = false
+    @AppStorage(MapSettings.transitKey) private var transit = true
+    @AppStorage(MapSettings.tiltKey) private var tilt3D = false
+    @AppStorage(MapSettings.indoorKey) private var indoor = false
+    @AppStorage(MapSettings.hiddenPlacesKey) private var hiddenPlaces = ""
+
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
     func makeUIView(context: Context) -> GMSMapView {
@@ -124,7 +134,8 @@ struct GoogleMap: UIViewRepresentable {
         map.isMyLocationEnabled = true
         map.settings.myLocationButton = false
         map.settings.compassButton = false
-        // Döndürme ve eğme kapalı: kuzey hep yukarıda (Google Maps'in sade hali).
+        // Döndürme kapalı: kuzey hep yukarıda (Google Maps'in sade hali);
+        // eğme yalnızca "3B" seçiliyken.
         map.settings.rotateGestures = false
         map.settings.tiltGestures = false
         map.settings.indoorPicker = false
@@ -136,15 +147,26 @@ struct GoogleMap: UIViewRepresentable {
     func updateUIView(_ map: GMSMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
-        let type: GMSMapViewType = switch kind {
+        let type: GMSMapViewType = switch kind ?? chosenKind {
         case .standard: .normal
         case .satellite: .satellite
         case .hybrid: .hybrid
+        case .terrain: .terrain
         }
         if map.mapType != type { map.mapType = type }
-        if coordinator.showsGooglePlaces != showsGooglePlaces {
-            coordinator.showsGooglePlaces = showsGooglePlaces
-            map.mapStyle = showsGooglePlaces ? nil : try? GMSMapStyle(jsonString: Self.hiddenPlacesStyle)
+        if map.isTrafficEnabled != traffic { map.isTrafficEnabled = traffic }
+        if map.isIndoorEnabled != indoor { map.isIndoorEnabled = indoor }
+        if map.settings.tiltGestures != tilt3D {
+            map.settings.tiltGestures = tilt3D
+            // Seçim değişince harita eğilir ya da düzelir.
+            if coordinator.hasAppliedTilt { map.animate(toViewingAngle: tilt3D ? 45 : 0) }
+        }
+        coordinator.hasAppliedTilt = true
+        let style = MapSettings.style(showsPlaces: showsGooglePlaces, hidden: MapSettings.hiddenLayers(hiddenPlaces),
+                                      transit: transit)
+        if coordinator.style != style {
+            coordinator.style = style
+            map.mapStyle = style.flatMap { try? GMSMapStyle(jsonString: $0) }
         }
         let insets = UIEdgeInsets(top: padding.top, left: padding.leading, bottom: padding.bottom, right: padding.trailing)
         if map.padding != insets { map.padding = insets }
@@ -153,13 +175,6 @@ struct GoogleMap: UIViewRepresentable {
         coordinator.sync(lines, on: map)
         coordinator.apply(focus, to: map)
     }
-
-    /// Google'ın yer adları ve simgeleri gizli (planlama haritalarında
-    /// yalnızca bizim pinler); parklar ve yollar görünür.
-    private static let hiddenPlacesStyle = """
-    [{"featureType":"poi","elementType":"labels","stylers":[{"visibility":"off"}]},
-     {"featureType":"transit","elementType":"labels.icon","stylers":[{"visibility":"off"}]}]
-    """
 
     /// Anahtar girilmeden derlenen sürümde harita boş kalır; nedeni yazsın.
     private static func addMissingKeyNotice(to map: GMSMapView) {
@@ -194,7 +209,9 @@ struct GoogleMap: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, GMSMapViewDelegate {
         var parent: GoogleMap
-        var showsGooglePlaces = true
+        /// Uygulanan görünüm kuralları (değişmedikçe yeniden kurulmaz).
+        var style: String?
+        var hasAppliedTilt = false
         private var markers: [String: PlacedMarker] = [:]
         private var lines: [String: (polyline: GMSPolyline, signature: String)] = [:]
         private var appliedFocus: UUID?

@@ -103,6 +103,11 @@ final class AppStore: ObservableObject {
         trip(for: place.city).placeIDs.contains(place.id)
     }
 
+    /// Yer bu şehrin rotasında mı (koleksiyonda olması sayılmaz).
+    func isPlanned(_ place: Place, in city: String) -> Bool {
+        trip(for: city).placeIDs.contains(place.id)
+    }
+
     /// Şehrin günleri, yürüme sırasıyla. Her yerin gününü kullanıcı seçer
     /// (`Trip.dayOf`); gün içindeki sıra yürüme yoluna göre kendiliğinden.
     func dayPlan(for city: String) -> [[Place]] {
@@ -152,6 +157,20 @@ final class AppStore: ObservableObject {
                 trip.placeIDs.append(id)
                 trip.dayOf = (trip.dayOf ?? [:]).merging([id: day]) { $1 }
             }
+        }
+    }
+
+    /// Kayıtlı bir yeri (ör. bir koleksiyondaki) bu şehrin rotasına,
+    /// seçilen güne ekler; yer koleksiyonlarında da kalır. Yer başka bir
+    /// şehir adıyla kaydedildiyse (ör. semt adıyla) ve rotada değilse bu
+    /// şehre geçer, böylece gün değiştirme ve rotadan çıkarma da çalışır.
+    func plan(_ place: Place, city: String, day: Int) {
+        let day = Self.clamp(day, days: trip(for: city).days)
+        let moves = place.city != city && !isPlanned(place)
+        updateTrip(city, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
+            if moves, let index = places.firstIndex(where: { $0.id == place.id }) { places[index].city = city }
+            if !trip.placeIDs.contains(place.id) { trip.placeIDs.append(place.id) }
+            trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: day]) { $1 }
         }
     }
 

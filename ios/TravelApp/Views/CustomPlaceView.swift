@@ -2,9 +2,11 @@ import MapKit
 import SwiftUI
 
 /// Kendi yerin: ad, harita üstünde konum (harita kaydırılarak düzeltilir),
-/// tür, not ve rotadaki günü.
+/// tür, not ve rotadaki günü (genel aramadan açılınca yalnızca kaydedilir).
 struct CustomPlaceView: View {
     let city: String
+    /// Yer bu şehrin rotasına da eklensin mi?
+    var plans = true
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
@@ -15,8 +17,9 @@ struct CustomPlaceView: View {
     @State private var center: CLLocationCoordinate2D?
     @State private var mapFocus: MapFocus?
 
-    init(city: String, day: Int = 0) {
+    init(city: String, day: Int = 0, plans: Bool = true) {
         self.city = city
+        self.plans = plans
         _day = State(initialValue: day)
     }
 
@@ -48,7 +51,7 @@ struct CustomPlaceView: View {
                 Section("Not") {
                     TextField("İsteğe bağlı", text: $note, axis: .vertical)
                 }
-                if store.trip(for: city).days > 1 {
+                if plans, store.trip(for: city).days > 1 {
                     Section {
                         Picker("Gün", selection: $day) {
                             ForEach(0..<store.trip(for: city).days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
@@ -79,7 +82,7 @@ struct CustomPlaceView: View {
         store.add(Place(name: name.trimmingCharacters(in: .whitespaces), city: city,
                         latitude: center.latitude, longitude: center.longitude,
                         category: category, source: .manual, note: note),
-                  plan: true, day: day)
+                  plan: plans, day: day)
         dismiss()
     }
 }

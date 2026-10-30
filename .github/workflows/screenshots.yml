@@ -111,7 +111,7 @@ jobs:
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
           }
           i=1
-          SCREENS="home settings map sheet sheetTall googlePlace googleTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          SCREENS="home profile layers map sheet sheetTall googlePlace googleTall photo pins city cityTall all spot listen player guide moved movedList saved downloads place walk add addSearch search searchSave import camera custom trips journey flight stay addCity newTrip discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
           [ -n "$ONLY" ] && SCREENS="$ONLY"
           for screen in $SCREENS; do
             shoot "$screen" "$OUT/$(printf '%02d' $i)-$screen.png"
