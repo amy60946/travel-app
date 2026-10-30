@@ -57,6 +57,10 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         # iPhone çevirisi iOS 18'de geldi; eski iOS'ta uygulama yine açılsın.
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "Translation"]
+        # TestFlight imza profili yalnızca uygulamaya: komut satırından
+        # verilince Google paketinin kaynak paketine de gidip arşivi
+        # bozuyor. testflight.yml APP_PROFILE ile verir.
+        PROVISIONING_PROFILE_SPECIFIER: "$(APP_PROFILE)"
   TravelAppTests:
     type: bundle.unit-test
     platform: iOS
