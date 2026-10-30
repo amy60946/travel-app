@@ -118,3 +118,4 @@ cevapları.
 | 2026-10-30 | Ana sayfada **Gezilerim \| Koleksiyonlar** ("Kayıtlarım" yerine; koleksiyonlar Keşfet'ten buraya taşındı). |
 | 2026-10-30 | **Aynı yer hem koleksiyonda hem gezide olabilir** (BOHO CO. COFFEE örneği). Şehir planındaki "Yer ekle"de ✓ yalnızca "bu şehrin rotasında" demek; koleksiyondaki yer de rotaya eklenir, ✓'ye dokununca rotadan çıkar. |
 | 2026-10-30 | Alttaki **büyüteç genel arama**: gün seçici yok; bulunan yer kaydedilir ve "Nereye eklensin?" sorulur (gezilerin şehirlerinden birinin günü ya da koleksiyonlar), Google Maps'in "Listeye kaydet"i gibi. |
+| 2026-10-30 | **Alt menü: Harita · Keşfet · Profil** (Oguz karar kartında seçti) + sağda büyüteç (genel arama). Harita'da Gezilerim \| Koleksiyonlar; Keşfet'te ülke ve şehir keşfi; Profil'de bütün kayıtlar, indirilenler, veri aktarma, dil ve harita görünümü. "Kayıtlar" ve "İndirilenler" sekmeleri Profil'e taşındı. |
