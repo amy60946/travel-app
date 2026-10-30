@@ -105,16 +105,22 @@ struct PlaceSheet: View {
         }
     }
 
-    /// Yana kayan fotoğraflar; yüklenirken gri kutular.
+    /// Yana kayan fotoğraflar; yüklenirken gri kutular (kutular da kayan
+    /// şeridin içinde: ekrandan geniş olup pencereyi yana kaydırmasın).
     @ViewBuilder
     private func photoStrip(_ place: Place) -> some View {
         if isLoadingPhotos && photos.isEmpty {
-            HStack(spacing: 10) {
-                ForEach(0..<2, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.surface)
-                        .frame(width: 240, height: 170)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(0..<2, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: Theme.cardRadius).fill(Theme.surface)
+                            .frame(width: 240, height: 170)
+                    }
                 }
             }
+            .scrollDisabled(true)
+            .padding(.horizontal, -20)
+            .contentMargins(.horizontal, 20, for: .scrollContent)
         } else if !photos.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 ScrollView(.horizontal, showsIndicators: false) {
