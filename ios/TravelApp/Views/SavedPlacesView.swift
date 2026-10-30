@@ -81,16 +81,21 @@ struct SavedPlacesView: View {
         if selection.contains(place.id) { selection.remove(place.id) } else { selection.insert(place.id) }
     }
 
-    /// Seçilenler tek şehirdense ve gezisi birden çok günse hangi güne
-    /// ekleneceği sorulur; yoksa 1. güne eklenir.
+    /// Seçilenler tek şehirdense hangi geziye ve güne ekleneceği sorulur
+    /// (tek gezi ve tek günse sorulmaz); birden çok şehirse her yer kendi
+    /// şehrinin ilk gezisine, 1. güne eklenir.
     @ViewBuilder
     private var addButton: some View {
         let cities = Set(store.places.filter { selection.contains($0.id) }.map(\.city))
-        let days = cities.count == 1 ? store.trip(for: cities.first ?? "").days : 1
-        if days > 1 {
+        let stops = cities.count == 1 ? store.stops(in: cities.first ?? "") : []
+        if stops.count > 1 || stops.contains(where: { store.trip(stop: $0.id).days > 1 }) {
             Menu {
-                ForEach(0..<days, id: \.self) { day in
-                    Button("\(day + 1). güne ekle") { addSelection(day: day) }
+                ForEach(stops) { ref in
+                    Section(ref.journey.name) {
+                        ForEach(0..<store.trip(stop: ref.id).days, id: \.self) { day in
+                            Button("\(day + 1). güne ekle") { addSelection(to: ref.id, day: day) }
+                        }
+                    }
                 }
             } label: {
                 PrimaryLabel(title: "Rotaya ekle (\(selection.count))", systemImage: "plus", showsChevron: true)
@@ -101,10 +106,14 @@ struct SavedPlacesView: View {
         }
     }
 
-    private func addSelection(day: Int) {
+    private func addSelection(to stop: UUID? = nil, day: Int) {
         let chosen = store.places.filter { selection.contains($0.id) }
-        for (city, list) in Dictionary(grouping: chosen, by: \.city) {
-            store.addToPlan(list.map(\.id), city: city, day: day)
+        if let stop {
+            store.addToPlan(chosen.map(\.id), stop: stop, day: day)
+        } else {
+            for (city, list) in Dictionary(grouping: chosen, by: \.city) {
+                store.addToPlan(list.map(\.id), stop: store.planStop(for: city), day: day)
+            }
         }
         selection.removeAll()
     }

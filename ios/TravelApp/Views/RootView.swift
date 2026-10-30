@@ -2,9 +2,10 @@ import CoreLocation
 import SwiftUI
 
 enum Route: Hashable {
-    case city(String)
+    /// Gezideki bir şehrin planı (`Destination.id`).
+    case plan(UUID)
     case place(UUID)
-    case walk(city: String, day: Int)
+    case walk(stop: UUID, day: Int)
     case journey(UUID)
     case continent(String)
     case country(String)
@@ -61,10 +62,10 @@ struct RootView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
                 switch route {
-                case .city(let name): CityPlanView(city: name, path: $path).narrationBarInset()
+                case .plan(let stopID): CityPlanView(stopID: stopID, path: $path).narrationBarInset()
                 case .place(let id): PlaceDetailView(placeID: id).narrationBarInset(hiding: store.place(id)?.name)
                 // Yürüyüş ekranının kendi çalar düğmeleri var; orada çubuk yok.
-                case .walk(let city, let day): WalkView(city: city, dayIndex: day)
+                case .walk(let stopID, let day): WalkView(stopID: stopID, dayIndex: day)
                 case .journey(let id): JourneyView(journeyID: id, path: $path).narrationBarInset()
                 case .continent(let id):
                     if let continent = Continent.find(id) {
@@ -143,10 +144,17 @@ struct RootView: View {
         guard let screen = UserDefaults.standard.string(forKey: "screen") else { return }
         let city = store.cities.first { $0.name == "Tokyo" }?.name ?? store.cities.first?.name ?? "Tokyo"
         let firstPlace = store.places(in: city).first
+        let stop = store.stops(in: city).first?.id ?? UUID()
         switch screen {
         case "trips": _ = demoJourney()
         case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
-        case "newTrip": sheet = .newTrip
+        case "newTrip": present(.newTrip)
+        case "newTripCollection": _ = demoCollection(); present(.newTrip)
+        case "tripFromCollection":
+            if let id = store.createJourney(from: demoCollection()) {
+                store.dismissUndo()
+                path = [.journey(id)]
+            }
         case "discover", "discoverTall": tab = .discover
         case "collections", "newCollection": _ = demoCollection()
         case "collection": path = [.collection(demoCollection())]
@@ -160,10 +168,11 @@ struct RootView: View {
                                           englishTitle: "Kyoto"))]
         case "saved": path = [.saved]
         case "downloads": path = [.downloads]
-        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins":
-            path = [.city(city)]
+        case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
+             "reorder", "editPlace":
+            path = [.plan(stop)]
         case "player":
-            path = [.city(city)]
+            path = [.plan(stop)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
                                   + "Tokyo'nun en eski tapınağıdır ve her yıl milyonlarca kişi ziyaret eder.",
                                   title: "Sensō-ji", language: "tr")
@@ -172,19 +181,28 @@ struct RootView: View {
             if let target = places.first(where: { $0.name == "Tokyo Skytree" }) ?? places.first {
                 guidance = GuidanceDestination(place: target)
             }
-        case "place": if let firstPlace { path = [.city(city), .place(firstPlace.id)] }
-        case "walk": path = [.city(city), .walk(city: city, day: 0)]
-        case "add", "addSearch": sheet = .addPlace(city: city)
-        case "search", "searchSave": sheet = .search(city: city)
-        case "import": sheet = .importData
-        case "camera": sheet = .camera
-        case "custom": sheet = .customPlace(city: city)
+        case "place": if let firstPlace { path = [.plan(stop), .place(firstPlace.id)] }
+        case "walk": path = [.plan(stop), .walk(stop: stop, day: 0)]
+        case "add", "addSearch": present(.addPlace(city: city, stop: stop))
+        case "search", "searchSave": present(.search(city: city))
+        case "import": present(.importData)
+        case "camera": present(.camera)
+        case "custom": present(.customPlace(city: city))
         default: break
         }
         #endif
     }
 
     #if DEBUG
+    /// Açılışta pencere, ana sayfa yerleştikten sonra açılsın (hemen
+    /// açılınca bazen hiç görünmüyordu).
+    private func present(_ launchSheet: AddSheet) {
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            sheet = launchSheet
+        }
+    }
+
     /// Ekran görüntüleri için örnek koleksiyonlar (yerler, şehir, ülkeler).
     private func demoCollection() -> UUID {
         if let existing = store.collections.first(where: { $0.name == "Tokyo favorileri" }) { return existing.id }
@@ -209,7 +227,7 @@ struct RootView: View {
             CityChoice(name: "Ankara", countryCode: "TR", latitude: 39.9334, longitude: 32.8597, englishTitle: "Ankara"),
             CityChoice(name: "Kapadokya", countryCode: "TR", latitude: 38.6431, longitude: 34.8289, englishTitle: "Cappadocia"),
         ])
-        store.setDays(3, city: "İstanbul")
+        if let istanbul = store.journey(id)?.stops.first?.id { store.setDays(3, stop: istanbul) }
         if let stops = store.journey(id)?.stops, stops.count == 3 {
             store.addStay(Stay(name: "Pera Palace Hotel", latitude: 41.0319, longitude: 28.9747, nights: 2),
                           stop: stops[0].id, in: id)
@@ -223,7 +241,8 @@ struct RootView: View {
 
 /// Uygulama genelinde açılan alt pencereler.
 enum AddSheet: Identifiable {
-    case addPlace(city: String, day: Int = 0)
+    /// Gezi şehrine yer ekle (eklenen yer o şehrin rotasına, seçili güne girer).
+    case addPlace(city: String, stop: UUID, day: Int = 0)
     /// Alttaki büyüteç: genel arama (eklerken gezi ya da koleksiyon sorulur).
     case search(city: String)
     case customPlace(city: String)
@@ -234,7 +253,7 @@ enum AddSheet: Identifiable {
 
     var id: String {
         switch self {
-        case .addPlace(let city, let day): "add-\(city)-\(day)"
+        case .addPlace(_, let stop, let day): "add-\(stop)-\(day)"
         case .search(let city): "search-\(city)"
         case .customPlace(let city): "custom-\(city)"
         case .importData: "import"
@@ -246,8 +265,8 @@ enum AddSheet: Identifiable {
 
     @ViewBuilder var view: some View {
         switch self {
-        case .addPlace(let city, let day): AddPlaceView(city: city, day: day)
-        case .search(let city): AddPlaceView(city: city, general: true)
+        case .addPlace(let city, let stop, let day): AddPlaceView(city: city, stop: stop, day: day)
+        case .search(let city): AddPlaceView(city: city)
         case .customPlace(let city): CustomPlaceView(city: city)
         case .importData: ImportView()
         case .importFile(let url): ImportView(initialFile: url)

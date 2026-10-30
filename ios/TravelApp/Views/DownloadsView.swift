@@ -50,7 +50,7 @@ struct DownloadsView: View {
     }
 
     private func row(_ city: AppStore.CitySummary) -> some View {
-        let days = store.dayPlan(for: city.name)
+        let days = store.dayPlans(in: city.name)
         let stopCount = days.reduce(0) { $0 + $1.count }
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {

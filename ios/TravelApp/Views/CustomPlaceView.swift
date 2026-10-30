@@ -5,8 +5,8 @@ import SwiftUI
 /// tür, not ve rotadaki günü (genel aramadan açılınca yalnızca kaydedilir).
 struct CustomPlaceView: View {
     let city: String
-    /// Yer bu şehrin rotasına da eklensin mi?
-    var plans = true
+    /// Yer bu gezi şehrinin rotasına da eklenir (genel aramadan açılınca yok).
+    var stop: UUID?
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
@@ -17,9 +17,9 @@ struct CustomPlaceView: View {
     @State private var center: CLLocationCoordinate2D?
     @State private var mapFocus: MapFocus?
 
-    init(city: String, day: Int = 0, plans: Bool = true) {
+    init(city: String, stop: UUID? = nil, day: Int = 0) {
         self.city = city
-        self.plans = plans
+        self.stop = stop
         _day = State(initialValue: day)
     }
 
@@ -51,10 +51,10 @@ struct CustomPlaceView: View {
                 Section("Not") {
                     TextField("İsteğe bağlı", text: $note, axis: .vertical)
                 }
-                if plans, store.trip(for: city).days > 1 {
+                if let stop, store.trip(stop: stop).days > 1 {
                     Section {
                         Picker("Gün", selection: $day) {
-                            ForEach(0..<store.trip(for: city).days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
+                            ForEach(0..<store.trip(stop: stop).days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
                         }
                     }
                 }
@@ -82,7 +82,7 @@ struct CustomPlaceView: View {
         store.add(Place(name: name.trimmingCharacters(in: .whitespaces), city: city,
                         latitude: center.latitude, longitude: center.longitude,
                         category: category, source: .manual, note: note),
-                  plan: plans, day: day)
+                  plan: stop, day: day)
         dismiss()
     }
 }

@@ -181,55 +181,44 @@ struct SaveToCollectionSheet: View {
 
     // MARK: Geziler
 
-    private struct TripCity: Identifiable {
-        let journey: Journey
-        let city: String
-        var id: String { city }
-    }
-
     /// Gezilerin şehirleri; yerin şehrini içeren gezi önce.
-    private func tripCities(_ place: Place) -> [TripCity] {
-        let first = store.journeys.filter { $0.stops.contains { $0.city == place.city } }
-        let journeys = first + store.journeys.filter { journey in !first.contains { $0.id == journey.id } }
-        var seen = Set<String>()
-        return journeys.flatMap { journey in
-            journey.stops.compactMap { seen.insert($0.city).inserted ? TripCity(journey: journey, city: $0.city) : nil }
-        }
+    private func tripStops(_ place: Place) -> [AppStore.StopRef] {
+        let all = store.journeys.flatMap { journey in journey.stops.map { AppStore.StopRef(journey: journey, stop: $0) } }
+        return all.filter { $0.stop.city == place.city } + all.filter { $0.stop.city != place.city }
     }
 
     @ViewBuilder
     private func trips(_ place: Place) -> some View {
-        let cities = tripCities(place)
-        if !cities.isEmpty {
+        let stops = tripStops(place)
+        if !stops.isEmpty {
             Text("Geziye ekle")
                 .font(Theme.font(20, .bold))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 16)
                 .padding(.bottom, 4)
-            ForEach(cities) { entry in
-                tripRow(place, journey: entry.journey, city: entry.city)
+            ForEach(stops) { ref in
+                tripRow(place, ref: ref)
             }
         }
     }
 
-    private func tripRow(_ place: Place, journey: Journey, city: String) -> some View {
-        let trip = store.trip(for: city)
+    private func tripRow(_ place: Place, ref: AppStore.StopRef) -> some View {
+        let trip = store.trip(stop: ref.id)
         let current = store.place(place.id) ?? place
-        let plannedDay = trip.placeIDs.contains(place.id)
-            ? min(max(trip.dayOf?[place.id] ?? 0, 0), max(trip.days - 1, 0)) : nil
+        let plannedDay = store.dayIndex(of: current, stop: ref.id)
         return HStack(spacing: 14) {
-            CityPhoto(name: city, englishTitle: journey.stops.first { $0.city == city }?.englishTitle,
-                      cover: store.cities.first { $0.name == city }?.coverPlace)
+            CityPhoto(name: ref.stop.city, englishTitle: ref.stop.englishTitle,
+                      cover: store.cities.first { $0.name == ref.stop.city }?.coverPlace)
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 2) {
-                Text(city).font(Theme.font(16, .semibold)).lineLimit(1)
-                Text(journey.name).font(Theme.font(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(ref.stop.city).font(Theme.font(16, .semibold)).lineLimit(1)
+                Text(ref.journey.name).font(Theme.font(13)).foregroundStyle(Theme.muted).lineLimit(1)
             }
             Spacer()
             Menu {
                 ForEach(0..<max(trip.days, 1), id: \.self) { day in
-                    Button { store.plan(current, city: city, day: day) } label: {
+                    Button { store.plan(current, stop: ref.id, day: day) } label: {
                         if plannedDay == day {
                             Label("\(day + 1). gün", systemImage: "checkmark")
                         } else {
@@ -238,7 +227,7 @@ struct SaveToCollectionSheet: View {
                     }
                 }
                 if plannedDay != nil {
-                    Button("Rotadan çıkar", role: .destructive) { store.removeFromPlan(current) }
+                    Button("Rotadan çıkar", role: .destructive) { store.removeFromPlan(current, stop: ref.id) }
                 }
             } label: {
                 HStack(spacing: 5) {
@@ -829,7 +818,7 @@ struct CollectionAddPlaceSheet: View {
                                            knownCities: store.cities)
             let new = Place(name: result.name, city: city, latitude: result.latitude, longitude: result.longitude,
                             category: result.category, source: .search, googlePlaceID: result.id)
-            store.add(new, plan: false)
+            store.add(new)
             place = new
         }
         if let place { store.toggle(.place(place), in: collectionID) }

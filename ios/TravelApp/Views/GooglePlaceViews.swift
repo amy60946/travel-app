@@ -105,7 +105,7 @@ struct GooglePlaceSheet: View {
                                        knownCities: store.cities)
         let saved = Place(name: name, city: city, latitude: coordinate.latitude, longitude: coordinate.longitude,
                           category: category, source: .search, googlePlaceID: place.id)
-        store.add(saved, plan: false)
+        store.add(saved)
         onSaved(saved)
     }
 }

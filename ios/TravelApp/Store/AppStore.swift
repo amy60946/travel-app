@@ -94,88 +94,179 @@ final class AppStore: ObservableObject {
 
     // MARK: - Plan
 
-    func trip(for city: String) -> Trip {
-        trips.first { $0.city == city }
-            ?? Trip(city: city, days: 2, pace: .normal, placeIDs: [], dayOf: [:])
+    /// Gezideki bir şehir: gezisi ve durağı.
+    struct StopRef: Identifiable, Hashable {
+        var journey: Journey
+        var stop: Destination
+        var id: UUID { stop.id }
     }
 
+    func stop(_ id: UUID) -> StopRef? {
+        for journey in journeys {
+            if let stop = journey.stops.first(where: { $0.id == id }) { return StopRef(journey: journey, stop: stop) }
+        }
+        return nil
+    }
+
+    /// Bu şehrin geçtiği geziler (en yeni gezi önce).
+    func stops(in city: String) -> [StopRef] {
+        journeys.flatMap { journey in
+            journey.stops.filter { $0.city == city }.map { StopRef(journey: journey, stop: $0) }
+        }
+    }
+
+    /// Şehrin rotası için gezi şehri: şehrin geçtiği ilk gezi; yoksa tek
+    /// şehirlik yeni gezi açılır.
+    func planStop(for city: String) -> UUID {
+        if let ref = stops(in: city).first { return ref.id }
+        let middle = center(of: city) ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        let stop = Destination(city: city, latitude: middle.latitude, longitude: middle.longitude)
+        journeys.insert(Journey(name: city, stops: [stop]), at: 0)
+        ensureTrip(stop)
+        save()
+        return stop.id
+    }
+
+    /// Gezideki şehrin planı; henüz yoksa boş plan (2 gün).
+    func trip(stop id: UUID) -> Trip {
+        trips.first { $0.stopID == id }
+            ?? Trip(city: stop(id)?.stop.city ?? "", days: 2, stopID: id)
+    }
+
+    /// Yer herhangi bir gezinin rotasında mı.
     func isPlanned(_ place: Place) -> Bool {
-        trip(for: place.city).placeIDs.contains(place.id)
+        trips.contains { $0.placeIDs.contains(place.id) }
     }
 
-    /// Yer bu şehrin rotasında mı (koleksiyonda olması sayılmaz).
-    func isPlanned(_ place: Place, in city: String) -> Bool {
-        trip(for: city).placeIDs.contains(place.id)
+    /// Yer bu gezi şehrinin rotasında mı (koleksiyonda olması sayılmaz).
+    func isPlanned(_ place: Place, stop: UUID) -> Bool {
+        trip(stop: stop).placeIDs.contains(place.id)
     }
 
-    /// Şehrin günleri, yürüme sırasıyla. Her yerin gününü kullanıcı seçer
-    /// (`Trip.dayOf`); gün içindeki sıra yürüme yoluna göre kendiliğinden.
-    func dayPlan(for city: String) -> [[Place]] {
-        let trip = self.trip(for: city)
+    /// Yerin bulunduğu geziler ve günü ("Tokyo · 2. gün").
+    struct PlanSlot: Identifiable, Hashable {
+        var ref: StopRef
+        var day: Int
+        var id: UUID { ref.id }
+    }
+
+    func plans(containing place: Place) -> [PlanSlot] {
+        journeys.flatMap { journey in
+            journey.stops.compactMap { stop in
+                dayIndex(of: place, stop: stop.id).map { PlanSlot(ref: StopRef(journey: journey, stop: stop), day: $0) }
+            }
+        }
+    }
+
+    /// Şehrin günleri. Her yerin gününü kullanıcı seçer (`Trip.dayOf`); gün
+    /// içindeki sıra elle sıralandıysa o sıra, yoksa yürüme yoluna göre.
+    func dayPlan(stop id: UUID) -> [[Place]] {
+        let trip = self.trip(stop: id)
         guard trip.days > 0 else { return [] }
         var days = Array(repeating: [Place](), count: trip.days)
         for place in trip.placeIDs.compactMap(place) {
             days[Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)].append(place)
         }
-        return days.map { stops in
+        return days.enumerated().map { index, stops in
+            if trip.manualDays?.contains(index) == true { return stops }
             let order = RoutePlanner.nearestNeighborOrder(stops.map(\.point))
             return order.compactMap { point in stops.first { $0.id == point.id } }
         }
     }
 
-    func dayIndex(of place: Place) -> Int? {
-        let trip = self.trip(for: place.city)
+    /// Şehrin bütün gezilerdeki günleri, art arda (indirme için).
+    func dayPlans(in city: String) -> [[Place]] {
+        stops(in: city).flatMap { dayPlan(stop: $0.id) }
+    }
+
+    func dayIndex(of place: Place, stop id: UUID) -> Int? {
+        let trip = self.trip(stop: id)
         guard trip.placeIDs.contains(place.id) else { return nil }
         return Self.clamp(trip.dayOf?[place.id] ?? 0, days: trip.days)
     }
 
+    /// Gün elle mi sıralandı ("Yürüme sırasına diz" görünür).
+    func isManuallyOrdered(day: Int, stop id: UUID) -> Bool {
+        trip(stop: id).manualDays?.contains(day) == true
+    }
+
     /// Gün sayısını değiştirir; silinen günlerin yerleri son güne geçer.
-    func setDays(_ days: Int, city: String) {
+    func setDays(_ days: Int, stop id: UUID) {
         let days = min(max(days, 1), 14)
-        let current = trip(for: city).days
+        let current = trip(stop: id).days
         let message = days < current ? String(localized: "\(current). gün silindi") : nil
-        updateTrip(city, undo: message) { trip in
+        updateTrip(id, undo: message) { trip in
             trip.days = days
             trip.dayOf = (trip.dayOf ?? [:]).mapValues { Self.clamp($0, days: days) }
+            trip.manualDays = trip.manualDays?.filter { $0 < days }
         }
     }
 
-    /// Yeri kullanıcının seçtiği güne taşır.
-    func move(_ place: Place, toDay day: Int) {
-        let trip = self.trip(for: place.city)
-        guard (0..<trip.days).contains(day), let current = dayIndex(of: place), current != day else { return }
-        updateTrip(place.city, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) {
+    /// Yeri kullanıcının seçtiği güne taşır (elle sıralanan günde sona).
+    func move(_ place: Place, toDay day: Int, stop id: UUID) {
+        let trip = self.trip(stop: id)
+        guard (0..<trip.days).contains(day), let current = dayIndex(of: place, stop: id), current != day else { return }
+        updateTrip(id, undo: String(localized: "\(place.name) \(day + 1). güne taşındı")) {
             $0.dayOf = ($0.dayOf ?? [:]).merging([place.id: day]) { $1 }
+            $0.placeIDs.removeAll { $0 == place.id }
+            $0.placeIDs.append(place.id)
+        }
+    }
+
+    /// Basılı tutup sürükleme: yeri `target`ın önüne (yoksa günün sonuna)
+    /// koyar; başka günden geldiyse gününü de değiştirir. Gün artık elle
+    /// sıralanmış sayılır.
+    func reorder(_ place: Place, before target: Place?, day: Int, stop id: UUID) {
+        let trip = self.trip(stop: id)
+        guard trip.placeIDs.contains(place.id), (0..<trip.days).contains(day), target?.id != place.id else { return }
+        var order = dayPlan(stop: id)[day].map(\.id).filter { $0 != place.id }
+        let index = target.flatMap { target in order.firstIndex(of: target.id) } ?? order.count
+        order.insert(place.id, at: index)
+        let from = dayIndex(of: place, stop: id)
+        let message = from == day ? String(localized: "\(place.name) taşındı")
+                                  : String(localized: "\(place.name) \(day + 1). güne taşındı")
+        updateTrip(id, undo: message) { trip in
+            trip.placeIDs = trip.placeIDs.filter { !order.contains($0) } + order
+            trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: day]) { $1 }
+            trip.manualDays = (trip.manualDays ?? []).union([day])
+        }
+    }
+
+    /// Günü yeniden yürüme yoluna göre sıralar (elle sıralamayı bırakır).
+    func orderByWalking(day: Int, stop id: UUID) {
+        updateTrip(id, undo: String(localized: "\(day + 1). gün yürüme sırasına dizildi")) {
+            $0.manualDays?.remove(day)
         }
     }
 
     /// Yerleri rotaya, seçilen güne ekler.
-    func addToPlan(_ ids: [UUID], city: String, day: Int = 0) {
-        let day = Self.clamp(day, days: trip(for: city).days)
-        updateTrip(city, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
-            for id in ids where !trip.placeIDs.contains(id) {
-                trip.placeIDs.append(id)
-                trip.dayOf = (trip.dayOf ?? [:]).merging([id: day]) { $1 }
+    func addToPlan(_ ids: [UUID], stop id: UUID, day: Int = 0) {
+        let day = Self.clamp(day, days: trip(stop: id).days)
+        updateTrip(id, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
+            for placeID in ids where !trip.placeIDs.contains(placeID) {
+                trip.placeIDs.append(placeID)
+                trip.dayOf = (trip.dayOf ?? [:]).merging([placeID: day]) { $1 }
             }
         }
     }
 
-    /// Kayıtlı bir yeri (ör. bir koleksiyondaki) bu şehrin rotasına,
+    /// Kayıtlı bir yeri (ör. bir koleksiyondaki) bu gezi şehrinin rotasına,
     /// seçilen güne ekler; yer koleksiyonlarında da kalır. Yer başka bir
-    /// şehir adıyla kaydedildiyse (ör. semt adıyla) ve rotada değilse bu
-    /// şehre geçer, böylece gün değiştirme ve rotadan çıkarma da çalışır.
-    func plan(_ place: Place, city: String, day: Int) {
-        let day = Self.clamp(day, days: trip(for: city).days)
+    /// şehir adıyla kaydedildiyse (ör. semt adıyla) ve hiçbir rotada
+    /// değilse bu şehre geçer.
+    func plan(_ place: Place, stop id: UUID, day: Int) {
+        guard let city = stop(id)?.stop.city else { return }
+        let day = Self.clamp(day, days: trip(stop: id).days)
         let moves = place.city != city && !isPlanned(place)
-        updateTrip(city, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
+        updateTrip(id, undo: String(localized: "\(day + 1). güne eklendi")) { trip in
             if moves, let index = places.firstIndex(where: { $0.id == place.id }) { places[index].city = city }
             if !trip.placeIDs.contains(place.id) { trip.placeIDs.append(place.id) }
             trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: day]) { $1 }
         }
     }
 
-    func removeFromPlan(_ place: Place) {
-        updateTrip(place.city, undo: String(localized: "\(place.name) rotadan çıkarıldı")) {
+    func removeFromPlan(_ place: Place, stop id: UUID) {
+        updateTrip(id, undo: String(localized: "\(place.name) rotadan çıkarıldı")) {
             $0.placeIDs.removeAll { $0 == place.id }
             $0.dayOf?[place.id] = nil
         }
@@ -209,7 +300,7 @@ final class AppStore: ObservableObject {
 
     /// Gezideki şehirlerin gün sayıları, sırayla.
     func days(of journey: Journey) -> [Int] {
-        journey.stops.map { trip(for: $0.city).days }
+        journey.stops.map { trip(stop: $0.id).days }
     }
 
     /// Şehir hangi gezide (ilk bulunan).
@@ -224,7 +315,49 @@ final class AppStore: ObservableObject {
         let journey = Journey(name: name ?? Journey.defaultName(for: stops.map(\.city)), stops: stops)
         snapshot(String(localized: "\(journey.name) gezisi oluşturuldu"))
         journeys.insert(journey, at: 0)
-        stops.forEach { ensureTrip($0.city) }
+        stops.forEach(ensureTrip)
+        save()
+        return journey.id
+    }
+
+    /// Koleksiyondan yeni gezi: koleksiyonun şehirleri ve yerlerinin
+    /// şehirleri durak olur (koleksiyona ilk eklenen önce); her yer kendi
+    /// şehrinin 1. gününe eklenir (günleri kullanıcı seçer). Yerler
+    /// koleksiyonda da kalır; ülkeler alınmaz.
+    @discardableResult
+    func createJourney(from collectionID: UUID) -> UUID? {
+        guard let collection = collection(collectionID) else { return nil }
+        var stops: [Destination] = []
+        var planned: [String: [UUID]] = [:]
+        // Aynı şehir (ör. "Shibuya" semti ile "Tokyo") tek durak olur.
+        func stopCity(_ choice: CityChoice) -> String {
+            let choice = canonical(choice)
+            if !stops.contains(where: { $0.city == choice.name }) { stops.append(Destination(choice)) }
+            return choice.name
+        }
+        for item in collection.items.reversed() {
+            switch item.kind {
+            case .city:
+                guard let latitude = item.latitude, let longitude = item.longitude else { continue }
+                _ = stopCity(CityChoice(name: item.name, countryCode: item.countryCode, latitude: latitude,
+                                        longitude: longitude, englishTitle: item.englishTitle))
+            case .place:
+                guard let place = item.placeID.flatMap(place), let center = center(of: place.city) else { continue }
+                let city = stopCity(CityChoice(name: place.city, latitude: center.latitude, longitude: center.longitude))
+                if planned[city]?.contains(place.id) != true { planned[city, default: []].append(place.id) }
+            case .country:
+                continue
+            }
+        }
+        guard !stops.isEmpty else { return nil }
+        let journey = Journey(name: collection.name, stops: stops)
+        snapshot(String(localized: "\(journey.name) gezisi oluşturuldu"))
+        journeys.insert(journey, at: 0)
+        for stop in stops {
+            let ids = planned[stop.city] ?? []
+            trips.append(Trip(city: stop.city, days: 2, placeIDs: ids,
+                              dayOf: Dictionary(uniqueKeysWithValues: ids.map { ($0, 0) }), stopID: stop.id))
+        }
         save()
         return journey.id
     }
@@ -239,13 +372,15 @@ final class AppStore: ObservableObject {
             let position = min(max(index ?? journey.stops.count, 0), journey.stops.count)
             journey.stops.insert(contentsOf: stops, at: position)
         }
-        stops.forEach { ensureTrip($0.city) }
+        stops.forEach(ensureTrip)
         save()
     }
 
     func removeStop(_ stopID: UUID, from journeyID: UUID) {
         guard let stop = journey(journeyID)?.stops.first(where: { $0.id == stopID }) else { return }
-        updateJourney(journeyID, undo: String(localized: "\(stop.city) geziden çıkarıldı")) {
+        snapshot(String(localized: "\(stop.city) geziden çıkarıldı"))
+        trips.removeAll { $0.stopID == stopID }
+        updateJourney(journeyID) {
             $0.stops.removeAll { $0.id == stopID }
         }
     }
@@ -266,14 +401,14 @@ final class AppStore: ObservableObject {
         updateJourney(id) { $0.name = name }
     }
 
-    /// Geziyi siler; kayıtlı yerler durur, başka gezide olmayan şehirlerin
-    /// planı (günler) silinir. Geri alınabilir.
+    /// Geziyi ve şehirlerinin planlarını (günler) siler; kayıtlı yerler
+    /// durur. Geri alınabilir.
     func deleteJourney(_ id: UUID) {
         guard let journey = self.journey(id) else { return }
         snapshot(String(localized: "\(journey.name) silindi"))
         journeys.removeAll { $0.id == id }
-        let stillPlanned = Set(journeys.flatMap(\.stops).map(\.city))
-        trips.removeAll { trip in journey.stops.contains { $0.city == trip.city } && !stillPlanned.contains(trip.city) }
+        let stopIDs = Set(journey.stops.map(\.id))
+        trips.removeAll { $0.stopID.map(stopIDs.contains) ?? false }
         save()
     }
 
@@ -326,14 +461,15 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Şehrin planı yoksa boş bir plan açar (2 gün).
-    private func ensureTrip(_ city: String) {
-        if !trips.contains(where: { $0.city == city }) {
-            trips.append(Trip(city: city, days: 2, pace: .normal, placeIDs: [], dayOf: [:]))
+    /// Gezi şehrinin planı yoksa boş bir plan açar (2 gün).
+    private func ensureTrip(_ stop: Destination) {
+        if !trips.contains(where: { $0.stopID == stop.id }) {
+            trips.append(Trip(city: stop.city, days: 2, stopID: stop.id))
         }
     }
 
-    /// Planı olan her şehir bir gezide görünsün: yoksa tek şehirlik gezi açılır.
+    /// Eski kayıtlarda planı olan her şehir bir gezide görünsün: yoksa tek
+    /// şehirlik gezi açılır.
     private func addJourneyIfMissing(for city: String) {
         guard journey(containing: city) == nil, let center = center(of: city) else { return }
         journeys.append(Journey(name: city, stops: [
@@ -358,16 +494,16 @@ final class AppStore: ObservableObject {
 
     // MARK: - Yerler
 
-    /// Yeni yeri kaydeder; `plan` doğruysa rotaya, seçilen güne de ekler.
-    func add(_ place: Place, plan: Bool, day: Int = 0) {
+    /// Yeni yeri kaydeder; `plan` verilirse o gezi şehrinin rotasına,
+    /// seçilen güne de ekler.
+    func add(_ place: Place, plan stopID: UUID? = nil, day: Int = 0) {
         snapshot(String(localized: "\(place.name) eklendi"))
         places.append(place)
-        if plan {
-            var trip = self.trip(for: place.city)
+        if let stopID {
+            var trip = self.trip(stop: stopID)
             trip.placeIDs.append(place.id)
             trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: Self.clamp(day, days: trip.days)]) { $1 }
             replace(trip)
-            addJourneyIfMissing(for: place.city)
         }
         save()
     }
@@ -557,17 +693,17 @@ final class AppStore: ObservableObject {
 
     // MARK: - Yardımcılar
 
-    private func updateTrip(_ city: String, undo message: String? = nil, _ change: (inout Trip) -> Void) {
+    private func updateTrip(_ stopID: UUID, undo message: String? = nil, _ change: (inout Trip) -> Void) {
+        guard stop(stopID) != nil else { return }
         if let message { snapshot(message) }
-        var trip = self.trip(for: city)
+        var trip = self.trip(stop: stopID)
         change(&trip)
         replace(trip)
-        addJourneyIfMissing(for: city)
         save()
     }
 
     private func replace(_ trip: Trip) {
-        if let index = trips.firstIndex(where: { $0.city == trip.city }) {
+        if let index = trips.firstIndex(where: { $0.stopID == trip.stopID }) {
             trips[index] = trip
         } else {
             trips.append(trip)
@@ -601,6 +737,26 @@ final class AppStore: ObservableObject {
                 addJourneyIfMissing(for: trip.city)
             }
         }
+        attachPlansToStops()
+    }
+
+    /// Planlar eskiden şehre bağlıydı (aynı şehir iki gezide aynı planı
+    /// paylaşıyordu); artık her gezinin şehri kendi planını tutar. Eski
+    /// plan, o şehri içeren her gezi şehrine bir kez kopyalanır.
+    private func attachPlansToStops() {
+        let legacy = trips.filter { $0.stopID == nil }
+        guard !legacy.isEmpty || journeys.flatMap(\.stops).contains(where: { stop in
+            !trips.contains { $0.stopID == stop.id }
+        }) else { return }
+        for trip in legacy where !trip.placeIDs.isEmpty { addJourneyIfMissing(for: trip.city) }
+        var attached = trips.filter { $0.stopID != nil }
+        for stop in journeys.flatMap(\.stops) where !attached.contains(where: { $0.stopID == stop.id }) {
+            var trip = legacy.first { $0.city == stop.city } ?? Trip(city: stop.city, days: 2)
+            trip.stopID = stop.id
+            attached.append(trip)
+        }
+        trips = attached
+        save()
     }
 
     private func save() {

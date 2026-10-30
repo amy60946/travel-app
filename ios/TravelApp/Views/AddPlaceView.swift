@@ -14,8 +14,10 @@ import SwiftUI
 ///   koleksiyonlar. Şehir yalnızca aramanın ve popüler yerlerin merkezi.
 struct AddPlaceView: View {
     let city: String
-    /// Genel arama: yer bir rotaya değil, eklerken seçilen yere gider.
-    let general: Bool
+    /// Yerlerin ekleneceği gezi şehri; yoksa genel arama (yer bir rotaya
+    /// değil, eklerken seçilen yere gider).
+    let stop: UUID?
+    private var general: Bool { stop == nil }
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var importer = PlaceImporter()
@@ -35,9 +37,9 @@ struct AddPlaceView: View {
     /// Genel aramada kaydedilen yer: "Nereye eklensin?" penceresi.
     @State private var destination: Place?
 
-    init(city: String, day: Int = 0, general: Bool = false) {
+    init(city: String, stop: UUID? = nil, day: Int = 0) {
         self.city = city
-        self.general = general
+        self.stop = stop
         _day = State(initialValue: day)
     }
 
@@ -45,9 +47,13 @@ struct AddPlaceView: View {
         store.center(of: city) ?? CLLocationCoordinate2D(latitude: 35.68, longitude: 139.76)
     }
 
+    private func isPlanned(_ place: Place) -> Bool {
+        stop.map { store.isPlanned(place, stop: $0) } ?? false
+    }
+
     /// Şehirdeki kayıtlar; rotada olmayanlar önce.
     private var saved: [Place] {
-        store.places(in: city).sorted { !store.isPlanned($0, in: city) && store.isPlanned($1, in: city) }
+        store.places(in: city).sorted { !isPlanned($0) && isPlanned($1) }
     }
 
     var body: some View {
@@ -120,7 +126,7 @@ struct AddPlaceView: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(Theme.sheetRadius)
         }
-        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, day: day, plans: !general) }
+        .sheet(isPresented: $showCustom) { CustomPlaceView(city: city, stop: stop, day: day) }
         .sheet(item: $destination) { place in SaveToCollectionSheet(item: .place(place), place: place) }
         .sheet(isPresented: $showCamera) { CameraAddView() }
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
@@ -147,7 +153,7 @@ struct AddPlaceView: View {
     /// Hangi güne ekleneceği; tek günlük gezide görünmez.
     @ViewBuilder
     private var dayMenu: some View {
-        let days = store.trip(for: city).days
+        let days = stop.map { store.trip(stop: $0).days } ?? 1
         if days > 1 {
             Menu {
                 Picker("Gün", selection: $day) {
@@ -306,18 +312,20 @@ struct AddPlaceView: View {
     /// eklemeye engel değil.
     private func isAdded(_ saved: Place?) -> Bool {
         guard let saved else { return false }
-        return general || store.isPlanned(saved, in: city)
+        return general || isPlanned(saved)
     }
 
     /// Kayıtlı yerin "+" / ✓ düğmesi: genel aramada "Nereye eklensin?",
     /// şehir planında rotaya ekler ya da rotadan çıkarır.
     private func toggle(_ place: Place) {
-        if general {
+        guard let stop else {
             destination = place
-        } else if store.isPlanned(place, in: city) {
-            store.removeFromPlan(place)
+            return
+        }
+        if store.isPlanned(place, stop: stop) {
+            store.removeFromPlan(place, stop: stop)
         } else {
-            store.plan(place, city: city, day: day)
+            store.plan(place, stop: stop, day: day)
         }
     }
 
@@ -354,7 +362,7 @@ struct AddPlaceView: View {
     }
 
     private func save(_ place: Place) {
-        store.add(place, plan: !general, day: day)
+        store.add(place, plan: stop, day: day)
         if general { destination = place }
     }
 }

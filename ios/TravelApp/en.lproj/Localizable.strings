@@ -454,3 +454,24 @@
 "Profil" = "Profile";
 "Tüm kayıtlarım" = "All my saves";
 "Geziler" = "Trips";
+
+/* Her gezinin kendi planı, gün listesi, koleksiyondan gezi (2026-10-30) */
+"Senin sıran. Sırayı değiştirmek için basılı tutup sürükle." = "Your order. Touch and hold, then drag to reorder.";
+"Yürüme sırası. Sırayı değiştirmek için basılı tutup sürükle." = "Walking order. Touch and hold, then drag to reorder.";
+"Boş gün" = "Empty day";
+"Yürüme sırasına diz" = "Sort by walking route";
+"%lld. gün yürüme sırasına dizildi" = "Day %lld sorted by walking route";
+"%@ taşındı" = "%@ moved";
+"Not ekle" = "Add note";
+"Notu düzenle" = "Edit note";
+"Yukarı taşı" = "Move up";
+"Aşağı taşı" = "Move down";
+"Güne taşı" = "Move to day";
+"Yeri düzenle" = "Edit place";
+"Ad" = "Name";
+"Ör. Sabah erken git, sıra oluyor" = "E.g. Go early, there's a queue";
+"Yalnızca sen görürsün." = "Only you can see this.";
+"Bu yer için kendine not yaz" = "Write yourself a note about this place";
+"Koleksiyonundan başla" = "Start from a collection";
+"Bu koleksiyonun yerleriyle yeni gezi oluştur" = "Create a new trip with this collection's places";
+"%lld yer · %lld şehir" = "%1$lld places · %2$lld cities";

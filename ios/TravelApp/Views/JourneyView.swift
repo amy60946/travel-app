@@ -106,7 +106,7 @@ struct JourneyView: View {
     private func map(_ journey: Journey) -> some View {
         let markers = journey.stops.enumerated().map { index, stop in
             GoogleMap.Marker(id: stop.id.uuidString, coordinate: stop.coordinate, key: "\(index + 1)",
-                             onTap: { path.append(.city(stop.city)) }) {
+                             onTap: { path.append(.plan(stop.id)) }) {
                 DayBadge(number: index + 1, size: 30).padding(8)
             }
         }
@@ -183,10 +183,10 @@ struct JourneyView: View {
 
     private func stopCard(_ stop: Destination, index: Int, count: Int,
                           range: ClosedRange<Int>, days: Int) -> some View {
-        let planned = store.trip(for: stop.city).placeIDs.count
+        let planned = store.trip(stop: stop.id).placeIDs.count
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                Button { path.append(.city(stop.city)) } label: {
+                Button { path.append(.plan(stop.id)) } label: {
                     HStack(spacing: 14) {
                         CityPhoto(name: stop.city, englishTitle: stop.englishTitle,
                                   cover: store.cities.first { $0.name == stop.city }?.coverPlace)
@@ -214,7 +214,7 @@ struct JourneyView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                DayStepper(days: days) { store.setDays($0, city: stop.city) }
+                DayStepper(days: days) { store.setDays($0, stop: stop.id) }
             }
 
             ForEach(stop.stays) { stay in stayRow(stay, stop: stop) }
@@ -244,7 +244,7 @@ struct JourneyView: View {
     /// Polarsteps'teki "+" menüsü: yer, konaklama, uçuş, sonrasına şehir.
     private func addMenu(_ stop: Destination, index: Int) -> some View {
         Menu {
-            Button { sheet = .addPlace(stop.city) } label: {
+            Button { sheet = .addPlace(stop) } label: {
                 Label("Yer ekle", systemImage: "mappin.and.ellipse")
             }
             Button { sheet = .stay(stop.id) } label: {
@@ -329,7 +329,7 @@ struct JourneyView: View {
         case .addCity(let index): NewTripView(mode: .add(journeyID: journeyID, index: index + 1))
         case .flight(let stopID): FlightSheet(journeyID: journeyID, stopID: stopID)
         case .stay(let stopID): StaySheet(journeyID: journeyID, stopID: stopID)
-        case .addPlace(let city): AddPlaceView(city: city)
+        case .addPlace(let stop): AddPlaceView(city: stop.city, stop: stop.id)
         }
     }
 
@@ -365,14 +365,14 @@ private enum JourneySheet: Identifiable {
     case addCity(after: Int)
     case flight(UUID)
     case stay(UUID)
-    case addPlace(String)
+    case addPlace(Destination)
 
     var id: String {
         switch self {
         case .addCity(let index): "city-\(index)"
         case .flight(let id): "flight-\(id)"
         case .stay(let id): "stay-\(id)"
-        case .addPlace(let city): "place-\(city)"
+        case .addPlace(let stop): "place-\(stop.id)"
         }
     }
 }
@@ -638,7 +638,7 @@ struct StaySheet: View {
 
     private func add(name: String, coordinate: CLLocationCoordinate2D?) {
         guard let stop, !name.isEmpty else { return }
-        let nights = max(store.trip(for: stop.city).days - 1, 1)
+        let nights = max(store.trip(stop: stopID).days - 1, 1)
         store.addStay(Stay(name: name, latitude: coordinate?.latitude, longitude: coordinate?.longitude, nights: nights),
                       stop: stopID, in: journeyID)
         dismiss()

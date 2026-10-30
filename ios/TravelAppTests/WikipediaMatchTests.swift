@@ -15,6 +15,23 @@ final class WikipediaMatchTests: XCTestCase {
         XCTAssertFalse(WikipediaService.matches(title: "Zōjō-ji", name: "Blue Bottle Coffee", city: "Tokyo"))
     }
 
+    /// Listedeki fotoğraf yeri anlatmalı: kavşak istasyonla, sokak
+    /// istasyonla eşleşmez; yakındaki fotoğraf dosya adında yerin adı
+    /// geçiyorsa alınır.
+    func testPhotoMatchingRespectsPlaceKind() {
+        XCTAssertFalse(WikipediaService.matches(title: "Shibuya Station", name: "Shibuya Kavşağı", city: "Tokyo"))
+        XCTAssertTrue(WikipediaService.matches(title: "Shibuya Crossing", name: "Shibuya Kavşağı", city: "Tokyo"))
+        XCTAssertTrue(WikipediaService.matches(title: "Takeshita Street", name: "Takeshita Sokağı", city: "Tokyo"))
+        XCTAssertFalse(WikipediaService.matches(title: "Harajuku Station", name: "Takeshita Sokağı", city: "Tokyo"))
+        XCTAssertTrue(WikipediaService.fileMatches("File:Shibuya Crossing at night.jpg", name: "Shibuya Kavşağı",
+                                                   city: "Tokyo"))
+        XCTAssertFalse(WikipediaService.fileMatches("File:Tokyo street 2019.jpg", name: "BOHO CO. COFFEE", city: "Tokyo"))
+        XCTAssertFalse(WikipediaService.fileMatches("File:Coffee shop in Tokyo.jpg", name: "BOHO CO. COFFEE",
+                                                    city: "Tokyo"))
+        XCTAssertTrue(WikipediaService.fileMatches("File:Boho coffee Bulgurlu.jpg", name: "BOHO CO. COFFEE",
+                                                   city: "İstanbul"))
+    }
+
     func testArticleSectionsSkipReferencesAndKeepSubheadings() {
         let extract = """
         Çırağan Palace is a former Ottoman palace.

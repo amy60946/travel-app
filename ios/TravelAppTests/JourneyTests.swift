@@ -44,7 +44,7 @@ final class JourneyTests: XCTestCase {
         XCTAssertTrue(store.cities.contains { $0.name == "Ankara" && $0.placeCount == 0 })
         XCTAssertNotNil(store.center(of: "Ankara"))
 
-        store.setDays(3, city: "İstanbul")
+        store.setDays(3, stop: journey.stops[0].id)
         let updated = try XCTUnwrap(store.journey(id))
         XCTAssertEqual(Journey.dayRanges(days: store.days(of: updated)), [1...3, 4...5, 6...7])
 
