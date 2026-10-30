@@ -548,7 +548,10 @@ struct CityPlanView: View {
     /// ve ilk yeri notlu gösterir; `editPlace` yeri düzenleme penceresini açar.
     private func openLaunchScreen() async {
         #if DEBUG
-        guard !Self.openedLaunchScreen else { return }
+        // Ekran yerleşsin; açılışta yeniden kurulan görünüm (iptal edilen
+        // görev) sırayı kullanmasın.
+        try? await Task.sleep(for: .seconds(1))
+        guard !Task.isCancelled, !Self.openedLaunchScreen else { return }
         Self.openedLaunchScreen = true
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
@@ -564,7 +567,6 @@ struct CityPlanView: View {
             store.dismissUndo()
             if screen == "reorder" { panelStop = Self.panelStops.count - 1 }
             if screen == "editPlace", let place = store.place(last.id) {
-                try? await Task.sleep(for: .seconds(1))
                 editsNote = false
                 editing = place
             }

@@ -148,8 +148,8 @@ struct RootView: View {
         switch screen {
         case "trips": _ = demoJourney()
         case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
-        case "newTrip": sheet = .newTrip
-        case "newTripCollection": _ = demoCollection(); sheet = .newTrip
+        case "newTrip": present(.newTrip)
+        case "newTripCollection": _ = demoCollection(); present(.newTrip)
         case "tripFromCollection":
             if let id = store.createJourney(from: demoCollection()) {
                 store.dismissUndo()
@@ -183,17 +183,26 @@ struct RootView: View {
             }
         case "place": if let firstPlace { path = [.plan(stop), .place(firstPlace.id)] }
         case "walk": path = [.plan(stop), .walk(stop: stop, day: 0)]
-        case "add", "addSearch": sheet = .addPlace(city: city, stop: stop)
-        case "search", "searchSave": sheet = .search(city: city)
-        case "import": sheet = .importData
-        case "camera": sheet = .camera
-        case "custom": sheet = .customPlace(city: city)
+        case "add", "addSearch": present(.addPlace(city: city, stop: stop))
+        case "search", "searchSave": present(.search(city: city))
+        case "import": present(.importData)
+        case "camera": present(.camera)
+        case "custom": present(.customPlace(city: city))
         default: break
         }
         #endif
     }
 
     #if DEBUG
+    /// Açılışta pencere, ana sayfa yerleştikten sonra açılsın (hemen
+    /// açılınca bazen hiç görünmüyordu).
+    private func present(_ launchSheet: AddSheet) {
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            sheet = launchSheet
+        }
+    }
+
     /// Ekran görüntüleri için örnek koleksiyonlar (yerler, şehir, ülkeler).
     private func demoCollection() -> UUID {
         if let existing = store.collections.first(where: { $0.name == "Tokyo favorileri" }) { return existing.id }
