@@ -61,10 +61,8 @@ struct PlaceEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Ad") {
+                Section {
                     TextField("Yerin adı", text: $name)
-                }
-                Section("Tür") {
                     Picker("Tür", selection: $category) {
                         ForEach(PlaceCategory.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
                     }
@@ -90,6 +88,8 @@ struct PlaceEditor: View {
             .onAppear { if focusesNote { noteFocused = true } }
         }
         .presentationDetents([.medium, .large])
+        // Arkadaki liste formun içinden görünmesin.
+        .presentationBackground(Color(.systemGroupedBackground))
         .presentationCornerRadius(Theme.sheetRadius)
     }
 
