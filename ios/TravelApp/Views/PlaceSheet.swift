@@ -8,6 +8,8 @@ import SwiftUI
 /// hep görünür ve kullanılabilir.
 struct PlaceSheet: View {
     let placeID: UUID
+    /// Şehir planından açıldıysa o gezi şehri (gün düğmesi onun günü).
+    var stop: UUID?
     let onOpen: (Place) -> Void
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -26,6 +28,7 @@ struct PlaceSheet: View {
     @State private var guidance: GuidanceDestination?
     /// Google'dan puan, saatler, telefon, yorumlar (ve Wikipedia'da yoksa fotoğraflar).
     @State private var google: GooglePlaces.Details?
+    @State private var editsNote = false
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -55,6 +58,7 @@ struct PlaceSheet: View {
                 } else {
                     photoStrip(place)
                 }
+                PlaceNoteCard(note: place.note) { editsNote = true }
                 about(place)
                 if let google { GooglePlaceInfo(details: google, showsRating: false, showsPhotos: false) }
             }
@@ -71,6 +75,7 @@ struct PlaceSheet: View {
             PhotoViewer(photos: photos, index: viewerIndex ?? 0)
         }
         .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
+        .sheet(isPresented: $editsNote) { PlaceEditor(place: place, focusesNote: true) }
     }
 
     private func header(_ place: Place) -> some View {
@@ -99,7 +104,7 @@ struct PlaceSheet: View {
     /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle"), Aç, Yol tarifi.
     private func actions(_ place: Place) -> some View {
         HStack(spacing: 8) {
-            PlanDayButton(place: place)
+            PlanDayButton(place: place, stop: stop)
             SecondaryButton(title: "Aç", systemImage: "arrow.up.right") { onOpen(place) }
             DirectionsButton { guidance = GuidanceDestination(place: place) }
         }
@@ -179,12 +184,6 @@ struct PlaceSheet: View {
             Text("Bu yer hakkında Wikipedia'da yazı bulunamadı.")
                 .font(Theme.font(14))
                 .foregroundStyle(Theme.muted)
-        }
-        if !place.note.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Notun").font(Theme.headline)
-                Text(place.note).font(Theme.body)
-            }
         }
     }
 

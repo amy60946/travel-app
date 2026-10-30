@@ -3,8 +3,10 @@ import SwiftUI
 
 /// Yeni gezi (Polarsteps "Where do you want to go?"): şehir ya da ülke ara;
 /// seçilen şehirler üstte hap olarak durur, kayıtlı şehirlerin "+" ile
-/// eklenir. Ülkeye dokununca o ülkenin şehirleri açılır. Var olan geziye
-/// şehir eklerken de bu ekran açılır ("Sıradaki durağın neresi?").
+/// eklenir. Ülkeye dokununca o ülkenin şehirleri açılır. "Koleksiyonundan
+/// başla" bir koleksiyonun şehirleri ve yerleriyle hazır gezi oluşturur.
+/// Var olan geziye şehir eklerken de bu ekran açılır ("Sıradaki durağın
+/// neresi?").
 struct NewTripView: View {
     enum Mode: Equatable {
         case new
@@ -35,6 +37,7 @@ struct NewTripView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
+                            if mode == .new { collections }
                             savedCities
                         } else {
                             results
@@ -132,6 +135,39 @@ struct NewTripView: View {
             .padding(.top, 10)
     }
 
+    /// Koleksiyondan gezi: koleksiyonun şehirleri durak, yerleri o şehrin
+    /// 1. gününde olur; günleri sonra kullanıcı seçer.
+    @ViewBuilder
+    private var collections: some View {
+        let usable = store.collections.filter { collection in collection.items.contains { $0.kind != .country } }
+        if !usable.isEmpty {
+            SectionTitle("Koleksiyonundan başla")
+            ForEach(usable) { collection in
+                Button { start(from: collection) } label: {
+                    ResultRow(title: collection.name, subtitle: collectionSubtitle(collection)) {
+                        CollectionCover(collection: collection)
+                    } trailing: {
+                        Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(Text("Bu koleksiyonun yerleriyle yeni gezi oluştur"))
+            }
+        }
+    }
+
+    private func collectionSubtitle(_ collection: PlaceCollection) -> String {
+        let places = collection.spots.count
+        let cities = Set(collection.items.compactMap { item -> String? in
+            switch item.kind {
+            case .city: item.name
+            case .place: item.placeID.flatMap { store.place($0) }?.city
+            case .country: nil
+            }
+        }).count
+        return String(localized: "\(places) yer · \(cities) şehir")
+    }
+
     /// Kayıtlı yerlerin olduğu şehirler (geziye eklenmiş olanlar hariç).
     @ViewBuilder
     private var savedCities: some View {
@@ -195,6 +231,12 @@ struct NewTripView: View {
         guard let choice else { return }
         if !isPicked(choice) { toggle(choice) }
         search.query = ""
+    }
+
+    private func start(from collection: PlaceCollection) {
+        guard let id = store.createJourney(from: collection.id) else { return }
+        dismiss()
+        onCreated(id)
     }
 
     private func finish() {

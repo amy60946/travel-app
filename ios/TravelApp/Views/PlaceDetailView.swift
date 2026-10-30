@@ -11,6 +11,7 @@ struct PlaceDetailView: View {
     @State private var article: WikipediaService.Article?
     @State private var isLoading = true
     @State private var google: GooglePlaces.Details?
+    @State private var editsNote = false
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -73,12 +74,7 @@ struct PlaceDetailView: View {
                         ProgressView()
                     }
 
-                    if !place.note.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Notun").font(Theme.headline)
-                            Text(place.note).font(Theme.body)
-                        }
-                    }
+                    PlaceNoteCard(note: place.note) { editsNote = true }
 
                     if let google { GooglePlaceInfo(details: google) }
 
@@ -97,6 +93,7 @@ struct PlaceDetailView: View {
         .ignoresSafeArea(edges: .top)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom) { bottomBar(place) }
+        .sheet(isPresented: $editsNote) { PlaceEditor(place: place, focusesNote: true) }
         .task(id: place.wikipediaTitle) {
             isLoading = true
             if let title = place.wikipediaTitle {

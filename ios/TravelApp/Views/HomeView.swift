@@ -161,7 +161,7 @@ struct HomeView: View {
                 let photo = city.coverPlace.flatMap { pinPhotos.image(for: $0) }
                 return GoogleMap.Marker(id: "city-\(city.name)", coordinate: city.coordinate,
                                         key: "\(city.name)|\(city.placeCount)|\(city.hasTrip)|\(photo.map { "\($0.hash)" } ?? "-")",
-                                        anchorsBottom: true, onTap: { path.append(.city(city.name)) }) {
+                                        anchorsBottom: true, onTap: { open(city) }) {
                     CityPin(city: city, photo: photo).padding(6)
                 }
             }
@@ -172,6 +172,16 @@ struct HomeView: View {
             return GoogleMap.Marker.place(place, size: selected ? 42 : 32,
                                           photo: pinStyle == .photo ? pinPhotos.image(for: place) : nil,
                                           showsTitle: titles || selected, zIndex: selected ? 1 : 0) { select(place) }
+        }
+    }
+
+    /// Şehir pini: şehrin geçtiği ilk gezinin planı; gezide değilse harita
+    /// şehre yaklaşır (kayıtlı yerleri görünür).
+    private func open(_ city: AppStore.CitySummary) {
+        if let ref = store.stops(in: city.name).first {
+            path.append(.plan(ref.id))
+        } else {
+            mapFocus = .point(city.coordinate, zoom: 12, animated: true)
         }
     }
 
@@ -224,7 +234,7 @@ struct HomeView: View {
     private func journeyRow(_ journey: Journey) -> some View {
         let first = journey.stops.first
         let days = store.days(of: journey).reduce(0, +)
-        let planned = journey.stops.reduce(0) { $0 + store.trip(for: $1.city).placeIDs.count }
+        let planned = journey.stops.reduce(0) { $0 + store.trip(stop: $1.id).placeIDs.count }
         return HStack(spacing: 14) {
             CityPhoto(name: first?.city ?? "", englishTitle: first?.englishTitle,
                       cover: store.cities.first { $0.name == first?.city }?.coverPlace)

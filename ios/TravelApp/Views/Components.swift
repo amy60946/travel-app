@@ -106,31 +106,49 @@ struct SecondaryLabel: View {
 
 /// Yerin rotadaki günü tek düğmede. Rotadaysa "2. gün ⌄": menüden başka
 /// güne taşınır ya da rotadan çıkarılır. Değilse "Rotaya ekle"; birden çok
-/// gün varsa hangi güne ekleneceği sorulur.
+/// gün varsa hangi güne ekleneceği sorulur. Şehir planı dışında (ana
+/// harita, koleksiyon) yerin bulunduğu gezi kullanılır; hiçbir gezide
+/// değilse "Nereye eklensin?" penceresi açılır.
 struct PlanDayButton: View {
     let place: Place
+    /// Bakılan gezi şehri (şehir planından açılınca).
+    var stop: UUID?
     @EnvironmentObject private var store: AppStore
+    @State private var choosesTrip = false
+
+    private var slot: AppStore.PlanSlot? {
+        guard let stop else { return store.plans(containing: place).first }
+        guard let ref = store.stop(stop), let day = store.dayIndex(of: place, stop: stop) else { return nil }
+        return AppStore.PlanSlot(ref: ref, day: day)
+    }
 
     var body: some View {
-        let days = store.trip(for: place.city).days
-        if let current = store.dayIndex(of: place) {
+        // Pencere düğmenin dışında: yer geziye eklenince düğme değişse de açık kalır.
+        button.sheet(isPresented: $choosesTrip) { SaveToCollectionSheet(item: .place(place), place: place) }
+    }
+
+    @ViewBuilder
+    private var button: some View {
+        if let slot {
+            let days = store.trip(stop: slot.ref.id).days
             Menu {
-                Picker("Gün", selection: Binding(get: { current }, set: { store.move(place, toDay: $0) })) {
+                Picker("Gün", selection: Binding(get: { slot.day },
+                                                 set: { store.move(place, toDay: $0, stop: slot.ref.id) })) {
                     ForEach(0..<days, id: \.self) { Text("\($0 + 1). gün").tag($0) }
                 }
                 .pickerStyle(.inline)
-                Button(role: .destructive) { store.removeFromPlan(place) } label: {
+                Button(role: .destructive) { store.removeFromPlan(place, stop: slot.ref.id) } label: {
                     Label("Rotadan çıkar", systemImage: "minus.circle")
                 }
             } label: {
-                SecondaryLabel(title: "\(current + 1). gün", systemImage: "calendar", showsChevron: true)
+                SecondaryLabel(title: "\(slot.day + 1). gün", systemImage: "calendar", showsChevron: true)
             }
             .menuOrder(.fixed)
             .accessibilityHint(Text("Günü değiştir"))
-        } else if days > 1 {
+        } else if let stop, store.trip(stop: stop).days > 1 {
             Menu {
-                ForEach(0..<days, id: \.self) { day in
-                    Button("\(day + 1). güne ekle") { store.addToPlan([place.id], city: place.city, day: day) }
+                ForEach(0..<store.trip(stop: stop).days, id: \.self) { day in
+                    Button("\(day + 1). güne ekle") { store.plan(place, stop: stop, day: day) }
                 }
             } label: {
                 PrimaryLabel(title: "Rotaya ekle", systemImage: "plus")
@@ -138,7 +156,11 @@ struct PlanDayButton: View {
             .menuOrder(.fixed)
         } else {
             PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
-                store.addToPlan([place.id], city: place.city)
+                if let stop {
+                    store.plan(place, stop: stop, day: 0)
+                } else {
+                    choosesTrip = true
+                }
             }
         }
     }
