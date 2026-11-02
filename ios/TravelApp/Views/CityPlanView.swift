@@ -335,6 +335,8 @@ struct CityPlanView: View {
                 .font(Theme.caption)
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
+                // "5 durak · 8,6 km · yaklaşık 12 sa 55 dk" kesilmesin.
+                .minimumScaleFactor(0.75)
             }
             Spacer(minLength: 4)
             Button { openAddPlace() } label: {
