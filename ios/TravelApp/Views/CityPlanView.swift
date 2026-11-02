@@ -1,15 +1,19 @@
 import MapKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Şehir planı: yalnızca seçili gün görünür. Harita üstte (o günün türüne
 /// göre renkli pinleri, sokaklardan rota), altta o günün yerleri. Gün,
 /// listenin üstündeki tek "1. gün ⌄" düğmesinden değiştirilir; oradaki
 /// "Tüm yerler" şehrin bütün yerlerini (köşede gün numarasıyla) gösterir. Bir yere
 /// dokununca harita o yere ve yanındaki yerlere yakınlaşır, alttan yer
-/// penceresi açılır; harita görünür kalır. Yer, penceredeki gün düğmesiyle
-/// ya da listede basılı tutup menüden başka güne taşınır.
+/// penceresi açılır; harita görünür kalır. Listede basılı tutup sürükleyerek
+/// sıra (ve "Tüm yerler"de gün) değişir; basılı tutunca açılan menüde not,
+/// düzenleme, güne taşıma ve rotadan çıkarma var. Her gezinin şehri kendi
+/// planını tutar.
 struct CityPlanView: View {
-    let city: String
+    /// Gezideki şehir (`Destination.id`).
+    let stopID: UUID
     @Binding var path: [Route]
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -31,12 +35,19 @@ struct CityPlanView: View {
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 360
     @State private var screenHeight: CGFloat = 800
+    /// Basılı tutup sürüklenen yer ve bırakılacağı yer (satırın üstü/altı).
+    @State private var draggedID: UUID?
+    @State private var dropSlot: DropSlot?
+    /// Düzenlenen yer (ad, tür, not).
+    @State private var editing: Place?
+    @State private var editsNote = false
     #if DEBUG
     private static var openedLaunchScreen = false
     #endif
 
-    private var days: [[Place]] { store.dayPlan(for: city) }
-    private var trip: Trip { store.trip(for: city) }
+    private var city: String { store.stop(stopID)?.stop.city ?? "" }
+    private var days: [[Place]] { store.dayPlan(stop: stopID) }
+    private var trip: Trip { store.trip(stop: stopID) }
 
     /// Gün seçicide "Tüm yerler".
     private static let allDays = -1
@@ -74,9 +85,10 @@ struct CityPlanView: View {
         .animation(.snappy, value: store.undoMessage)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { $0.view }
+        .sheet(item: $editing) { PlaceEditor(place: $0, focusesNote: editsNote) }
         .sheet(isPresented: Binding(get: { focusedID != nil }, set: { if !$0 { focusedID = nil } })) {
             if let id = focusedID {
-                PlaceSheet(placeID: id) { place in
+                PlaceSheet(placeID: id, stop: stopID) { place in
                     focusedID = nil
                     Task {
                         try? await Task.sleep(for: .milliseconds(350))
@@ -118,7 +130,7 @@ struct CityPlanView: View {
         let markers = shown.map { place in
             GoogleMap.Marker.place(place, size: place.id == focusedID ? 40 : 30,
                                    photo: pinStyle == .photo ? pinPhotos.image(for: place) : nil,
-                                   day: showsAll ? store.dayIndex(of: place) : nil,
+                                   day: showsAll ? store.dayIndex(of: place, stop: stopID) : nil,
                                    showsTitle: showsTitles || place.id == focusedID,
                                    zIndex: place.id == focusedID ? 1 : 0) { focus(place) }
         }
@@ -168,30 +180,56 @@ struct CityPlanView: View {
 
     private func list(_ stops: [Place]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if stops.isEmpty {
-                Text(showsAll ? LocalizedStringKey("Rotada henüz yer yok. Sağ alttaki + ile yer ekle.")
-                              : LocalizedStringKey("Bu gün boş. Sağ alttaki + ile yer ekle."))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.muted)
-                    .padding(.vertical, 14)
-            }
             if showsAll {
+                // Bütün günler (boş günler de): yer başka günün başlığına
+                // sürüklenince o günün sonuna geçer.
                 ForEach(Array(days.enumerated()), id: \.offset) { index, places in
-                    if !places.isEmpty {
-                        Text("\(index + 1). gün")
-                            .font(Theme.font(13, .bold))
-                            .foregroundStyle(Theme.muted)
-                            .padding(.top, 14)
-                            .padding(.bottom, 2)
-                        ForEach(places) { place in row(place) }
-                    }
+                    dayHeader(index, isEmpty: places.isEmpty)
+                    ForEach(places) { place in row(place, day: index) }
                 }
             } else {
-                ForEach(stops) { place in row(place) }
+                if stops.isEmpty {
+                    Text("Bu gün boş. Sağ alttaki + ile yer ekle.")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.muted)
+                        .padding(.vertical, 14)
+                } else if stops.count > 1 {
+                    Text(store.isManuallyOrdered(day: selectedDay, stop: stopID)
+                         ? LocalizedStringKey("Senin sıran. Sırayı değiştirmek için basılı tutup sürükle.")
+                         : LocalizedStringKey("Yürüme sırası. Sırayı değiştirmek için basılı tutup sürükle."))
+                        .font(Theme.font(12))
+                        .foregroundStyle(Theme.muted)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                }
+                ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
+                    row(place, day: selectedDay, number: index + 1)
+                }
             }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
+        .animation(.snappy, value: stops.map(\.id))
+    }
+
+    /// "Tüm yerler"de günün başlığı; üstüne bırakılan yer o güne geçer.
+    private func dayHeader(_ day: Int, isEmpty: Bool) -> some View {
+        let targeted = dropSlot == DropSlot(target: nil, day: day, after: true)
+        return HStack(spacing: 8) {
+            Text("\(day + 1). gün").font(Theme.font(13, .bold)).foregroundStyle(Theme.muted)
+            if isEmpty {
+                Text("Boş gün").font(Theme.font(12)).foregroundStyle(Theme.muted.opacity(0.7))
+            }
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .background(targeted ? Theme.surface : .clear, in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, -8)
+        .padding(.top, 8)
+        .onDrop(of: [.text], delegate: RowDrop(target: nil, day: day, current: $dropSlot) { _ in
+            drop(before: nil, day: day)
+        })
     }
 
     /// Listenin üstünde tek satır: gün seçici, o günün özeti ve Yürü.
@@ -212,7 +250,7 @@ struct CityPlanView: View {
             .lineLimit(1)
             Spacer(minLength: 4)
             if !stops.isEmpty && !showsAll {
-                Button { path.append(.walk(city: city, day: selectedDay)) } label: {
+                Button { path.append(.walk(stop: stopID, day: selectedDay)) } label: {
                     Label("Yürü", systemImage: "figure.walk")
                         .font(Theme.font(14, .semibold))
                         .foregroundStyle(.white)
@@ -245,17 +283,22 @@ struct CityPlanView: View {
             .pickerStyle(.inline)
             Section {
                 Button {
-                    store.setDays(trip.days + 1, city: city)
+                    store.setDays(trip.days + 1, stop: stopID)
                     focusedID = nil
                     selectedDay = trip.days - 1
                 } label: {
                     Label("Gün ekle", systemImage: "plus")
                 }
                 .disabled(trip.days >= 14)
-                Button(role: .destructive) { store.setDays(trip.days - 1, city: city) } label: {
+                Button(role: .destructive) { store.setDays(trip.days - 1, stop: stopID) } label: {
                     Label("Son günü sil", systemImage: "trash")
                 }
                 .disabled(trip.days <= 1)
+            }
+            if !showsAll && store.isManuallyOrdered(day: selectedDay, stop: stopID) {
+                Button { withAnimation(.snappy) { store.orderByWalking(day: selectedDay, stop: stopID) } } label: {
+                    Label("Yürüme sırasına diz", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                }
             }
         } label: {
             HStack(spacing: 6) {
@@ -273,11 +316,24 @@ struct CityPlanView: View {
     }
 
     /// Listede bir yer ("Add a spot" gibi): solda fotoğraf (köşesinde türün
-    /// simgesi), yanında tür ve ad; adını hatırlamayan fotoğraftan tanır.
-    private func row(_ place: Place) -> some View {
-        Button { focus(place) } label: {
+    /// simgesi), yanında tür, ad ve notun; sağda sürükleme tutamağı.
+    /// Basılı tutunca menü açılır; menü açıkken sürükleyince yer taşınır.
+    private func row(_ place: Place, day: Int, number: Int? = nil) -> some View {
+        let slot = dropSlot?.target == place.id ? dropSlot : nil
+        return Button { focus(place) } label: {
             HStack(spacing: 14) {
                 PlaceRowThumbnail(place: place)
+                    .overlay(alignment: .topLeading) {
+                        if let number {
+                            Text("\(number)")
+                                .font(Theme.font(11, .bold))
+                                .foregroundStyle(.white)
+                                .frame(minWidth: 20, minHeight: 20)
+                                .background(Theme.ink, in: Circle())
+                                .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                                .offset(x: -6, y: -6)
+                        }
+                    }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(place.category.title)
                         .font(Theme.font(11, .bold))
@@ -285,31 +341,99 @@ struct CityPlanView: View {
                         .tracking(0.6)
                         .foregroundStyle(place.category.color)
                     Text(place.name).font(Theme.font(16, .semibold)).lineLimit(2)
+                    if !place.note.isEmpty {
+                        Label(place.note, systemImage: "note.text")
+                            .font(Theme.font(13))
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 8)
                 if place.isEstimated { EstimatedTag() }
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.hairline)
+                    .accessibilityHidden(true)
             }
             .padding(.vertical, 7)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .contextMenu {
-            ForEach(0..<trip.days, id: \.self) { target in
-                if target != store.dayIndex(of: place) {
-                    Button { store.move(place, toDay: target) } label: {
-                        Label("\(target + 1). güne taşı", systemImage: "arrow.right.circle")
-                    }
+        .opacity(draggedID == place.id && dropSlot != nil ? 0.4 : 1)
+        .overlay(alignment: slot?.after == true ? .bottom : .top) {
+            if slot != nil {
+                Capsule().fill(Theme.ink).frame(height: 3).offset(y: slot?.after == true ? 2 : -2)
+            }
+        }
+        .onDrag {
+            draggedID = place.id
+            return NSItemProvider(object: place.id.uuidString as NSString)
+        } preview: {
+            HStack(spacing: 10) {
+                PlaceRowThumbnail(place: place, size: 40)
+                Text(place.name).font(Theme.font(15, .semibold)).lineLimit(1)
+            }
+            .padding(10)
+            .background(.white, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .onDrop(of: [.text], delegate: RowDrop(target: place.id, day: day, current: $dropSlot) { after in
+            drop(on: place, day: day, after: after)
+        })
+        .contextMenu { menu(place, day: day) }
+        .accessibilityAction(named: Text("Yukarı taşı")) { shift(place, day: day, by: -1) }
+        .accessibilityAction(named: Text("Aşağı taşı")) { shift(place, day: day, by: 1) }
+    }
+
+    /// Basılı tutunca: not, düzenle, sıra, güne taşı, rotadan çıkar.
+    @ViewBuilder
+    private func menu(_ place: Place, day: Int) -> some View {
+        Button {
+            editsNote = true
+            editing = place
+        } label: {
+            Label(place.note.isEmpty ? LocalizedStringKey("Not ekle") : LocalizedStringKey("Notu düzenle"),
+                  systemImage: "square.and.pencil")
+        }
+        Button {
+            editsNote = false
+            editing = place
+        } label: {
+            Label("Düzenle", systemImage: "pencil")
+        }
+        let list = days.indices.contains(day) ? days[day] : []
+        if list.count > 1 {
+            Section {
+                if list.first?.id != place.id {
+                    Button { shift(place, day: day, by: -1) } label: { Label("Yukarı taşı", systemImage: "arrow.up") }
+                }
+                if list.last?.id != place.id {
+                    Button { shift(place, day: day, by: 1) } label: { Label("Aşağı taşı", systemImage: "arrow.down") }
                 }
             }
-            Divider()
-            Button(role: .destructive) { store.removeFromPlan(place) } label: {
+        }
+        if trip.days > 1 {
+            Section("Güne taşı") {
+                ForEach(0..<trip.days, id: \.self) { target in
+                    Button { move(place, toDay: target) } label: {
+                        if target == day {
+                            Label("\(target + 1). gün", systemImage: "checkmark")
+                        } else {
+                            Text("\(target + 1). gün")
+                        }
+                    }
+                    .disabled(target == day)
+                }
+            }
+        }
+        Section {
+            Button(role: .destructive) { store.removeFromPlan(place, stop: stopID) } label: {
                 Label("Rotadan çıkar", systemImage: "minus.circle")
             }
         }
     }
 
     private var addButton: some View {
-        Button { sheet = .addPlace(city: city, day: max(selectedDay, 0)) } label: {
+        Button { sheet = .addPlace(city: city, stop: stopID, day: max(selectedDay, 0)) } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(.white)
@@ -322,10 +446,43 @@ struct CityPlanView: View {
         .padding(20)
     }
 
+    // MARK: - Sıra ve gün
+
+    /// Sürüklenen yer bir satırın üst ya da alt yarısına bırakıldı.
+    private func drop(on target: Place, day: Int, after: Bool) {
+        let list = days.indices.contains(day) ? days[day] : []
+        guard target.id != draggedID, let index = list.firstIndex(where: { $0.id == target.id }) else {
+            draggedID = nil
+            return
+        }
+        let next = list[(index + 1)...].first { $0.id != draggedID }
+        drop(before: after ? next : target, day: day)
+    }
+
+    /// Sürüklenen yeri `target`ın önüne (yoksa günün sonuna) koyar.
+    private func drop(before target: Place?, day: Int) {
+        defer { draggedID = nil }
+        guard let id = draggedID, let place = store.place(id), target?.id != id else { return }
+        withAnimation(.snappy) { store.reorder(place, before: target, day: day, stop: stopID) }
+    }
+
+    /// Menüden (ya da VoiceOver ile) bir yukarı / bir aşağı.
+    private func shift(_ place: Place, day: Int, by offset: Int) {
+        let list = days.indices.contains(day) ? days[day] : []
+        guard let index = list.firstIndex(where: { $0.id == place.id }), list.indices.contains(index + offset) else { return }
+        let before: Place? = offset < 0 ? list[index + offset]
+                                        : list.indices.contains(index + offset + 1) ? list[index + offset + 1] : nil
+        withAnimation(.snappy) { store.reorder(place, before: before, day: day, stop: stopID) }
+    }
+
+    private func move(_ place: Place, toDay day: Int) {
+        withAnimation(.snappy) { store.move(place, toDay: day, stop: stopID) }
+    }
+
     // MARK: - Odak ve rota
 
     private func focus(_ place: Place) {
-        if !showsAll, let day = store.dayIndex(of: place) { selectedDay = day }
+        if !showsAll, let day = store.dayIndex(of: place, stop: stopID) { selectedDay = day }
         sheetDetent = .placeHalf
         focusedID = place.id
     }
@@ -346,7 +503,7 @@ struct CityPlanView: View {
     /// Penceredeki gün düğmesiyle taşınan yerin yeni gününe geçer ("Tüm yerler"de kalır).
     private func followFocusedPlace() {
         if showsAll { return }
-        if let id = focusedID, let place = store.place(id), let day = store.dayIndex(of: place) {
+        if let id = focusedID, let place = store.place(id), let day = store.dayIndex(of: place, stop: stopID) {
             selectedDay = day
         } else if selectedDay >= trip.days {
             selectedDay = max(trip.days - 1, 0)
@@ -387,22 +544,41 @@ struct CityPlanView: View {
     /// `movedList` taşıdıktan sonra yeni gününün listesini ve "Geri al"
     /// bildirimini gösterir; `photo` fotoğrafı tam ekran, `sheetTall`
     /// pencereyi uzun açar; `all` bütün yerleri gösterir; `cityTall` listenin
-    /// panelini yukarı çekilmiş gösterir.
+    /// panelini yukarı çekilmiş gösterir; `reorder` 1. günü elle sıralanmış
+    /// ve ilk yeri notlu gösterir; `editPlace` yeri düzenleme penceresini açar.
     private func openLaunchScreen() async {
         #if DEBUG
-        guard !Self.openedLaunchScreen else { return }
+        // Ekran yerleşsin; açılışta yeniden kurulan görünüm (iptal edilen
+        // görev) sırayı kullanmasın.
+        try? await Task.sleep(for: .seconds(1))
+        guard !Task.isCancelled, !Self.openedLaunchScreen else { return }
         Self.openedLaunchScreen = true
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         let all = days.flatMap { $0 }
         if screen == "all" { selectedDay = Self.allDays }
         if screen == "cityTall" { panelStop = Self.panelStops.count - 1 }
+        if screen == "reorder" || screen == "editPlace", let firstDay = days.first, firstDay.count > 1,
+           let last = firstDay.last {
+            store.reorder(last, before: firstDay.first, day: 0, stop: stopID)
+            if var noted = store.place(last.id) {
+                noted.note = "Sabah erken git, sıra oluyor"
+                store.update(noted)
+            }
+            store.dismissUndo()
+            if screen == "reorder" { panelStop = Self.panelStops.count - 1 }
+            if screen == "editPlace", let place = store.place(last.id) {
+                editsNote = false
+                editing = place
+            }
+            return
+        }
         guard ["spot", "moved", "movedList", "photo", "sheetTall", "listen"].contains(screen),
               let place = all.first(where: { $0.name == "Meiji Tapınağı" }) ?? all.first,
-              let day = store.dayIndex(of: place) else { return }
+              let day = store.dayIndex(of: place, stop: stopID) else { return }
         if screen == "movedList" { try? await Task.sleep(for: .seconds(3)) }
         if screen == "moved" || screen == "movedList" {
             let target = day == 0 ? 1 : day - 1
-            store.move(place, toDay: target)
+            store.move(place, toDay: target, stop: stopID)
             selectedDay = target
         }
         if screen != "movedList" { focus(place) }
@@ -419,5 +595,50 @@ struct CityPlanView: View {
             Narrator.shared.togglePause()
         }
         #endif
+    }
+}
+
+/// Sürüklenen yerin bırakılacağı yer: bir satırın üstü ya da altı; "Tüm
+/// yerler"de günün başlığı (`target` nil, günün sonu).
+private struct DropSlot: Equatable {
+    var target: UUID?
+    var day: Int
+    var after: Bool
+}
+
+/// Satıra ya da gün başlığına sürüklenen yer: parmak satırın üst ya da alt
+/// yarısındaysa oraya çizgi çizilir; bırakınca yer taşınır.
+private struct RowDrop: DropDelegate {
+    let target: UUID?
+    let day: Int
+    @Binding var current: DropSlot?
+    let perform: (_ after: Bool) -> Void
+
+    /// Satırın yaklaşık yarısı (fotoğraf 56 + boşluklar).
+    private static let half: CGFloat = 36
+
+    private func slot(_ info: DropInfo) -> DropSlot {
+        DropSlot(target: target, day: day, after: target == nil || info.location.y > Self.half)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.text]) }
+
+    func dropEntered(info: DropInfo) { current = slot(info) }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        let next = slot(info)
+        if current != next { current = next }
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if current?.target == target && current?.day == day { current = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        let after = slot(info).after
+        current = nil
+        perform(after)
+        return true
     }
 }

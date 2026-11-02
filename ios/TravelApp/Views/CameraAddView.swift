@@ -156,7 +156,7 @@ struct CameraAddView: View {
             return
         }
         let place = await makePlace(from: best)
-        store.add(place, plan: false)
+        store.add(place)
         addedPlace = place
         status = nil
     }

@@ -4,7 +4,8 @@ import SwiftUI
 /// Yürü: harita açık; üstte sıradaki durak kartı (yol tarifi düğmesiyle);
 /// yaklaşınca anlatım kendiliğinden başlar; altta küçük çalar ve "Sıradaki".
 struct WalkView: View {
-    let city: String
+    /// Gezideki şehir (`Destination.id`).
+    let stopID: UUID
     let dayIndex: Int
     @EnvironmentObject private var store: AppStore
     @ObservedObject private var narrator = Narrator.shared
@@ -24,7 +25,7 @@ struct WalkView: View {
     private let triggerMeters: CLLocationDistance = 50
 
     private var stops: [Place] {
-        let days = store.dayPlan(for: city)
+        let days = store.dayPlan(stop: stopID)
         return days.indices.contains(dayIndex) ? days[dayIndex] : []
     }
 

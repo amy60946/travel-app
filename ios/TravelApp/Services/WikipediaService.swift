@@ -54,7 +54,9 @@ actor WikipediaService {
     /// Bir kez okunan özet ve fotoğraf listesi telefonda saklanır; internetsiz de açılır.
     private let summaries = DiskCache<Summary>(name: "wikipedia-summaries")
     private let photoLists = DiskCache<[URL]>(name: "wikipedia-photos")
-    private let placePhotos = DiskCache<URL>(name: "place-photos")
+    /// "-2": eşleşmesi gevşek eski fotoğraflar (yakındaki rastgele bir
+    /// fotoğraf) bir kez yeniden aranır (2026-10-30).
+    private let placePhotos = DiskCache<URL>(name: "place-photos-2")
     private let articles = DiskCache<Article>(name: "wikipedia-articles")
     /// Bu açılışta fotoğrafı bulunamayan yerler (yeniden sorulmaz).
     private var missingPhotos: Set<String> = []
@@ -295,8 +297,11 @@ actor WikipediaService {
     }
 
     /// Bir yerin gerçek fotoğrafı (listelerde tür simgesi yerine): Wikipedia
-    /// sayfası (biliniyorsa ya da 300 m içinde adı tutan sayfa), yoksa 150 m
-    /// içinde çekilmiş bir Wikimedia Commons fotoğrafı. Bulunan saklanır.
+    /// sayfasının ana fotoğrafı (sayfa biliniyorsa ya da 300 m içinde adı
+    /// tutan sayfa), yoksa 150 m içinde çekilmiş ve dosya adında yerin adı
+    /// geçen bir Wikimedia Commons fotoğrafı. Emin olunamazsa fotoğraf yok
+    /// (türün simgesi görünür): yanlış fotoğraf göstermektense hiç
+    /// göstermemek. Bulunan saklanır.
     func photo(name: String, city: String, latitude: Double, longitude: Double,
                englishTitle: String? = nil) async -> URL? {
         let key = "\(englishTitle ?? name)|\((latitude * 1000).rounded() / 1000)|\((longitude * 1000).rounded() / 1000)"
@@ -313,7 +318,10 @@ actor WikipediaService {
         }
         var url: URL?
         if let title { url = await thumbnailURL(englishTitle: title) }
-        if url == nil { url = await nearbyPhotos(latitude: latitude, longitude: longitude).first }
+        if url == nil {
+            url = await nearbyPhotos(latitude: latitude, longitude: longitude,
+                                     matching: [name, title].compactMap { $0 }, city: city).first
+        }
         if let url {
             placePhotos[key] = url
         } else if !Task.isCancelled {
@@ -370,8 +378,11 @@ actor WikipediaService {
     }
 
     /// Wikipedia sayfası olmayan yerler (kafe, restoran...) için yakında
-    /// çekilmiş fotoğraflar (Wikimedia Commons, 150 m içinde).
-    func nearbyPhotos(latitude: Double, longitude: Double) async -> [URL] {
+    /// çekilmiş fotoğraflar (Wikimedia Commons, 150 m içinde). `names`
+    /// verilirse yalnızca dosya adında yerin adından bir kelime geçenler
+    /// (ör. "Shibuya Kavşağı" için "File:Shibuya Crossing at night.jpg").
+    func nearbyPhotos(latitude: Double, longitude: Double, matching names: [String] = [],
+                      city: String = "") async -> [URL] {
         var components = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
         components.queryItems = [
             .init(name: "action", value: "query"),
@@ -390,6 +401,7 @@ actor WikipediaService {
             struct Query: Decodable { var pages: [Page] }
             struct Page: Decodable {
                 struct Info: Decodable { var thumburl: URL?; var mime: String? }
+                var title: String?
                 var imageinfo: [Info]?
             }
             var query: Query?
@@ -398,9 +410,25 @@ actor WikipediaService {
               let pages = try? JSONDecoder().decode(Response.self, from: data).query?.pages
         else { return [] }
         return pages
+            .filter { page in names.isEmpty || names.contains { Self.fileMatches(page.title ?? "", name: $0, city: city) } }
             .compactMap(\.imageinfo?.first)
             .filter { $0.mime == "image/jpeg" || $0.mime == "image/png" }
             .compactMap(\.thumburl)
+    }
+
+    /// Commons dosya adı yeri anlatıyor mu: yerin adındaki genel olmayan
+    /// (tür ya da şehir adı olmayan, en az 4 harfli) bir kelime dosya
+    /// adında geçiyor.
+    static func fileMatches(_ fileTitle: String, name: String, city: String) -> Bool {
+        let file = words(fold(fileTitle))
+        return !significantWords(name, city: city).isDisjoint(with: file)
+    }
+
+    private static func significantWords(_ text: String, city: String) -> Set<String> {
+        let cityWord = fold(city)
+        return words(fold(text)).filter {
+            $0.count >= 4 && $0 != cityWord && kinds[$0] == nil && !["the", "national", "art", "file"].contains($0)
+        }
     }
 
     /// Kayıtlı yerin İngilizce Wikipedia sayfası: 300 m içindeki sayfalardan
@@ -437,13 +465,9 @@ actor WikipediaService {
     static func matches(title: String, name: String, city: String) -> Bool {
         if matchesStrongly(title: title, name: name) { return true }
         let a = words(fold(title)), b = words(fold(name))
-        let cityWord = fold(city)
         let kindsA = Set(a.compactMap { kinds[$0] }), kindsB = Set(b.compactMap { kinds[$0] })
         if !kindsA.isEmpty && !kindsB.isEmpty && kindsA.isDisjoint(with: kindsB) { return false }
-        let significant = { (words: Set<String>) in
-            words.filter { $0.count >= 4 && $0 != cityWord && kinds[$0] == nil && !["the", "national", "art"].contains($0) }
-        }
-        return !significant(a).isDisjoint(with: significant(b))
+        return !significantWords(title, city: city).isDisjoint(with: significantWords(name, city: city))
     }
 
     static func matchesStrongly(title: String, name: String) -> Bool {
@@ -451,15 +475,27 @@ actor WikipediaService {
         return a == b || (b.count >= 4 && a.contains(b)) || (a.count >= 4 && b.contains(a))
     }
 
-    /// Yer türü bildiren kelimeler (İngilizce ve Türkçe) ve türleri.
+    /// Yer türü bildiren kelimeler (İngilizce, Türkçe, Japonca okunuşu) ve
+    /// türleri: "Shibuya Kavşağı" ile "Shibuya Station" eşleşmez.
     private static let kinds: [String: String] = [
         "temple": "temple", "shrine": "temple", "tapinagi": "temple", "tapinak": "temple", "mosque": "temple",
-        "camii": "temple", "church": "temple", "kilisesi": "temple",
+        "camii": "temple", "cami": "temple", "church": "temple", "kilisesi": "temple", "kilise": "temple",
+        "jinja": "temple", "jingu": "temple", "cathedral": "temple", "katedrali": "temple",
         "park": "park", "parki": "park", "garden": "park", "gardens": "park", "bahcesi": "park",
-        "tower": "tower", "kulesi": "tower", "museum": "museum", "muzesi": "museum",
-        "palace": "palace", "sarayi": "palace", "station": "station", "istasyonu": "station",
-        "market": "market", "bazaar": "market", "carsisi": "market", "bridge": "bridge", "koprusu": "bridge",
-        "castle": "castle", "hotel": "hotel", "cafe": "cafe", "restaurant": "restaurant", "street": "street",
+        "gyoen": "park", "koen": "park",
+        "tower": "tower", "kulesi": "tower", "kule": "tower", "museum": "museum", "muzesi": "museum", "muze": "museum",
+        "palace": "palace", "sarayi": "palace", "saray": "palace",
+        "station": "station", "istasyonu": "station", "istasyon": "station",
+        "market": "market", "bazaar": "market", "carsisi": "market", "carsi": "market", "pazari": "market",
+        "mall": "market", "bridge": "bridge", "koprusu": "bridge", "kopru": "bridge",
+        "castle": "castle", "kalesi": "castle", "kale": "castle", "hotel": "hotel", "otel": "hotel", "oteli": "hotel",
+        "cafe": "cafe", "coffee": "cafe", "kafe": "cafe", "kahve": "cafe", "kahvesi": "cafe",
+        "restaurant": "restaurant", "restoran": "restaurant", "lokanta": "restaurant", "lokantasi": "restaurant",
+        "street": "street", "sokagi": "street", "sokak": "street", "caddesi": "street", "cadde": "street",
+        "avenue": "street", "alley": "street", "yokocho": "street", "dori": "street",
+        "crossing": "crossing", "kavsagi": "crossing", "kavsak": "crossing", "intersection": "crossing",
+        "square": "square", "meydani": "square", "meydan": "square", "plaza": "square",
+        "beach": "beach", "plaji": "beach", "plaj": "beach",
     ]
 
     private static func words(_ text: String) -> Set<String> {

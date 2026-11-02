@@ -165,15 +165,32 @@ struct Place: Identifiable, Codable, Hashable {
     }
 }
 
-/// Bir şehirdeki gezi planı. Rota planlayıcı günleri buradan üretir.
+/// Gezideki bir şehrin planı (günler ve yerler). Her gezinin şehri kendi
+/// planını tutar: aynı şehir iki gezide olsa da planları ayrıdır.
 struct Trip: Codable, Hashable {
     var city: String
     var days: Int
     /// Tempo seçimi şimdilik arayüzde yok (2026-10-29); eski kayıtlar için durur.
     var pace: Pace
-    /// Rotaya eklenmiş yerler, öncelik sırasıyla.
+    /// Rotaya eklenmiş yerler; elle sıralanan günlerde bu sırayla görünür.
     var placeIDs: [UUID]
     /// Her yerin günü (0'dan), kullanıcı seçer. Eski kayıtlarda yoksa
     /// açılışta bir kez doldurulur.
     var dayOf: [UUID: Int]?
+    /// Planın ait olduğu gezi şehri (`Destination.id`). Eski kayıtlarda
+    /// (planlar şehre bağlıyken) yok; açılışta bir kez bağlanır.
+    var stopID: UUID?
+    /// Kullanıcının basılı tutup sürükleyerek sıraladığı günler; öteki
+    /// günler yürüme yoluna göre kendiliğinden sıralanır.
+    var manualDays: Set<Int>?
+
+    init(city: String, days: Int, pace: Pace = .normal, placeIDs: [UUID] = [], dayOf: [UUID: Int]? = [:],
+         stopID: UUID? = nil) {
+        self.city = city
+        self.days = days
+        self.pace = pace
+        self.placeIDs = placeIDs
+        self.dayOf = dayOf
+        self.stopID = stopID
+    }
 }

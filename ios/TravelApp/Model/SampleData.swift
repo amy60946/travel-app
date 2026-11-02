@@ -23,8 +23,9 @@ enum SampleData {
     ]
 
     static func trips(for places: [Place]) -> [Trip] {
+        // Günler (dayOf) boş bırakılır: açılışta yerler bir kez günlere dağıtılır.
         [Trip(city: "Tokyo", days: 3, pace: .normal,
-              placeIDs: places.filter { $0.city == "Tokyo" }.map(\.id))]
+              placeIDs: places.filter { $0.city == "Tokyo" }.map(\.id), dayOf: nil)]
     }
 
     private static func p(
