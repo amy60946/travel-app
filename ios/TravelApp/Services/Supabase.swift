@@ -57,7 +57,12 @@ enum Supabase {
         request.httpMethod = method
         request.timeoutInterval = 20
         request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(token ?? anonKey)", forHTTPHeaderField: "Authorization")
+        // Girişliyken kullanıcının anahtarı. Girişsizken yalnızca eski tür
+        // (JWT, "eyJ…") anahtar bu başlığa da konur; yeni tür
+        // ("sb_publishable_…") yalnızca `apikey` başlığında gider (Supabase belgesi).
+        if let bearer = token ?? (anonKey.hasPrefix("eyJ") ? anonKey : nil) {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let prefer { request.setValue(prefer, forHTTPHeaderField: "Prefer") }
         if let json {
