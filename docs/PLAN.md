@@ -141,3 +141,11 @@ Onay bekleyen öneriler buraya yazılır.
   yerlerin çoğunun olduğu günden farklı bir güne eklenmişse uygulama bunu
   söyleyip "Bu yer 2. gündeki yerlere yakın, oraya taşıyalım mı?" diye
   önerebilir. Şimdilik yapılmadı; Oguz'a sorulacak.
+- 2026-11-02: **Keşfet → "Temaya göre"** (Doğa, Macera, Kültür, Yemek, Plaj...)
+  yapılmadı: hangi ülkenin hangi temaya girdiğini otomatik ve kaynaklı
+  verecek ücretsiz bir liste yok; elle seçmek "manuel küratörlük yok"
+  kararına aykırı. Popüler, Bu ay yükselenler ve Gözden kaçanlar
+  Wikivoyage'ın okunma sayılarından otomatik geliyor. Tema istenirse
+  kaynak birlikte seçilmeli; Oguz'a sorulacak.
+- 2026-11-02: Koleksiyonda kişisel not ve kapak fotoğrafı seçme henüz yok
+  (kapak ilk iki şeyin fotoğrafı). İstenirse eklenir.
