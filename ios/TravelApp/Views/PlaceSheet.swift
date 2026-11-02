@@ -132,7 +132,7 @@ struct PlaceSheet: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 10) {
                         ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
-                            Button { viewerIndex = index } label: {
+                            Button { PhotoViewer.present { viewerIndex = index } } label: {
                                 Theme.surface
                                     .overlay {
                                         AsyncImage(url: url) { image in
@@ -159,7 +159,7 @@ struct PlaceSheet: View {
     @ViewBuilder
     private func about(_ place: Place) -> some View {
         if let summary {
-            ListenCard(title: place.name, summary: summary.adding(article))
+            ListenCard(title: place.name, summary: summary, article: article)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)

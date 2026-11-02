@@ -169,7 +169,7 @@ struct RootView: View {
         case "saved": path = [.saved]
         case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
-             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded":
+             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded", "dayOrder", "timed":
             path = [.plan(stop)]
         case "player":
             path = [.plan(stop)]
@@ -182,7 +182,7 @@ struct RootView: View {
                 guidance = GuidanceDestination(place: target)
             }
         case "place": if let firstPlace { path = [.plan(stop), .place(firstPlace.id)] }
-        case "walk": path = [.plan(stop), .walk(stop: stop, day: 0)]
+        case "walk", "walkPlaying": path = [.plan(stop), .walk(stop: stop, day: 0)]
         case "add", "addSearch": present(.addPlace(city: city, stop: stop))
         case "search", "searchSave": present(.search(city: city))
         case "import": present(.importData)

@@ -225,15 +225,13 @@ final class AppStore: ObservableObject {
                 }
             }
             trip.dayOf = dayOf
-            if var manual = trip.manualDays {
-                let hadFirst = manual.contains(first), hadSecond = manual.contains(second)
-                manual.remove(first)
-                manual.remove(second)
-                if hadFirst { manual.insert(second) }
-                if hadSecond { manual.insert(first) }
-                trip.manualDays = manual
-            }
+            trip.manualDays = trip.manualDays.map { Self.swapping(first, second, in: $0) }
+            trip.smartDays = trip.smartDays.map { Self.swapping(first, second, in: $0) }
         }
+    }
+
+    private static func swapping(_ first: Int, _ second: Int, in days: Set<Int>) -> Set<Int> {
+        Set(days.map { $0 == first ? second : $0 == second ? first : $0 })
     }
 
     /// Haritadan eklenen yerin günü: rotası bu yere en yakın geçen gün
@@ -287,14 +285,70 @@ final class AppStore: ObservableObject {
             trip.placeIDs = trip.placeIDs.filter { !order.contains($0) } + order
             trip.dayOf = (trip.dayOf ?? [:]).merging([place.id: day]) { $1 }
             trip.manualDays = (trip.manualDays ?? []).union([day])
+            trip.smartDays?.remove(day)
         }
     }
 
     /// Günü yeniden yürüme yoluna göre sıralar (elle sıralamayı bırakır).
     func orderByWalking(day: Int, stop id: UUID) {
-        updateTrip(id, undo: String(localized: "\(day + 1). gün yürüme sırasına dizildi")) {
+        updateTrip(id, undo: String(localized: "\(day + 1). gün en kısa yola dizildi")) {
             $0.manualDays?.remove(day)
+            $0.smartDays?.remove(day)
         }
+    }
+
+    /// Gün "Akıllı sıra" ile mi dizildi?
+    func isSmartOrdered(day: Int, stop id: UUID) -> Bool {
+        trip(stop: id).smartDays?.contains(day) == true
+    }
+
+    /// Önerilen sırayı uygular (Akıllı sıra penceresinde "Uygula").
+    func applyOrder(_ ids: [UUID], day: Int, stop id: UUID, smart: Bool) {
+        let trip = self.trip(stop: id)
+        guard (0..<trip.days).contains(day) else { return }
+        let current = Set(dayPlan(stop: id)[day].map(\.id))
+        let order = ids.filter { current.contains($0) }
+        guard order.count == current.count else { return }
+        let message = smart ? String(localized: "\(day + 1). gün akıllı sıraya dizildi")
+                            : String(localized: "\(day + 1). gün yeniden dizildi")
+        updateTrip(id, undo: message) { trip in
+            trip.placeIDs = trip.placeIDs.filter { !current.contains($0) } + order
+            trip.manualDays = (trip.manualDays ?? []).union([day])
+            if smart {
+                trip.smartDays = (trip.smartDays ?? []).union([day])
+            } else {
+                trip.smartDays?.remove(day)
+            }
+        }
+    }
+
+    /// "Benim sıram": günün şu anki sırası sabitlenir, kendiliğinden değişmez.
+    func keepOrder(day: Int, stop id: UUID) {
+        let days = dayPlan(stop: id)
+        guard days.indices.contains(day) else { return }
+        applyOrder(days[day].map(\.id), day: day, stop: id, smart: false)
+    }
+
+    /// Yerin sabitlenen saati (gece yarısından dakika).
+    func pinnedTime(of place: Place, stop id: UUID) -> Int? {
+        trip(stop: id).times?[place.id]
+    }
+
+    /// Yere saat verir (ör. restoran 14:00) ya da saati kaldırır (nil).
+    func setTime(_ minutes: Int?, for place: Place, stop id: UUID) {
+        let message = minutes.map { String(localized: "\(place.name) saati \(DayPlanner.clock($0))") }
+            ?? String(localized: "\(place.name) saati kaldırıldı")
+        updateTrip(id, undo: message) { trip in
+            var times = trip.times ?? [:]
+            times[place.id] = minutes
+            trip.times = times
+        }
+    }
+
+    /// Günün saat tahmini için durakları (sabit saatleriyle).
+    func dayStops(_ places: [Place], stop id: UUID) -> [DayPlanner.Stop] {
+        let times = trip(stop: id).times ?? [:]
+        return places.map { $0.dayStop(pinned: times[$0.id]) }
     }
 
     /// Yerleri rotaya, seçilen güne ekler.
@@ -327,6 +381,7 @@ final class AppStore: ObservableObject {
         updateTrip(id, undo: String(localized: "\(place.name) rotadan çıkarıldı")) {
             $0.placeIDs.removeAll { $0 == place.id }
             $0.dayOf?[place.id] = nil
+            $0.times?[place.id] = nil
         }
     }
 

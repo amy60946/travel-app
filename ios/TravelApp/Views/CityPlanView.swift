@@ -41,6 +41,10 @@ struct CityPlanView: View {
     /// Düzenlenen yer (ad, tür, not).
     @State private var editing: Place?
     @State private var editsNote = false
+    /// Günün sırası penceresi (Akıllı sıra / En kısa yol).
+    @State private var ordering: OrderRequest?
+    /// Saati belirlenen yer (ör. restoran 14:00).
+    @State private var timing: Place?
     #if DEBUG
     private static var openedLaunchScreen = false
     #endif
@@ -85,6 +89,12 @@ struct CityPlanView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { $0.view }
         .sheet(item: $editing) { PlaceEditor(place: $0, focusesNote: editsNote) }
+        .sheet(item: $ordering) { request in
+            DayOrderSheet(stopID: stopID, day: request.day, mode: request.mode, message: request.message)
+        }
+        .sheet(item: $timing) { place in
+            TimePinSheet(place: place, stopID: stopID) { minutes in suggestOrder(after: place, minutes: minutes) }
+        }
         // Yere dokununca ayrıntının tamamı doğrudan bu pencerede ("Aç" adımı
         // yok); üstte harita görünür kalır.
         .sheet(isPresented: Binding(get: { focusedID != nil }, set: { if !$0 { focusedID = nil } })) {
@@ -198,16 +208,15 @@ struct CityPlanView: View {
                         .foregroundStyle(Theme.muted)
                         .padding(.vertical, 14)
                 } else if stops.count > 1 {
-                    Text(store.isManuallyOrdered(day: selectedDay, stop: stopID)
-                         ? LocalizedStringKey("Senin sıran. Sırayı değiştirmek için basılı tutup sürükle.")
-                         : LocalizedStringKey("Yürüme sırası. Sırayı değiştirmek için basılı tutup sürükle."))
+                    Text(orderHint)
                         .font(Theme.font(12))
                         .foregroundStyle(Theme.muted)
                         .padding(.top, 10)
                         .padding(.bottom, 2)
                 }
+                let times = schedule(stops)
                 ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
-                    row(place, day: selectedDay, number: index + 1)
+                    row(place, day: selectedDay, number: index + 1, time: times[place.id])
                 }
             }
             addRow.padding(.top, 6)
@@ -215,6 +224,36 @@ struct CityPlanView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
         .animation(.snappy, value: stops.map(\.id))
+    }
+
+    private var orderHint: LocalizedStringKey {
+        if store.isSmartOrdered(day: selectedDay, stop: stopID) {
+            return "Akıllı sıra: tahmini saatler 09:00'dan. Değiştirmek için basılı tutup sürükle."
+        }
+        return store.isManuallyOrdered(day: selectedDay, stop: stopID)
+            ? "Senin sıran. Sırayı değiştirmek için basılı tutup sürükle."
+            : "En kısa yol. Sırayı değiştirmek için basılı tutup sürükle."
+    }
+
+    /// Günün tahmini saatleri: gün akıllı sıradaysa ya da bir yere saat
+    /// verildiyse görünür (yoksa boş).
+    private func schedule(_ stops: [Place]) -> [UUID: DayPlanner.Entry] {
+        let dayStops = store.dayStops(stops, stop: stopID)
+        guard store.isSmartOrdered(day: selectedDay, stop: stopID) || dayStops.contains(where: { $0.pinned != nil })
+        else { return [:] }
+        let entries = DayPlanner.schedule(dayStops, walkingMinutes: route.map { Double($0.minutes) })
+        return Dictionary(entries.map { ($0.id, $0) }) { first, _ in first }
+    }
+
+    /// Yere saat verildi: gün o saate göre dizilsin diye öneri penceresi açılır.
+    private func suggestOrder(after place: Place, minutes: Int?) {
+        guard let minutes, let day = store.dayIndex(of: place, stop: stopID),
+              days.indices.contains(day), days[day].count > 1 else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            ordering = OrderRequest(day: day, mode: .smart,
+                                    message: String(localized: "\(place.name) saat \(DayPlanner.clock(minutes)) olarak ayarlandı. Günün geri kalanı buna göre:"))
+        }
     }
 
     /// Listenin sonunda "+ Yer ekle" (Polarsteps "Add a spot" gibi).
@@ -269,8 +308,8 @@ struct CityPlanView: View {
                 Group {
                     if showsAll {
                         Text("\(stops.count) yer")
-                    } else if let route, !stops.isEmpty {
-                        Text("\(stops.count) durak · \(Int((route.meters / 1000).rounded())) km")
+                    } else if !stops.isEmpty {
+                        Text(daySummary(stops))
                     } else {
                         Text("\(stops.count) durak")
                     }
@@ -306,6 +345,17 @@ struct CityPlanView: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 
+    /// "5 durak · 6 km · yaklaşık 4 sa 30 dk": yürüme (Google yürüyüş
+    /// rotası) ve her yerin gezme süresi (türüne göre ya da kullanıcının verdiği).
+    private func daySummary(_ stops: [Place]) -> String {
+        let dayStops = store.dayStops(stops, stop: stopID)
+        let walking = route.map { Double($0.minutes) }
+        let total = DayPlanner.totalMinutes(dayStops, walkingMinutes: walking)
+        let meters = route?.meters ?? DayPlanner.legMinutes(dayStops).reduce(0, +) * 80
+        let kilometers = (meters / 1000).formatted(.number.precision(.fractionLength(meters < 10_000 ? 1 : 0)))
+        return String(localized: "\(stops.count) durak · \(kilometers) km · yaklaşık \(DayPlanner.durationText(total))")
+    }
+
     /// Haritanın üstündeki "İstanbul · 1. gün ⌄": günler (kaçar yer), Tüm
     /// yerler, Gün ekle, Son günü sil, günü başka günle değiştir, yürüme sırası.
     private var dayMenu: some View {
@@ -321,6 +371,9 @@ struct CityPlanView: View {
                 Text("Tüm yerler · \(days.reduce(0) { $0 + $1.count }) yer").tag(Self.allDays)
             }
             .pickerStyle(.inline)
+            if !showsAll && days.indices.contains(selectedDay) && days[selectedDay].count > 1 {
+                orderSection
+            }
             Section {
                 Button {
                     store.setDays(trip.days + 1, stop: stopID)
@@ -339,11 +392,6 @@ struct CityPlanView: View {
                         }
                     } label: {
                         Label("Bu günü taşı", systemImage: "arrow.up.arrow.down")
-                    }
-                }
-                if !showsAll && store.isManuallyOrdered(day: selectedDay, stop: stopID) {
-                    Button { withAnimation(.snappy) { store.orderByWalking(day: selectedDay, stop: stopID) } } label: {
-                        Label("Yürüme sırasına diz", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     }
                 }
                 Button(role: .destructive) { store.setDays(trip.days - 1, stop: stopID) } label: {
@@ -370,6 +418,28 @@ struct CityPlanView: View {
         .accessibilityHint(Text("Günü değiştir"))
     }
 
+    /// Günün sırası: Akıllı sıra (öneri penceresi), En kısa yol, Benim sıram
+    /// (şu anki sıra sabitlenir). Seçili olanın yanında ✓.
+    private var orderSection: some View {
+        let smart = store.isSmartOrdered(day: selectedDay, stop: stopID)
+        let manual = store.isManuallyOrdered(day: selectedDay, stop: stopID)
+        return Section("Sıra") {
+            Button { ordering = OrderRequest(day: selectedDay, mode: .smart) } label: {
+                Label("Akıllı sıra…", systemImage: smart ? "checkmark" : "sparkles")
+            }
+            Button {
+                withAnimation(.snappy) { store.orderByWalking(day: selectedDay, stop: stopID) }
+            } label: {
+                Label("En kısa yol", systemImage: !manual ? "checkmark" : "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            Button {
+                if !manual || smart { store.keepOrder(day: selectedDay, stop: stopID) }
+            } label: {
+                Label("Benim sıram", systemImage: manual && !smart ? "checkmark" : "hand.draw")
+            }
+        }
+    }
+
     /// Bakılan günün bütün planı başka günle yer değiştirir; o güne geçilir.
     private func swapDay(with other: Int) {
         let current = selectedDay
@@ -382,7 +452,7 @@ struct CityPlanView: View {
     /// Listede bir yer ("Add a spot" gibi): solda fotoğraf (köşesinde türün
     /// simgesi), yanında tür, ad ve notun; sağda sürükleme tutamağı.
     /// Basılı tutunca menü açılır; menü açıkken sürükleyince yer taşınır.
-    private func row(_ place: Place, day: Int, number: Int? = nil) -> some View {
+    private func row(_ place: Place, day: Int, number: Int? = nil, time: DayPlanner.Entry? = nil) -> some View {
         let slot = dropSlot?.target == place.id ? dropSlot : nil
         return Button { focus(place, detent: .placeTall) } label: {
             HStack(spacing: 14) {
@@ -399,11 +469,24 @@ struct CityPlanView: View {
                         }
                     }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(place.category.title)
-                        .font(Theme.font(11, .bold))
-                        .textCase(.uppercase)
-                        .tracking(0.6)
-                        .foregroundStyle(place.category.color)
+                    HStack(spacing: 6) {
+                        if let time {
+                            Label {
+                                Text(verbatim: DayPlanner.clock(time.arrival))
+                            } icon: {
+                                Image(systemName: time.reason == .pinned ? "pin.fill" : "clock")
+                            }
+                            .labelStyle(.titleAndIcon)
+                            .font(Theme.font(11, .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(time.reason == .pinned ? Theme.accent : Theme.ink)
+                        }
+                        Text(place.category.title)
+                            .font(Theme.font(11, .bold))
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                            .foregroundStyle(place.category.color)
+                    }
                     Text(place.name).font(Theme.font(16, .semibold)).lineLimit(2)
                     if !place.note.isEmpty {
                         Label(place.note, systemImage: "note.text")
@@ -472,6 +555,13 @@ struct CityPlanView: View {
             editing = place
         } label: {
             Label("Düzenle", systemImage: "pencil")
+        }
+        Button { timing = place } label: {
+            if let time = store.pinnedTime(of: place, stop: stopID) {
+                Label("Saat: \(DayPlanner.clock(time))", systemImage: "clock")
+            } else {
+                Label("Saat belirle", systemImage: "clock")
+            }
         }
         let list = days.indices.contains(day) ? days[day] : []
         if list.count > 1 {
@@ -625,6 +715,24 @@ struct CityPlanView: View {
             selectedDay = 1
             return
         }
+        // `dayOrder`: 1. gün için Akıllı sıra önerisi (saatler ve nedenleri).
+        if screen == "dayOrder" {
+            ordering = OrderRequest(day: 0, mode: .smart)
+            return
+        }
+        // `timed`: 1. günde yemek yerine saat verilmiş ve akıllı sıra uygulanmış (saatler listede).
+        if screen == "timed", let firstDay = days.first, firstDay.count > 1 {
+            if let food = firstDay.first(where: { $0.category == .food }) {
+                store.setTime(19 * 60, for: food, stop: stopID)
+            }
+            let stops = store.dayStops(store.dayPlan(stop: stopID)[0], stop: stopID)
+            if let best = DayPlanner.smartOrders(stops).first {
+                store.applyOrder(best.map(\.id), day: 0, stop: stopID, smart: true)
+            }
+            store.dismissUndo()
+            panelStop = Self.panelStops.count - 1
+            return
+        }
         // `mapAdd`: haritada Google yerine dokunulmuş (Rotaya ekle, yer imi, yol tarifi).
         if screen == "mapAdd" {
             let shibuya = CLLocationCoordinate2D(latitude: 35.6595, longitude: 139.7005)
@@ -682,6 +790,14 @@ struct CityPlanView: View {
         }
         #endif
     }
+}
+
+/// Günün sırası penceresini açma isteği.
+private struct OrderRequest: Identifiable {
+    let id = UUID()
+    var day: Int
+    var mode: DayOrderSheet.Mode
+    var message: String?
 }
 
 /// Sürüklenen yerin bırakılacağı yer: bir satırın üstü ya da altı; "Tüm

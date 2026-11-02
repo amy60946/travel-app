@@ -303,7 +303,7 @@ struct GooglePlaceInfo: View {
 
     private func photoCell(_ photo: GooglePlaces.Photo) -> some View {
         Button {
-            if let url = photoURLs[photo.id] { viewerIndex = loadedPhotos.firstIndex(of: url) }
+            if let url = photoURLs[photo.id] { PhotoViewer.present { viewerIndex = loadedPhotos.firstIndex(of: url) } }
         } label: {
             Theme.surface
                 .overlay {

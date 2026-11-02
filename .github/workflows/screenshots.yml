@@ -105,13 +105,13 @@ jobs:
               || echo "açılmadı: $screen"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
-              guide|continent|country|cityGuide|addToPlan|journey|journeyFull|swipeDelete|transport|tripFromCollection|reorder|editPlace|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|cityTall|fewerDays|mapAdd|mapAdded|sheetTall|sheet|googlePlace|googleTall|map|homeFull|homeSmall) sleep 14 ;;
+              guide|continent|country|cityGuide|addToPlan|journey|journeyFull|swipeDelete|transport|tripFromCollection|reorder|editPlace|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|cityTall|fewerDays|mapAdd|mapAdded|sheetTall|sheet|googlePlace|googleTall|map|homeFull|homeSmall|dayOrder|timed|walk|walkPlaying) sleep 14 ;;
               *) sleep 8 ;;
             esac
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
           }
           i=1
-          SCREENS="home homeSmall homeFull profile layers map sheet sheetTall googlePlace googleTall photo pins city cityTall fewerDays mapAdd mapAdded reorder editPlace all spot listen player guide moved movedList saved downloads place walk add addSearch search searchSave import camera custom trips journey journeyFull swipeDelete transport flight stay addCity newTrip newTripCollection tripFromCollection discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
+          SCREENS="home homeSmall homeFull profile layers map sheet sheetTall googlePlace googleTall photo pins city cityTall fewerDays mapAdd mapAdded reorder editPlace dayOrder timed all spot listen player guide moved movedList saved downloads place walk walkPlaying add addSearch search searchSave import camera custom trips journey journeyFull swipeDelete transport flight stay addCity newTrip newTripCollection tripFromCollection discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
           [ -n "$ONLY" ] && SCREENS="$ONLY"
           for screen in $SCREENS; do
             shoot "$screen" "$OUT/$(printf '%02d' $i)-$screen.png"
