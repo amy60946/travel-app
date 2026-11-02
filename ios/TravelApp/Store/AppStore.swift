@@ -913,7 +913,8 @@ final class AppStore: ObservableObject {
     }
 }
 
-private extension Place {
+extension Place {
+    /// Rota hesabı için (yürüme sırası, en yakın komşu).
     var point: RoutePlanner.Point {
         RoutePlanner.Point(id: id, latitude: latitude, longitude: longitude)
     }
