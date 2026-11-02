@@ -1,12 +1,25 @@
 import CoreLocation
 import SwiftUI
 
+/// Google yeri penceresinin nereden açıldığı: düğmeler buna göre.
+enum GooglePlaceContext {
+    /// Ana harita, gezi haritası: "Rotaya ekle" hangi geziye/güne eklensin diye sorar.
+    case general
+    /// Şehir planı: "Rotaya ekle" yeri doğrudan bu şehrin rotasına ekler;
+    /// gün verilmediyse rotası en yakın geçen güne (rota boşsa `fallback`).
+    case cityPlan(stop: UUID, day: Int?, fallback: Int)
+    /// Koleksiyon sayfası: ana düğme "Koleksiyona ekle".
+    case collection
+}
+
 /// Haritada Google'ın bir yerine (restoran, müze, kafe...) dokununca alttan
-/// açılan pencere (Google Maps gibi): ad, tür, puan; Kaydet ve Yol tarifi;
-/// altında Google'ın fotoğrafları, saatleri, telefonu, web sitesi ve
-/// yorumları. Kaydedince kayıtlı yerin penceresine geçer.
+/// açılan pencere (Google Maps gibi): ad, tür, puan; siyah "Rotaya ekle",
+/// yer imi (koleksiyona kaydet, yazısız) ve Yol tarifi; altında Google'ın
+/// fotoğrafları, saatleri, telefonu, web sitesi ve yorumları. Eklenince
+/// kayıtlı yerin penceresine geçer.
 struct GooglePlaceSheet: View {
     let place: GooglePlaceRef
+    var context: GooglePlaceContext = .general
     let onSaved: (Place) -> Void
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
@@ -16,6 +29,15 @@ struct GooglePlaceSheet: View {
     @State private var isLoading = true
     @State private var saving = false
     @State private var guidance: GuidanceDestination?
+    /// Kaydedilen yer için "Koleksiyona kaydet" ya da "Nereye eklensin?" penceresi.
+    @State private var choosing: Choice?
+
+    private struct Choice: Identifiable {
+        var place: Place
+        /// Gezilerin günleri de gösterilsin ("Nereye eklensin?").
+        var includesTrips: Bool
+        var id: UUID { place.id }
+    }
 
     private var category: PlaceCategory {
         details?.category ?? PlaceCategory.guess(name: place.name) ?? .sight
@@ -51,6 +73,18 @@ struct GooglePlaceSheet: View {
             isLoading = false
         }
         .fullScreenCover(item: $guidance) { GuidanceView(destination: $0) }
+        .sheet(item: $choosing, onDismiss: {
+            // Kaydedilen yerin kendi penceresine geçilir.
+            if let saved = savedPlace { onSaved(saved) }
+        }) { choice in
+            SaveToCollectionSheet(item: .place(choice.place), place: choice.includesTrips ? choice.place : nil)
+        }
+    }
+
+    /// Bu pencerede kaydedilmiş yer (varsa).
+    private var savedPlace: Place? {
+        store.savedPlace(googleID: place.id, named: details?.name ?? place.name,
+                         near: details?.coordinate ?? place.coordinate)
     }
 
     private var header: some View {
@@ -78,11 +112,34 @@ struct GooglePlaceSheet: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            PrimaryButton(title: saving ? LocalizedStringKey("Kaydediliyor…") : LocalizedStringKey("Kaydet"),
-                          systemImage: "bookmark") {
-                Task { await save() }
+            switch context {
+            case .collection:
+                PrimaryButton(title: saving ? LocalizedStringKey("Ekleniyor…") : LocalizedStringKey("Koleksiyona ekle"),
+                              systemImage: "bookmark") {
+                    Task { if let saved = await save() { onSaved(saved) } }
+                }
+                .disabled(saving)
+            case .general, .cityPlan:
+                PrimaryButton(title: saving ? LocalizedStringKey("Ekleniyor…") : LocalizedStringKey("Rotaya ekle"),
+                              systemImage: "plus") {
+                    Task { await addToRoute() }
+                }
+                .disabled(saving)
+                Button {
+                    Task {
+                        if let saved = await save() { choosing = Choice(place: saved, includesTrips: false) }
+                    }
+                } label: {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Theme.ink, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(saving)
+                .accessibilityLabel(Text("Koleksiyona kaydet"))
             }
-            .disabled(saving)
             DirectionsButton {
                 guidance = GuidanceDestination(name: details?.name ?? place.name,
                                                coordinate: details?.coordinate ?? place.coordinate,
@@ -91,14 +148,29 @@ struct GooglePlaceSheet: View {
         }
     }
 
-    /// Yeri kaydeder (rotaya eklemez); şehir konumdan bulunur.
-    private func save() async {
+    /// Şehir planında yeri doğrudan rotaya (verilen ya da en yakın güne)
+    /// ekler; başka yerde hangi geziye/güne ekleneceği sorulur.
+    private func addToRoute() async {
+        guard let saved = await save() else { return }
+        switch context {
+        case .cityPlan(let stop, let day, let fallback):
+            if let day {
+                store.plan(saved, stop: stop, day: day)
+            } else {
+                store.planNearest(saved, stop: stop, fallback: fallback)
+            }
+            onSaved(store.place(saved.id) ?? saved)
+        default:
+            choosing = Choice(place: saved, includesTrips: true)
+        }
+    }
+
+    /// Yeri kaydeder (rotaya eklemez); şehir konumdan bulunur. Zaten
+    /// kayıtlıysa kayıtlı yer döner.
+    private func save() async -> Place? {
         let name = details?.name ?? place.name
         let coordinate = details?.coordinate ?? place.coordinate
-        if let saved = store.savedPlace(googleID: place.id, named: name, near: coordinate) {
-            onSaved(saved)
-            return
-        }
+        if let saved = store.savedPlace(googleID: place.id, named: name, near: coordinate) { return saved }
         saving = true
         defer { saving = false }
         let city = await importer.city(for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
@@ -106,7 +178,7 @@ struct GooglePlaceSheet: View {
         let saved = Place(name: name, city: city, latitude: coordinate.latitude, longitude: coordinate.longitude,
                           category: category, source: .search, googlePlaceID: place.id)
         store.add(saved)
-        onSaved(saved)
+        return saved
     }
 }
 
@@ -138,6 +210,9 @@ struct GooglePlaceInfo: View {
     var showsRating = true
     var showsPhotos = true
     var showsDetails = true
+    /// Google haritası görünmeyen sayfada (ör. tam yer sayfası) Google'ın
+    /// kuralı gereği "Google Maps" yazısı; harita üstündeki pencerelerde gerekmez.
+    var showsAttribution = false
     @State private var photoURLs: [String: URL] = [:]
     @State private var viewerIndex: Int?
     @State private var showsHours = false
@@ -155,9 +230,11 @@ struct GooglePlaceInfo: View {
                 }
                 infoRows
                 if !details.reviews.isEmpty { reviews }
-                Text("Bilgiler: Google Maps")
-                    .font(Theme.font(11))
-                    .foregroundStyle(Theme.muted)
+                if showsAttribution {
+                    Text(verbatim: "Google Maps")
+                        .font(Theme.font(11))
+                        .foregroundStyle(Theme.muted)
+                }
             }
         }
         .fullScreenCover(isPresented: Binding(get: { viewerIndex != nil }, set: { if !$0 { viewerIndex = nil } })) {

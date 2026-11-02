@@ -21,7 +21,10 @@ struct Destination: Identifiable, Codable, Hashable {
     var longitude: Double
     /// İngilizce Wikipedia / Wikivoyage başlığı (fotoğraf ve rehber için).
     var englishTitle: String?
-    /// Bu şehre uçakla gelinir; yoksa önceki şehirden yol (araba) süresi gösterilir.
+    /// Bu şehre nasıl gelinir (araç, uçak, tren, otobüs); seçilmediyse
+    /// gezide "+ Ulaşım ekle" görünür. Eski kayıtlarda uçuş varsa uçak sayılır.
+    var travelMode: TravelMode?
+    /// Yolculuğun ayrıntıları (uçuş/sefer numarası, kalkış, varış, not).
     var flight: Flight?
     var stays: [Stay] = []
 
@@ -47,19 +50,64 @@ struct Destination: Identifiable, Codable, Hashable {
 
     /// Fotoğraf ve rehber için aranacak başlık.
     var wikiTitle: String { englishTitle ?? city }
+
+    /// Şehre geliş şekli; hiç seçilmediyse nil.
+    var arrivalMode: TravelMode? { travelMode ?? (flight != nil ? .flight : nil) }
 }
 
-/// Şehre uçuş: plana not (nereden, uçuş numarası, kalkış saati); bilet ya da tarih yok.
+/// Şehirler arası ulaşım (yalnızca plana not; bilet ya da rezervasyon yok).
+enum TravelMode: String, Codable, CaseIterable, Identifiable {
+    case car, flight, train, bus
+
+    var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .car: "car.fill"
+        case .flight: "airplane"
+        case .train: "tram.fill"
+        case .bus: "bus.fill"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .car: String(localized: "Araç")
+        case .flight: String(localized: "Uçak")
+        case .train: String(localized: "Tren")
+        case .bus: String(localized: "Otobüs")
+        }
+    }
+
+    /// Uçuş ya da sefer numarası, kalkış ve varış saati sorulur mu.
+    var hasTicket: Bool { self != .car }
+}
+
+/// Şehre yolculuk (uçuş, tren, otobüs): plana not (nereden, uçuş ya da
+/// sefer numarası, kalkış ve varış saati); bilet ya da tarih yok.
 struct Flight: Codable, Hashable {
     var from = ""
     var number = ""
     var departure = ""
     var note = ""
+    /// Varış saati (sonradan eklendi; eski kayıtlarda yok).
+    var arrival: String?
 
-    /// Kartta görünen kısa yazı: "TK 52 · 10:30".
+    init(from: String = "", number: String = "", departure: String = "", arrival: String? = nil, note: String = "") {
+        self.from = from
+        self.number = number
+        self.departure = departure
+        self.arrival = arrival
+        self.note = note
+    }
+
+    /// Kartta görünen kısa yazı: "TK 52 · 10:30 → 12:45".
     var summary: String {
-        let parts = [number, departure].map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        return parts.isEmpty ? String(localized: "Uçuş") : parts.joined(separator: " · ")
+        let trimmed = { (text: String?) in (text ?? "").trimmingCharacters(in: .whitespaces) }
+        var times = trimmed(departure)
+        if !trimmed(arrival).isEmpty { times = times.isEmpty ? "→ \(trimmed(arrival))" : "\(times) → \(trimmed(arrival))" }
+        let parts = [trimmed(number), times].filter { !$0.isEmpty }
+        return parts.joined(separator: " · ")
     }
 }
 

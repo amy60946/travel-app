@@ -7,6 +7,11 @@ enum PanelStop: Hashable {
     case height(CGFloat)
     /// Kullanılabilir yüksekliğin oranı.
     case fraction(CGFloat)
+    /// En üst: panelin üstü güvenli alanın tepesinden bu kadar aşağıda
+    /// (0: tam ekran; ekranın üst çubuğu görünsün diye ör. 60). Panel buraya
+    /// çıkınca köşeleri düzleşir, harita tamamen kapanır (Google Maps'teki
+    /// tam ekran liste gibi); aşağı çekince yine kart olur.
+    case belowTop(CGFloat)
 }
 
 extension View {
@@ -74,7 +79,14 @@ private struct SlidingPanel<Main: View, Header: View, Content: View>: View {
         switch stops[index] {
         case .height(let points): return min(points, available)
         case .fraction(let fraction): return available * fraction
+        case .belowTop(let inset): return max(available - inset, 0)
         }
+    }
+
+    /// Panel tam ekranda (en üst yükseklik `belowTop`): köşeler düz, gölge yok.
+    private var isFullScreen: Bool {
+        guard !isHidden, index == stops.count - 1, case .belowTop = stops[index] else { return false }
+        return true
     }
 
     var body: some View {
@@ -105,7 +117,8 @@ private struct SlidingPanel<Main: View, Header: View, Content: View>: View {
     }
 
     private func card(proxy: FloatingPanelProxy, states: [FloatingPanelState]) -> some View {
-        VStack(spacing: 0) {
+        let full = isFullScreen
+        return VStack(spacing: 0) {
             handle(proxy: proxy, states: states)
             header()
             ScrollView {
@@ -115,29 +128,31 @@ private struct SlidingPanel<Main: View, Header: View, Content: View>: View {
             .floatingPanelScrollTracking(proxy: proxy)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Kenarlardan ayrık, dört köşesi yuvarlak kart (alt köşeler ekranın
-        // köşesiyle aynı kavisle).
+        // Ekranın iki kenarına ve en altına tam oturan kart; yalnızca üst
+        // köşeler yuvarlak (Apple ve Google Haritalar gibi). Tam ekrana
+        // çıkınca köşeler düzleşir.
         .background {
-            UnevenRoundedRectangle(topLeadingRadius: Theme.sheetRadius + 4, bottomLeadingRadius: 44,
-                                   bottomTrailingRadius: 44, topTrailingRadius: Theme.sheetRadius + 4,
+            UnevenRoundedRectangle(topLeadingRadius: full ? 0 : Theme.sheetRadius, bottomLeadingRadius: 0,
+                                   bottomTrailingRadius: 0, topTrailingRadius: full ? 0 : Theme.sheetRadius,
                                    style: .continuous)
                 .fill(.white)
-                .softShadow()
-                .padding(.bottom, 8)
+                .shadow(color: .black.opacity(full ? 0 : 0.14), radius: 10, y: -1)
                 .ignoresSafeArea(edges: .bottom)
         }
-        .padding(.horizontal, 8)
+        .animation(.snappy, value: full)
     }
 
+    /// Tutamak: çevresi ferah (parmakla rahat tutulsun); dokununca bir üst
+    /// yüksekliğe, en üstteyse en alta geçer.
     private func handle(proxy: FloatingPanelProxy, states: [FloatingPanelState]) -> some View {
         let isTallest = index == states.count - 1
         return Button {
             proxy.move(to: states[isTallest ? 0 : index + 1], animated: true)
         } label: {
             Capsule().fill(Theme.hairline)
-                .frame(width: 36, height: 5)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
+                .frame(width: 40, height: 5)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
         }
@@ -186,6 +201,8 @@ private final class PanelLayout: NSObject, FloatingPanelLayout {
             case .fraction(let fraction):
                 anchors[state] = FloatingPanelLayoutAnchor(fractionalInset: fraction, edge: .bottom,
                                                            referenceGuide: .safeArea)
+            case .belowTop(let inset):
+                anchors[state] = FloatingPanelLayoutAnchor(absoluteInset: inset, edge: .top, referenceGuide: .safeArea)
             }
         }
         self.anchors = anchors
@@ -220,4 +237,41 @@ private final class PanelCoordinator: FloatingPanelCoordinator {
 
     func onUpdate<Representable>(context: UIViewControllerRepresentableContext<Representable>)
         where Representable: UIViewControllerRepresentable {}
+}
+
+/// Panelin üstündeki sekmeler (Gezilerim | Koleksiyonlar): geniş, seçili
+/// olan siyah. Düğmeler SwiftUI'ın kendi düğmeleri; böylece sekmelerin
+/// üstünden sürükleyince de panel hareket eder (sistemin bölümlü seçicisi
+/// parmağı kendine alıyordu).
+struct PanelTabs: View {
+    let titles: [LocalizedStringKey]
+    @Binding var selection: Int
+    @Namespace private var namespace
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(titles.indices, id: \.self) { index in
+                Button {
+                    withAnimation(.snappy) { selection = index }
+                } label: {
+                    Text(titles[index])
+                        .font(Theme.font(15, .semibold))
+                        .foregroundStyle(selection == index ? .white : Theme.ink)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background {
+                            if selection == index {
+                                Capsule().fill(Theme.ink).matchedGeometryEffect(id: "tab", in: namespace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == index ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Theme.surface, in: Capsule())
+    }
 }

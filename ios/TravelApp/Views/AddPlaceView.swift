@@ -71,6 +71,13 @@ struct AddPlaceView: View {
                             Text("Sonuç bulunamadı.").font(Theme.font(14)).foregroundStyle(Theme.muted)
                         }
                         ForEach(results) { result in resultRow(result) }
+                        // Google'ın kuralı: haritasız listede Google sonuçlarının kaynağı.
+                        if !results.isEmpty {
+                            Text(verbatim: "Google Maps")
+                                .font(Theme.font(11))
+                                .foregroundStyle(Theme.muted)
+                                .padding(.top, 6)
+                        }
                     }
 
                     if !saved.isEmpty {
@@ -121,7 +128,10 @@ struct AddPlaceView: View {
             await search()
         }
         .sheet(item: $detailPlace) { place in
-            GooglePlaceSheet(place: place) { _ in detailPlace = nil }
+            GooglePlaceSheet(place: place,
+                             context: stop.map { GooglePlaceContext.cityPlan(stop: $0, day: day, fallback: day) } ?? .general) { _ in
+                detailPlace = nil
+            }
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(Theme.sheetRadius)
@@ -195,10 +205,6 @@ struct AddPlaceView: View {
             .padding(.horizontal, 14)
             .frame(height: 50)
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.hairline, lineWidth: 1.5))
-            Text("Arama: Google Maps · Popüler yerler: Wikipedia")
-                .font(Theme.font(12))
-                .foregroundStyle(Theme.muted)
-                .padding(.leading, 4)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 8)

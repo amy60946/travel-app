@@ -8,6 +8,8 @@ enum Theme {
     static let hairline = Color(hex: 0xDDDDDD)
     static let hairlineLight = Color(hex: 0xEBEBEB)
     static let surface = Color(hex: 0xF7F7F7)
+    /// Düğmeler şimdilik siyah zemin, beyaz yazı (Oguz, 2026-11-02).
+    static let button = ink
 
     static let cardRadius: CGFloat = 14
     static let buttonRadius: CGFloat = 8

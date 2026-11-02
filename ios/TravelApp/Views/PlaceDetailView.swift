@@ -76,7 +76,7 @@ struct PlaceDetailView: View {
 
                     PlaceNoteCard(note: place.note) { editsNote = true }
 
-                    if let google { GooglePlaceInfo(details: google) }
+                    if let google { GooglePlaceInfo(details: google, showsAttribution: true) }
 
                     StaticGoogleMap(center: place.coordinate, zoom: 15.5, markers: [
                         GoogleMap.Marker(id: "place", coordinate: place.coordinate, key: place.name, anchorsBottom: true) {

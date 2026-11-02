@@ -55,7 +55,6 @@ struct RootView: View {
                     TabBar(tab: $tab, sheet: $sheet,
                            city: searchCity.isEmpty ? store.cities.first?.name ?? "Tokyo" : searchCity)
                 }
-                .padding(.bottom, 8)
                 .animation(.snappy, value: store.undoMessage)
             }
             .narrationBarInset()
@@ -147,7 +146,8 @@ struct RootView: View {
         let stop = store.stops(in: city).first?.id ?? UUID()
         switch screen {
         case "trips": _ = demoJourney()
-        case "journey", "flight", "stay", "addCity": path = [.journey(demoJourney())]
+        case "journey", "flight", "stay", "addCity", "transport", "swipeDelete", "journeyFull":
+            path = [.journey(demoJourney())]
         case "newTrip": present(.newTrip)
         case "newTripCollection": _ = demoCollection(); present(.newTrip)
         case "tripFromCollection":
@@ -169,7 +169,7 @@ struct RootView: View {
         case "saved": path = [.saved]
         case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
-             "reorder", "editPlace":
+             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded":
             path = [.plan(stop)]
         case "player":
             path = [.plan(stop)]
@@ -192,6 +192,10 @@ struct RootView: View {
         }
         #endif
     }
+
+    /// Alttaki sekme çubuğunun yüksekliği (ekranın alt güvenli alanı hariç);
+    /// paneller küçükken bunun üstünde durur.
+    static let tabBarHeight: CGFloat = 58
 
     #if DEBUG
     /// Açılışta pencere, ana sayfa yerleştikten sonra açılsın (hemen
@@ -276,34 +280,39 @@ enum AddSheet: Identifiable {
     }
 }
 
+/// Alt çubuk: ekranın iki kenarına ve en altına oturan beyaz çubuk
+/// (Harita · Keşfet · Profil) ve sağda siyah büyüteç (genel arama). Panellerin
+/// beyazıyla birleşir; arkasında başka menü yok.
 private struct TabBar: View {
     @Binding var tab: RootTab
     @Binding var sheet: AddSheet?
     let city: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 0) {
-                item(.map, "Harita", "map")
-                item(.discover, "Keşfet", "globe.europe.africa")
-                item(.profile, "Profil", "person.crop.circle")
-            }
-            .padding(6)
-            .background(.white, in: Capsule())
-            .softShadow()
+        HStack(spacing: 0) {
+            item(.map, "Harita", "map")
+            item(.discover, "Keşfet", "globe.europe.africa")
+            item(.profile, "Profil", "person.crop.circle")
 
             // Genel arama: bulunan yer kaydedilir, sonra gezinin bir gününe ya
             // da koleksiyona eklenir (haritada bakılan şehrin çevresinde arar).
             Button { sheet = .search(city: city) } label: {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
+                    .frame(width: 46, height: 46)
                     .background(Theme.ink, in: Circle())
-                    .softShadow()
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Ara"))
+        }
+        .padding(.horizontal, 8)
+        .frame(height: RootView.tabBarHeight)
+        .background {
+            Color.white
+                .overlay(alignment: .top) { Rectangle().fill(Theme.hairlineLight).frame(height: 0.5) }
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 
@@ -311,14 +320,16 @@ private struct TabBar: View {
         Button {
             tab = value
         } label: {
-            VStack(spacing: 2) {
-                Image(systemName: symbol).font(.system(size: 17, weight: .semibold))
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.system(size: 19, weight: .semibold))
                 Text(title).font(Theme.font(11, .semibold))
             }
-            .foregroundStyle(tab == value ? Theme.ink : Theme.muted)
-            .frame(width: 84, height: 44)
-            .background(tab == value ? Theme.surface : .clear, in: Capsule())
+            .foregroundStyle(tab == value ? Theme.ink : Theme.muted.opacity(0.8))
+            .frame(maxWidth: .infinity)
+            .frame(height: RootView.tabBarHeight)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(tab == value ? .isSelected : [])
     }
 }

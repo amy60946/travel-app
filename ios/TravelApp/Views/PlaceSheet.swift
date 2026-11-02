@@ -1,16 +1,17 @@
 import SwiftUI
 
-/// Haritada kayıtlı bir yere dokununca alttan açılan pencere (Google Maps
-/// gibi): ad ve tür; tek gün düğmesi (rotadaysa günü değiştirir, değilse
-/// seçilen güne ekler), Aç, Yol tarifi (uygulamanın içinde); yana kayan
-/// fotoğraflar (dokununca tam ekran), Dinle düğmesi ve Wikipedia'dan bilgi.
-/// Yarım ekran açılır, yukarı çekilince ekranın %70'ine çıkar; üstte harita
-/// hep görünür ve kullanılabilir.
+/// Kayıtlı bir yere dokununca alttan açılan pencere (Google Maps gibi);
+/// yerin bütün ayrıntısı burada ("Aç" adımı yok, Oguz 2026-11-02): ad, tür
+/// ve yer imi; tek gün düğmesi (rotadaysa günü değiştirir, değilse rotaya
+/// en yakın güne ekler) ve Yol tarifi (uygulamanın içinde); yana kayan
+/// fotoğraflar (dokununca tam ekran), Dinle, Wikipedia yazısının tamamı ve
+/// Google bilgileri. Üstte harita hep görünür ve kullanılabilir.
 struct PlaceSheet: View {
     let placeID: UUID
     /// Şehir planından açıldıysa o gezi şehri (gün düğmesi onun günü).
     var stop: UUID?
-    let onOpen: (Place) -> Void
+    /// Rota boşsa "Rotaya ekle"nin ekleyeceği gün (şehir planında bakılan gün).
+    var fallbackDay = 0
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
@@ -101,11 +102,10 @@ struct PlaceSheet: View {
         }
     }
 
-    /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle"), Aç, Yol tarifi.
+    /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle") ve Yol tarifi.
     private func actions(_ place: Place) -> some View {
         HStack(spacing: 8) {
-            PlanDayButton(place: place, stop: stop)
-            SecondaryButton(title: "Aç", systemImage: "arrow.up.right") { onOpen(place) }
+            PlanDayButton(place: place, stop: stop, fallbackDay: fallbackDay)
             DirectionsButton { guidance = GuidanceDestination(place: place) }
         }
     }
@@ -128,6 +128,7 @@ struct PlaceSheet: View {
             .contentMargins(.horizontal, 20, for: .scrollContent)
         } else if !photos.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
+                // Fotoğrafın sahibi ve lisansı tam ekranda ⓘ düğmesinde.
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 10) {
                         ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
@@ -150,11 +151,6 @@ struct PlaceSheet: View {
                 }
                 .padding(.horizontal, -20)
                 .contentMargins(.horizontal, 20, for: .scrollContent)
-                Text(photosAreNearby
-                     ? LocalizedStringKey("Fotoğraflar: yakında çekilenler, Wikimedia Commons")
-                     : LocalizedStringKey("Fotoğraflar: Wikipedia / Wikimedia Commons"))
-                    .font(Theme.font(11))
-                    .foregroundStyle(Theme.muted)
             }
         }
     }
@@ -236,19 +232,30 @@ struct PlaceSheet: View {
 }
 
 extension PresentationDetent {
-    /// Yer penceresi: yarım ekran; yukarı çekilince ekranın %70'i (üstte harita kalır).
+    /// Yer penceresi: haritadan açılınca yarım ekran; listeden açılınca
+    /// daha yüksek (ayrıntı okunur); en çok %90 (üstte harita hep görünür).
     static let placeHalf = PresentationDetent.fraction(0.5)
-    static let placeTall = PresentationDetent.fraction(0.7)
+    static let placeTall = PresentationDetent.fraction(0.72)
+    static let placeFull = PresentationDetent.fraction(0.9)
+
+    /// Pencerenin ekranda kapladığı oran (harita kalan alanda ortalanır).
+    var placeFraction: CGFloat {
+        switch self {
+        case .placeFull: 0.9
+        case .placeTall: 0.72
+        default: 0.5
+        }
+    }
 }
 
 extension View {
-    /// Yer penceresinin Google Maps gibi davranışı: yarım ekran açılır,
-    /// yukarı çekilince (ya da içi yukarı kaydırılınca) ekranın %70'ine
+    /// Yer penceresinin Google Maps gibi davranışı: yarım ya da yüksek
+    /// açılır, yukarı çekilince (ya da içi yukarı kaydırılınca) %90'a
     /// çıkar; üstteki harita görünür ve kullanılır.
     func placeSheetPresentation(detent: Binding<PresentationDetent>) -> some View {
-        presentationDetents([.placeHalf, .placeTall], selection: detent)
+        presentationDetents([.placeHalf, .placeTall, .placeFull], selection: detent)
             .presentationDragIndicator(.visible)
-            .presentationBackgroundInteraction(.enabled(upThrough: .placeTall))
+            .presentationBackgroundInteraction(.enabled(upThrough: .placeFull))
             .presentationContentInteraction(.resizes)
             .presentationCornerRadius(Theme.sheetRadius)
     }

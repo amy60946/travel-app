@@ -205,7 +205,7 @@ struct WideButton: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+                .background(Theme.button, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
         }
         .buttonStyle(.plain)
     }

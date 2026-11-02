@@ -80,31 +80,26 @@ struct CityPlanView: View {
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.height + proxy.safeAreaInsets.top + proxy.safeAreaInsets.bottom
         } action: { screenHeight = $0 }
-        .overlay(alignment: .bottomTrailing) { addButton }
-        .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 90) }
+        .overlay(alignment: .bottom) { UndoToast().padding(.bottom, showsPlaceSheet ? 16 : min(panelHeight, 200) + 8) }
         .animation(.snappy, value: store.undoMessage)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { $0.view }
         .sheet(item: $editing) { PlaceEditor(place: $0, focusesNote: editsNote) }
+        // Yere dokununca ayrıntının tamamı doğrudan bu pencerede ("Aç" adımı
+        // yok); üstte harita görünür kalır.
         .sheet(isPresented: Binding(get: { focusedID != nil }, set: { if !$0 { focusedID = nil } })) {
             if let id = focusedID {
-                PlaceSheet(placeID: id, stop: stopID) { place in
-                    focusedID = nil
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(350))
-                        path.append(.place(place.id))
-                    }
-                }
-                .placeSheetPresentation(detent: $sheetDetent)
+                PlaceSheet(placeID: id, stop: stopID, fallbackDay: max(selectedDay, 0))
+                    .placeSheetPresentation(detent: $sheetDetent)
             }
         }
         .sheet(item: $googlePlace) { place in
-            GooglePlaceSheet(place: place) { saved in
-                // Kaydedilen yerin kendi penceresi (gün düğmesiyle rotaya eklenir).
+            GooglePlaceSheet(place: place, context: .cityPlan(stop: stopID, day: nil, fallback: max(selectedDay, 0))) { saved in
+                // Rotaya eklenen ya da kaydedilen yerin kendi penceresi.
                 googlePlace = nil
                 Task {
                     try? await Task.sleep(for: .milliseconds(400))
-                    focus(saved)
+                    focus(saved, detent: sheetDetent)
                 }
             }
             .placeSheetPresentation(detent: $sheetDetent)
@@ -141,12 +136,13 @@ struct CityPlanView: View {
         // panelin ya da yer penceresinin üstü arası) ortasında dursun.
         return GoogleMap(focus: $mapFocus, markers: markers, lines: lines,
                          padding: EdgeInsets(top: 52, leading: 0,
-                                             bottom: showsPlaceSheet ? screenHeight / 2 - 20 : panelHeight,
+                                             bottom: showsPlaceSheet ? screenHeight * sheetDetent.placeFraction - 20
+                                                                     : panelHeight,
                                              trailing: 0),
                          onPlaceTap: { id, name, coordinate in showGooglePlace(id: id, name: name, coordinate: coordinate) },
                          onMapTap: {
                              // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
-                             if showsPlaceSheet, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+                             if showsPlaceSheet, sheetDetent != .placeHalf { sheetDetent = .placeHalf }
                          },
                          onCameraIdle: { zoom = $0.zoom })
     }
@@ -156,27 +152,35 @@ struct CityPlanView: View {
         return store.place(id)
     }
 
+    /// Üst çubuk: geri, ortada "İstanbul · 1. gün ⌄" (günler arası geçiş,
+    /// Apple Haritalar sadeliğinde), sağda harita düğmeleri. Liste tam
+    /// ekrandayken çubuk beyaz zeminli olur.
     private var header: some View {
-        HStack(alignment: .top) {
+        let fullScreen = panelStop == Self.panelStops.count - 1 && !showsPlaceSheet
+        return HStack(alignment: .top) {
             CircleIconButton(systemImage: "chevron.left") { dismiss() }
+                .accessibilityLabel(Text("Geri"))
             Spacer()
-            Text(city)
-                .font(Theme.font(17, .bold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 9)
-                .background(.white, in: Capsule())
-                .softShadow()
+            dayMenu
             Spacer()
             MapControls(focus: $mapFocus)
+                .opacity(fullScreen ? 0 : 1)
+                .allowsHitTesting(!fullScreen)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background {
+            if fullScreen { Color.white.ignoresSafeArea(edges: .top) }
+        }
+        .animation(.snappy, value: fullScreen)
     }
 
     // MARK: - Liste
 
-    /// Panelin yükseklikleri: yalnızca gün satırı, yarım ekran, neredeyse tam ekran.
-    private static let panelStops: [PanelStop] = [.height(150), .fraction(0.5), .fraction(0.9)]
+    /// Panelin yükseklikleri: yalnızca gün satırı, yarım ekran, tam ekran
+    /// (üst çubuk görünür kalır).
+    private static let panelStops: [PanelStop] = [.height(96), .fraction(0.5), .belowTop(60)]
 
     private func list(_ stops: [Place]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -189,7 +193,7 @@ struct CityPlanView: View {
                 }
             } else {
                 if stops.isEmpty {
-                    Text("Bu gün boş. Sağ alttaki + ile yer ekle.")
+                    Text("Bu gün boş. Haritada bir yere dokunup rotaya ekleyebilir ya da aşağıdan arayabilirsin.")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.muted)
                         .padding(.vertical, 14)
@@ -206,10 +210,33 @@ struct CityPlanView: View {
                     row(place, day: selectedDay, number: index + 1)
                 }
             }
+            addRow.padding(.top, 6)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
         .animation(.snappy, value: stops.map(\.id))
+    }
+
+    /// Listenin sonunda "+ Yer ekle" (Polarsteps "Add a spot" gibi).
+    private var addRow: some View {
+        Button { openAddPlace() } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12))
+                Text("Yer ekle").font(Theme.font(16, .semibold))
+                Spacer()
+            }
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func openAddPlace() {
+        sheet = .addPlace(city: city, stop: stopID, day: max(selectedDay, 0))
     }
 
     /// "Tüm yerler"de günün başlığı; üstüne bırakılan yer o güne geçer.
@@ -232,42 +259,55 @@ struct CityPlanView: View {
         })
     }
 
-    /// Listenin üstünde tek satır: gün seçici, o günün özeti ve Yürü.
+    /// Listenin üstünde tek satır: günün adı ve özeti, + (yer ekle) ve Yürü.
+    /// Gün, haritanın üstündeki "İstanbul · 1. gün ⌄" düğmesinden değişir.
     private func dayBar(_ stops: [Place]) -> some View {
         HStack(spacing: 10) {
-            dayMenu
-            Group {
-                if showsAll {
-                    Text("\(stops.count) yer")
-                } else if let route, !stops.isEmpty {
-                    Text("\(stops.count) durak · \(Int((route.meters / 1000).rounded())) km")
-                } else {
-                    Text("\(stops.count) durak")
+            VStack(alignment: .leading, spacing: 1) {
+                Text(showsAll ? LocalizedStringKey("Tüm yerler") : LocalizedStringKey("\(selectedDay + 1). gün"))
+                    .font(Theme.font(19, .bold))
+                Group {
+                    if showsAll {
+                        Text("\(stops.count) yer")
+                    } else if let route, !stops.isEmpty {
+                        Text("\(stops.count) durak · \(Int((route.meters / 1000).rounded())) km")
+                    } else {
+                        Text("\(stops.count) durak")
+                    }
                 }
+                .font(Theme.caption)
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
             }
-            .font(Theme.caption)
-            .foregroundStyle(Theme.muted)
-            .lineLimit(1)
             Spacer(minLength: 4)
+            Button { openAddPlace() } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Theme.ink, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Yer ekle"))
             if !stops.isEmpty && !showsAll {
                 Button { path.append(.walk(stop: stopID, day: selectedDay)) } label: {
                     Label("Yürü", systemImage: "figure.walk")
                         .font(Theme.font(14, .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .frame(height: 38)
                         .background(Theme.ink, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 2)
         .padding(.bottom, 12)
         .overlay(alignment: .bottom) { Divider() }
     }
 
-    /// "1. gün ⌄": günler (kaçar yer), Tüm yerler, Gün ekle, Son günü sil.
+    /// Haritanın üstündeki "İstanbul · 1. gün ⌄": günler (kaçar yer), Tüm
+    /// yerler, Gün ekle, Son günü sil, günü başka günle değiştir, yürüme sırası.
     private var dayMenu: some View {
         let days = self.days
         return Menu {
@@ -290,29 +330,53 @@ struct CityPlanView: View {
                     Label("Gün ekle", systemImage: "plus")
                 }
                 .disabled(trip.days >= 14)
+                if !showsAll && trip.days > 1 {
+                    Menu {
+                        ForEach(0..<trip.days, id: \.self) { other in
+                            if other != selectedDay {
+                                Button("\(other + 1). günle yer değiştir") { swapDay(with: other) }
+                            }
+                        }
+                    } label: {
+                        Label("Bu günü taşı", systemImage: "arrow.up.arrow.down")
+                    }
+                }
+                if !showsAll && store.isManuallyOrdered(day: selectedDay, stop: stopID) {
+                    Button { withAnimation(.snappy) { store.orderByWalking(day: selectedDay, stop: stopID) } } label: {
+                        Label("Yürüme sırasına diz", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    }
+                }
                 Button(role: .destructive) { store.setDays(trip.days - 1, stop: stopID) } label: {
                     Label("Son günü sil", systemImage: "trash")
                 }
                 .disabled(trip.days <= 1)
             }
-            if !showsAll && store.isManuallyOrdered(day: selectedDay, stop: stopID) {
-                Button { withAnimation(.snappy) { store.orderByWalking(day: selectedDay, stop: stopID) } } label: {
-                    Label("Yürüme sırasına diz", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                }
-            }
         } label: {
             HStack(spacing: 6) {
+                Text(verbatim: city).font(Theme.font(17, .bold)).lineLimit(1)
                 Text(showsAll ? LocalizedStringKey("Tüm yerler") : LocalizedStringKey("\(selectedDay + 1). gün"))
-                    .font(Theme.font(17, .bold))
+                    .font(Theme.font(17, .regular))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
             }
             .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Theme.surface, in: Capsule())
+            .padding(.horizontal, 16)
+            .frame(height: 40)
+            .background(.white, in: Capsule())
+            .softShadow()
         }
         .menuOrder(.fixed)
         .accessibilityHint(Text("Günü değiştir"))
+    }
+
+    /// Bakılan günün bütün planı başka günle yer değiştirir; o güne geçilir.
+    private func swapDay(with other: Int) {
+        let current = selectedDay
+        withAnimation(.snappy) {
+            store.swapDays(current, other, stop: stopID)
+            selectedDay = other
+        }
     }
 
     /// Listede bir yer ("Add a spot" gibi): solda fotoğraf (köşesinde türün
@@ -320,7 +384,7 @@ struct CityPlanView: View {
     /// Basılı tutunca menü açılır; menü açıkken sürükleyince yer taşınır.
     private func row(_ place: Place, day: Int, number: Int? = nil) -> some View {
         let slot = dropSlot?.target == place.id ? dropSlot : nil
-        return Button { focus(place) } label: {
+        return Button { focus(place, detent: .placeTall) } label: {
             HStack(spacing: 14) {
                 PlaceRowThumbnail(place: place)
                     .overlay(alignment: .topLeading) {
@@ -349,6 +413,15 @@ struct CityPlanView: View {
                     }
                 }
                 Spacer(minLength: 8)
+                if let saved = store.savedDay(of: place, stop: stopID), saved != day {
+                    // Gün sayısı azaldı: yer kendi günü geri gelince oraya döner.
+                    Text("\(saved + 1). günden")
+                        .font(Theme.font(11, .semibold))
+                        .foregroundStyle(Theme.muted)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Theme.surface, in: Capsule())
+                }
                 if place.isEstimated { EstimatedTag() }
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 15, weight: .medium))
@@ -432,20 +505,6 @@ struct CityPlanView: View {
         }
     }
 
-    private var addButton: some View {
-        Button { sheet = .addPlace(city: city, stop: stopID, day: max(selectedDay, 0)) } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Theme.ink, in: Circle())
-                .softShadow()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Yer ekle"))
-        .padding(20)
-    }
-
     // MARK: - Sıra ve gün
 
     /// Sürüklenen yer bir satırın üst ya da alt yarısına bırakıldı.
@@ -481,9 +540,11 @@ struct CityPlanView: View {
 
     // MARK: - Odak ve rota
 
-    private func focus(_ place: Place) {
+    /// Yerin penceresini açar. Listeden açılınca ayrıntı için daha yüksek
+    /// (üstte harita kalır), haritadan açılınca yarım ekran.
+    private func focus(_ place: Place, detent: PresentationDetent = .placeHalf) {
         if !showsAll, let day = store.dayIndex(of: place, stop: stopID) { selectedDay = day }
-        sheetDetent = .placeHalf
+        sheetDetent = detent
         focusedID = place.id
     }
 
@@ -557,6 +618,31 @@ struct CityPlanView: View {
         let all = days.flatMap { $0 }
         if screen == "all" { selectedDay = Self.allDays }
         if screen == "cityTall" { panelStop = Self.panelStops.count - 1 }
+        // `fewerDays`: gün sayısı 3'ten 2'ye inmiş; 3. günün yerleri "3. günden" etiketiyle 2. günde.
+        if screen == "fewerDays" {
+            store.setDays(2, stop: stopID)
+            store.dismissUndo()
+            selectedDay = 1
+            return
+        }
+        // `mapAdd`: haritada Google yerine dokunulmuş (Rotaya ekle, yer imi, yol tarifi).
+        if screen == "mapAdd" {
+            let shibuya = CLLocationCoordinate2D(latitude: 35.6595, longitude: 139.7005)
+            guard let found = await GooglePlaces.shared.search("Ichiran Shibuya", near: shibuya).first else { return }
+            sheetDetent = .placeHalf
+            googlePlace = GooglePlaceRef(id: found.id, name: found.name, coordinate: found.coordinate)
+            return
+        }
+        // `mapAdded`: aynı yer "Rotaya ekle" ile en yakın güne eklenmiş.
+        if screen == "mapAdded" {
+            let place = Place(name: "Ichiran Shibuya", city: city, latitude: 35.6614, longitude: 139.7010,
+                              category: .food, source: .search)
+            store.add(place)
+            let day = store.planNearest(place, stop: stopID)
+            selectedDay = day
+            focus(place)
+            return
+        }
         if screen == "reorder" || screen == "editPlace", let firstDay = days.first, firstDay.count > 1,
            let last = firstDay.last {
             store.reorder(last, before: firstDay.first, day: 0, stop: stopID)

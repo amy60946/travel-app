@@ -129,10 +129,6 @@ struct NewTripView: View {
             }
             .buttonStyle(.plain)
         }
-        Text("Arama: Apple Haritalar")
-            .font(Theme.font(12))
-            .foregroundStyle(Theme.muted)
-            .padding(.top, 10)
     }
 
     /// Koleksiyondan gezi: koleksiyonun şehirleri durak, yerleri o şehrin

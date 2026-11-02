@@ -416,6 +416,63 @@ actor WikipediaService {
             .compactMap(\.thumburl)
     }
 
+    /// Wikimedia fotoğrafının sahibi ve lisansı ("Ali Veli · CC BY-SA 4.0");
+    /// fotoğraf tam ekrandayken ⓘ düğmesinde gösterilir (lisans gereği).
+    struct PhotoCredit: Equatable {
+        var author: String
+        var license: String
+        var page: URL?
+    }
+
+    func credit(for url: URL) async -> PhotoCredit? {
+        guard let file = Self.commonsFileName(url) else { return nil }
+        var components = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "titles", value: "File:\(file)"),
+            .init(name: "prop", value: "imageinfo"),
+            .init(name: "iiprop", value: "extmetadata|url"),
+            .init(name: "iiextmetadatafilter", value: "Artist|LicenseShortName"),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable { var pages: [Page] }
+            struct Page: Decodable {
+                struct Info: Decodable {
+                    struct Field: Decodable { var value: String? }
+                    var extmetadata: [String: Field]?
+                    var descriptionurl: URL?
+                }
+                var imageinfo: [Info]?
+            }
+            var query: Query?
+        }
+        guard let (data, _) = try? await session.data(from: components.url!),
+              let info = try? JSONDecoder().decode(Response.self, from: data).query?.pages.first?.imageinfo?.first
+        else { return nil }
+        let author = Self.plainText(info.extmetadata?["Artist"]?.value ?? "")
+        let license = info.extmetadata?["LicenseShortName"]?.value ?? ""
+        guard !author.isEmpty || !license.isEmpty else { return nil }
+        return PhotoCredit(author: author, license: license, page: info.descriptionurl)
+    }
+
+    /// upload.wikimedia.org adresinden dosya adı (küçük resimde sondan bir önceki parça).
+    static func commonsFileName(_ url: URL) -> String? {
+        guard url.host()?.hasSuffix("wikimedia.org") == true else { return nil }
+        let parts = url.pathComponents
+        guard let last = parts.last else { return nil }
+        if parts.contains("thumb"), parts.count >= 2 { return parts[parts.count - 2].removingPercentEncoding }
+        return last.removingPercentEncoding
+    }
+
+    /// HTML etiketlerini atar ("<a href=...>Ali</a>" → "Ali").
+    static func plainText(_ html: String) -> String {
+        html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Commons dosya adı yeri anlatıyor mu: yerin adındaki genel olmayan
     /// (tür ya da şehir adı olmayan, en az 4 harfli) bir kelime dosya
     /// adında geçiyor.

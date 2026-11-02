@@ -119,15 +119,58 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.dayIndex(of: cafe, stop: stop), 1)
         XCTAssertEqual(store.dayIndex(of: first, stop: stop), 1)
 
-        // Son gün silinince yerleri yeni son güne geçer; geri eklenen gün boştur.
+        // Son gün silinince yerleri geçici olarak son günde görünür; gün geri
+        // eklenince kendi günlerine döner, hiçbir yer başka güne kaymaz
+        // (Oguz'un 3 → 2 → 3 hatası).
         let planned = store.trip(stop: stop).placeIDs.count
+        let thirdDay = Set(store.dayPlan(stop: stop)[2].map(\.id))
+        let firstDay = Set(store.dayPlan(stop: stop)[0].map(\.id))
         store.setDays(2, stop: stop)
         XCTAssertNotNil(store.undoMessage)
         XCTAssertEqual(store.dayIndex(of: bar, stop: stop), 1)
+        XCTAssertEqual(store.savedDay(of: bar, stop: stop), 2)
         XCTAssertEqual(store.dayPlan(stop: stop).reduce(0) { $0 + $1.count }, planned)
         store.setDays(3, stop: stop)
-        XCTAssertEqual(store.dayPlan(stop: stop)[2].count, 0)
+        XCTAssertEqual(Set(store.dayPlan(stop: stop)[2].map(\.id)), thirdDay)
+        XCTAssertEqual(Set(store.dayPlan(stop: stop)[0].map(\.id)), firstDay)
+        XCTAssertEqual(store.dayIndex(of: bar, stop: stop), 2)
         XCTAssertEqual(store.dayIndex(of: first, stop: stop), 1)
+    }
+
+    /// Günler arası takas: 1. günün planı 3. güne, 3. gününki 1. güne.
+    func testSwapDays() throws {
+        let store = makeStore()
+        let stop = try tokyo(store)
+        let before = store.dayPlan(stop: stop)
+        XCTAssertFalse(before[0].isEmpty)
+        let middle = Set(before[1].map(\.id))
+        store.swapDays(0, 2, stop: stop)
+        let after = store.dayPlan(stop: stop)
+        XCTAssertEqual(Set(after[2].map(\.id)), Set(before[0].map(\.id)))
+        XCTAssertEqual(Set(after[0].map(\.id)), Set(before[2].map(\.id)))
+        XCTAssertEqual(Set(after[1].map(\.id)), middle)
+        store.undo()
+        XCTAssertEqual(Set(store.dayPlan(stop: stop)[0].map(\.id)), Set(before[0].map(\.id)))
+    }
+
+    /// Haritadan eklenen yer, rotası en yakın geçen güne girer.
+    func testPlanNearestDay() throws {
+        let store = makeStore()
+        let stop = try tokyo(store)
+        let near = try XCTUnwrap(store.dayPlan(stop: stop)[2].first)
+        let cafe = Place(name: "Köşedeki kafe", city: "Tokyo", latitude: near.latitude + 0.0003,
+                         longitude: near.longitude, category: .cafe, source: .search)
+        store.add(cafe)
+        XCTAssertEqual(store.planNearest(cafe, stop: stop), 2)
+        XCTAssertEqual(store.dayIndex(of: cafe, stop: stop), 2)
+
+        // Rotası boş şehirde bakılan güne girer.
+        let journey = store.createJourney(cities: [CityChoice(name: "Ankara", latitude: 39.93, longitude: 32.86)])
+        let ankara = try XCTUnwrap(store.journey(journey)?.stops.first?.id)
+        let castle = Place(name: "Ankara Kalesi", city: "Ankara", latitude: 39.94, longitude: 32.86,
+                           category: .sight, source: .search)
+        store.add(castle)
+        XCTAssertEqual(store.planNearest(castle, stop: ankara, fallback: 1), 1)
     }
 
     /// Basılı tutup sürükleme: gün içinde sıra değişir, gün elle sıralı

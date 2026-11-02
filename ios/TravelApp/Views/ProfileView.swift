@@ -10,6 +10,7 @@ struct ProfileView: View {
     @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.turkish.rawValue
     @AppStorage(PinStyle.storageKey) private var pinStyle = PinStyle.icon
     @State private var showLayers = false
+    @State private var showCredits = false
 
     var body: some View {
         ScrollView {
@@ -61,6 +62,11 @@ struct ProfileView: View {
                 .pickerStyle(.segmented)
                 .padding(.top, 12)
                 note("Simge: türün renkli işareti. Fotoğraf: yerin kendi fotoğrafı, köşesinde türün simgesi.")
+
+                sectionTitle("Hakkında")
+                card {
+                    row("Kaynaklar ve lisanslar", systemImage: "doc.text") { showCredits = true }
+                }
             }
             .padding(.horizontal, 20)
             // Altta yüzen sekme çubuğu son satırı örtmesin.
@@ -68,6 +74,7 @@ struct ProfileView: View {
         }
         .background(.white)
         .sheet(isPresented: $showLayers) { MapLayersSheet() }
+        .sheet(isPresented: $showCredits) { CreditsSheet() }
     }
 
     /// Gezi, şehir, yer ve koleksiyon sayıları; kare kutular.
@@ -139,5 +146,39 @@ struct ProfileView: View {
         guard option.rawValue != language else { return }
         AppLanguage.select(option)
         language = option.rawValue
+    }
+}
+
+/// Uygulamadaki içeriklerin kaynakları ve lisansları. Ekranlardaki küçük
+/// kaynak yazıları kaldırıldı (Oguz, 2026-11-02); zorunlu olanlar yerinde
+/// kaldı (Wikipedia/Wikivoyage yazısının sonu, haritasız Google listesi,
+/// fotoğrafın ⓘ düğmesi), hepsi burada da toplu durur.
+private struct CreditsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Kaynaklar ve lisanslar") { dismiss() }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    credit("Google Maps", "Harita, yer arama, puanlar, yorumlar, saatler ve yol tarifi. © Google.")
+                    credit("Wikipedia", "Yer bilgileri, popüler yerler ve sesli anlatım metinleri. CC BY-SA 4.0 lisansıyla; Türkçesi olmayan yazılar Türkçeye çevrilir.")
+                    credit("Wikivoyage", "Şehir ve ülke rehberleri, şehir listeleri. CC BY-SA 4.0.")
+                    credit("Wikimedia Commons", "Yer ve şehir fotoğrafları; her fotoğrafın sahibi ve lisansı fotoğraf tam ekrandayken ⓘ düğmesinde.")
+                    credit("Apple", "Şehir arama, konaklama arama, şehirler arası araç süresi ve iPhone çevirisi.")
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
+            }
+        }
+        .font(Theme.body)
+        .foregroundStyle(Theme.ink)
+    }
+
+    private func credit(_ title: String, _ text: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: title).font(Theme.font(16, .semibold))
+            Text(text).font(Theme.font(14)).foregroundStyle(Theme.muted)
+        }
     }
 }

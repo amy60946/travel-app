@@ -39,7 +39,7 @@ struct DayBadge: View {
     }
 }
 
-/// Kiremit ana düğme.
+/// Ana düğme: siyah zemin, beyaz yazı (Oguz, 2026-11-02).
 struct PrimaryButton: View {
     let title: LocalizedStringKey
     var systemImage: String?
@@ -66,12 +66,12 @@ struct PrimaryLabel: View {
         .font(Theme.font(16, .semibold))
         .foregroundStyle(.white)
         .padding(.horizontal, 20)
-        .padding(.vertical, 13)
-        .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+        .frame(height: 44)
+        .background(Theme.button, in: Capsule())
     }
 }
 
-/// Beyaz, çerçeveli ikincil düğme.
+/// İkincil düğme: o da siyah zemin, beyaz yazı; daha küçük.
 struct SecondaryButton: View {
     let title: LocalizedStringKey
     var systemImage: String?
@@ -95,24 +95,26 @@ struct SecondaryLabel: View {
             Text(title)
             if showsChevron { Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)) }
         }
-        .font(Theme.font(14, .semibold))
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .background(.white, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.buttonRadius).stroke(Theme.hairline))
+        .font(Theme.font(15, .semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .frame(height: 44)
+        .background(Theme.button, in: Capsule())
     }
 }
 
 /// Yerin rotadaki günü tek düğmede. Rotadaysa "2. gün ⌄": menüden başka
-/// güne taşınır ya da rotadan çıkarılır. Değilse "Rotaya ekle"; birden çok
-/// gün varsa hangi güne ekleneceği sorulur. Şehir planı dışında (ana
-/// harita, koleksiyon) yerin bulunduğu gezi kullanılır; hiçbir gezide
-/// değilse "Nereye eklensin?" penceresi açılır.
+/// güne taşınır ya da rotadan çıkarılır. Değilse "Rotaya ekle": şehir
+/// planında tek dokunuşla, rotası yere en yakın geçen güne eklenir (gün
+/// sonra bu düğmeden değişir). Şehir planı dışında (ana harita, koleksiyon)
+/// yerin bulunduğu gezi kullanılır; hiçbir gezide değilse "Nereye
+/// eklensin?" penceresi açılır.
 struct PlanDayButton: View {
     let place: Place
     /// Bakılan gezi şehri (şehir planından açılınca).
     var stop: UUID?
+    /// Rota boşsa eklenecek gün.
+    var fallbackDay = 0
     @EnvironmentObject private var store: AppStore
     @State private var choosesTrip = false
 
@@ -145,19 +147,10 @@ struct PlanDayButton: View {
             }
             .menuOrder(.fixed)
             .accessibilityHint(Text("Günü değiştir"))
-        } else if let stop, store.trip(stop: stop).days > 1 {
-            Menu {
-                ForEach(0..<store.trip(stop: stop).days, id: \.self) { day in
-                    Button("\(day + 1). güne ekle") { store.plan(place, stop: stop, day: day) }
-                }
-            } label: {
-                PrimaryLabel(title: "Rotaya ekle", systemImage: "plus")
-            }
-            .menuOrder(.fixed)
         } else {
             PrimaryButton(title: "Rotaya ekle", systemImage: "plus") {
                 if let stop {
-                    store.plan(place, stop: stop, day: 0)
+                    store.planNearest(place, stop: stop, fallback: fallbackDay)
                 } else {
                     choosesTrip = true
                 }
