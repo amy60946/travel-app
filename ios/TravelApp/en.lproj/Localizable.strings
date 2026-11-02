@@ -579,3 +579,16 @@
 "%lld gün planlandı" = "%lld days planned";
 "Araya şehir ekle" = "Add a city here";
 "Seçenekler" = "Options";
+
+/* 5. sürüm: Keşfet bölümleri */
+"Popüler" = "Popular";
+"Bu ay yükselenler" = "Trending this month";
+"Gözden kaçanlar" = "Under the radar";
+
+/* 5. sürüm: koleksiyonda seçim */
+"%lld seçildi" = "%lld selected";
+"Seç" = "Select";
+"Taşı" = "Move";
+"Çıkar" = "Remove";
+"%lld öğe %@ koleksiyonundan çıkarıldı" = "%1$lld items removed from %2$@";
+"%lld öğe %@ koleksiyonuna taşındı" = "%1$lld items moved to %2$@";

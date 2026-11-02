@@ -792,6 +792,28 @@ final class AppStore: ObservableObject {
         toggle(item, in: collectionID)
     }
 
+    /// Seçilen şeyleri koleksiyondan çıkarır (tek "Geri al").
+    func removeItems(_ itemIDs: Set<UUID>, from collectionID: UUID) {
+        guard let index = collections.firstIndex(where: { $0.id == collectionID }), !itemIDs.isEmpty else { return }
+        snapshot(String(localized: "\(itemIDs.count) öğe \(collections[index].name) koleksiyonundan çıkarıldı"))
+        collections[index].items.removeAll { itemIDs.contains($0.id) }
+        save()
+    }
+
+    /// Seçilen şeyleri başka koleksiyona taşır; orada zaten olanlar
+    /// tekrar eklenmez (tek "Geri al").
+    func moveItems(_ itemIDs: Set<UUID>, from source: UUID, to target: UUID) {
+        guard source != target, !itemIDs.isEmpty,
+              let from = collections.firstIndex(where: { $0.id == source }),
+              let to = collections.firstIndex(where: { $0.id == target }) else { return }
+        snapshot(String(localized: "\(itemIDs.count) öğe \(collections[to].name) koleksiyonuna taşındı"))
+        let moving = collections[from].items.filter { itemIDs.contains($0.id) }
+        let existing = Set(collections[to].items.map(\.key))
+        collections[to].items.insert(contentsOf: moving.filter { !existing.contains($0.key) }, at: 0)
+        collections[from].items.removeAll { itemIDs.contains($0.id) }
+        save()
+    }
+
     // MARK: - Geri al
 
     func undo() {

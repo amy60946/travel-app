@@ -62,6 +62,38 @@ struct CollectionCover: View {
     }
 }
 
+/// Koleksiyonun kapağı, Polarsteps gibi üst üste iki fotoğraf (arkadaki
+/// biraz eğik); tek şey varsa tek fotoğraf, boşsa renk ve simge.
+struct CollectionStack: View {
+    let collection: PlaceCollection
+    var size: CGFloat = 56
+
+    var body: some View {
+        let stacked = collection.items.count > 1
+        let side = stacked ? size * 0.84 : size
+        let radius = size * 0.18
+        ZStack {
+            if stacked {
+                CollectionItemPhoto(item: collection.items[1])
+                    .frame(width: side, height: side)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(.white, lineWidth: 2))
+                    .rotationEffect(.degrees(-9))
+                    .offset(x: -size * 0.05, y: -size * 0.02)
+            }
+            CollectionCover(collection: collection)
+                .frame(width: side, height: side)
+                .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(.white, lineWidth: stacked ? 2 : 0))
+                .shadow(color: .black.opacity(stacked ? 0.15 : 0), radius: 3, y: 1)
+                .rotationEffect(.degrees(stacked ? 5 : 0))
+                .offset(x: stacked ? size * 0.05 : 0, y: stacked ? size * 0.03 : 0)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 // MARK: - Kaydet düğmesi
 
 /// Kartların sağ üstündeki kaydet düğmesi (yer işareti): dokununca
@@ -418,6 +450,9 @@ struct CollectionDetailView: View {
     /// Haritada dokunulan Google yeri: "Kaydet" onu bu koleksiyona ekler.
     @State private var googlePlace: GooglePlaceRef?
     @State private var googleDetent: PresentationDetent = .placeHalf
+    /// "Seç": birden çok şey seçilip başka koleksiyona taşınır ya da çıkarılır.
+    @State private var selecting = false
+    @State private var selection: Set<UUID> = []
 
     enum Filter { case all, destinations, spots }
 
@@ -459,8 +494,12 @@ struct CollectionDetailView: View {
         }
         .animation(.snappy, value: googlePlace)
         .overlay(alignment: .bottomTrailing) {
-            if collection != nil && googlePlace == nil { addButton }
+            if collection != nil && googlePlace == nil && !selecting { addButton }
         }
+        .overlay(alignment: .bottom) {
+            if selecting { selectionBar }
+        }
+        .animation(.snappy, value: selecting)
         .overlay(alignment: .topLeading) {
             CircleIconButton(systemImage: "chevron.left") { dismiss() }
                 .accessibilityLabel(Text("Geri"))
@@ -528,22 +567,48 @@ struct CollectionDetailView: View {
 
     private func header(_ collection: PlaceCollection) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text(collection.name).font(Theme.font(24, .bold)).lineLimit(1)
-                Spacer()
-                Menu {
-                    Button { showEdit = true } label: { Label("Düzenle", systemImage: "pencil") }
-                    Button(role: .destructive) { confirmDelete = true } label: {
-                        Label("Koleksiyonu sil", systemImage: "trash")
+            if selecting {
+                HStack(spacing: 10) {
+                    Text("\(selection.count) seçildi").font(Theme.font(24, .bold)).lineLimit(1)
+                    Spacer()
+                    Button {
+                        selecting = false
+                        selection = []
+                    } label: {
+                        Text("Bitti")
+                            .font(Theme.font(15, .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .frame(height: 40)
+                            .background(Theme.ink, in: Capsule())
                     }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                        .frame(width: 40, height: 40)
-                        .background(Theme.surface, in: Circle())
+                    .buttonStyle(.plain)
                 }
-                .accessibilityLabel(Text("Koleksiyon menüsü"))
+            } else {
+                HStack(spacing: 10) {
+                    Text(collection.name).font(Theme.font(24, .bold)).lineLimit(1)
+                    Spacer()
+                    Menu {
+                        Button { showEdit = true } label: { Label("Düzenle", systemImage: "pencil") }
+                        if !collection.items.isEmpty {
+                            Button {
+                                selection = []
+                                selecting = true
+                                if panelStop == 0 { panelStop = 1 }
+                            } label: { Label("Seç", systemImage: "checkmark.circle") }
+                        }
+                        Button(role: .destructive) { confirmDelete = true } label: {
+                            Label("Koleksiyonu sil", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                            .frame(width: 40, height: 40)
+                            .background(Theme.surface, in: Circle())
+                    }
+                    .accessibilityLabel(Text("Koleksiyon menüsü"))
+                }
             }
             HStack(spacing: 8) {
                 chip("Tümü", count: collection.items.count, value: .all)
@@ -594,8 +659,14 @@ struct CollectionDetailView: View {
                     // Kartın içinde kaydet düğmesi var; kartın kendisi dokunulur.
                     card(item)
                         .contentShape(Rectangle())
-                        .onTapGesture { open(item) }
-                        .accessibilityAddTraits(.isButton)
+                        .onTapGesture {
+                            if selecting {
+                                if selection.contains(item.id) { selection.remove(item.id) } else { selection.insert(item.id) }
+                            } else {
+                                open(item)
+                            }
+                        }
+                        .accessibilityAddTraits(selecting && selection.contains(item.id) ? [.isButton, .isSelected] : .isButton)
                 }
             }
             .padding(.horizontal, 20)
@@ -609,7 +680,19 @@ struct CollectionDetailView: View {
                 .frame(height: 130)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay {
+                    if selecting && selection.contains(item.id) {
+                        RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.ink, lineWidth: 3)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
+                    if selecting {
+                        Image(systemName: selection.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(selection.contains(item.id) ? Theme.ink : .white, .white)
+                            .shadow(color: .black.opacity(0.3), radius: 3)
+                            .padding(8)
+                    } else {
                     Button { store.removeItem(item.id, from: collectionID) } label: {
                         Image(systemName: "bookmark.fill")
                             .font(.system(size: 13, weight: .semibold))
@@ -620,6 +703,7 @@ struct CollectionDetailView: View {
                     .buttonStyle(.plain)
                     .padding(8)
                     .accessibilityLabel(Text("Koleksiyondan çıkar"))
+                    }
                 }
             label(item).padding(.top, 4)
             Text(item.displayName).font(Theme.font(16, .bold)).lineLimit(1)
@@ -645,6 +729,51 @@ struct CollectionDetailView: View {
         .textCase(.uppercase)
         .tracking(0.5)
         .foregroundStyle(item.kind == .place ? (item.category ?? .sight).color : Theme.accent)
+    }
+
+    /// Seçim modunda alttaki çubuk: başka koleksiyona taşı ya da çıkar.
+    private var selectionBar: some View {
+        let others = store.collections.filter { $0.id != collectionID }
+        return HStack(spacing: 12) {
+            Menu {
+                ForEach(others) { other in
+                    Button(other.emoji + " " + other.name) {
+                        store.moveItems(selection, from: collectionID, to: other.id)
+                        selection = []
+                        selecting = false
+                    }
+                }
+            } label: {
+                Label("Taşı", systemImage: "folder")
+                    .font(Theme.font(16, .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Theme.ink, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+            }
+            .menuOrder(.fixed)
+            .disabled(selection.isEmpty || others.isEmpty)
+            Button(role: .destructive) {
+                store.removeItems(selection, from: collectionID)
+                selection = []
+                selecting = false
+            } label: {
+                Label("Çıkar", systemImage: "trash")
+                    .font(Theme.font(16, .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Theme.ink, in: RoundedRectangle(cornerRadius: Theme.buttonRadius))
+            }
+            .buttonStyle(.plain)
+            .disabled(selection.isEmpty)
+        }
+        .opacity(selection.isEmpty ? 0.5 : 1)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.white)
+        .overlay(alignment: .top) { Divider() }
     }
 
     private var addButton: some View {
