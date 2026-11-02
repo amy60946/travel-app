@@ -190,16 +190,74 @@ final class AppStore: ObservableObject {
         trip(stop: id).manualDays?.contains(day) == true
     }
 
-    /// Gün sayısını değiştirir; silinen günlerin yerleri son güne geçer.
+    /// Gün sayısını değiştirir. Yerlerin günü hiç değişmez: gün azalınca
+    /// silinen günlerin yerleri geçici olarak son günde görünür ("3. günden"),
+    /// gün geri eklenince kendi günlerine dönerler (Oguz, 2026-11-02).
     func setDays(_ days: Int, stop id: UUID) {
         let days = min(max(days, 1), 14)
         let current = trip(stop: id).days
         let message = days < current ? String(localized: "\(current). gün silindi") : nil
         updateTrip(id, undo: message) { trip in
             trip.days = days
-            trip.dayOf = (trip.dayOf ?? [:]).mapValues { Self.clamp($0, days: days) }
-            trip.manualDays = trip.manualDays?.filter { $0 < days }
         }
+    }
+
+    /// Yerin kaydedildiği gün (gün sayısı azaldıysa görünen günden sonra olabilir).
+    func savedDay(of place: Place, stop id: UUID) -> Int? {
+        let trip = self.trip(stop: id)
+        guard trip.placeIDs.contains(place.id) else { return nil }
+        return max(trip.dayOf?[place.id] ?? 0, 0)
+    }
+
+    /// İki günün bütün yerlerini (ve elle sırasını) yer değiştirir: 1. günün
+    /// planı 3. güne, 3. gününki 1. güne geçer.
+    func swapDays(_ first: Int, _ second: Int, stop id: UUID) {
+        let trip = self.trip(stop: id)
+        let range = 0..<trip.days
+        guard first != second, range.contains(first), range.contains(second) else { return }
+        updateTrip(id, undo: String(localized: "\(first + 1). gün ile \(second + 1). gün yer değiştirdi")) { trip in
+            var dayOf = trip.dayOf ?? [:]
+            for placeID in trip.placeIDs {
+                switch Self.clamp(dayOf[placeID] ?? 0, days: trip.days) {
+                case first: dayOf[placeID] = second
+                case second: dayOf[placeID] = first
+                default: break
+                }
+            }
+            trip.dayOf = dayOf
+            if var manual = trip.manualDays {
+                let hadFirst = manual.contains(first), hadSecond = manual.contains(second)
+                manual.remove(first)
+                manual.remove(second)
+                if hadFirst { manual.insert(second) }
+                if hadSecond { manual.insert(first) }
+                trip.manualDays = manual
+            }
+        }
+    }
+
+    /// Haritadan eklenen yerin günü: rotası bu yere en yakın geçen gün
+    /// (günün yerlerinden birine en kısa mesafe). Hiçbir günde yer yoksa
+    /// `fallback` (ör. bakılan gün).
+    func nearestDay(to coordinate: CLLocationCoordinate2D, stop id: UUID, fallback: Int = 0) -> Int {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        var best: (day: Int, meters: Double)?
+        for (day, places) in dayPlan(stop: id).enumerated() {
+            for place in places {
+                let meters = place.location.distance(from: location)
+                if best == nil || meters < best!.meters { best = (day, meters) }
+            }
+        }
+        return best?.day ?? Self.clamp(fallback, days: trip(stop: id).days)
+    }
+
+    /// Yeri bu gezi şehrinin rotasına, rotası en yakın geçen güne ekler.
+    /// Eklendiği günü döndürür.
+    @discardableResult
+    func planNearest(_ place: Place, stop id: UUID, fallback: Int = 0) -> Int {
+        let day = nearestDay(to: place.coordinate, stop: id, fallback: fallback)
+        plan(place, stop: id, day: day)
+        return day
     }
 
     /// Yeri kullanıcının seçtiği güne taşır (elle sıralanan günde sona).
@@ -413,8 +471,14 @@ final class AppStore: ObservableObject {
     }
 
     func setFlight(_ flight: Flight?, stop stopID: UUID, in journeyID: UUID) {
-        updateStop(stopID, in: journeyID, undo: flight == nil ? String(localized: "Uçuş silindi") : nil) {
-            $0.flight = flight
+        setTransport(flight == nil ? nil : .flight, details: flight, stop: stopID, in: journeyID)
+    }
+
+    /// Şehre geliş şekli ve ayrıntıları; `mode` nil ise ulaşım kaldırılır.
+    func setTransport(_ mode: TravelMode?, details: Flight?, stop stopID: UUID, in journeyID: UUID) {
+        updateStop(stopID, in: journeyID, undo: mode == nil ? String(localized: "Ulaşım kaldırıldı") : nil) {
+            $0.travelMode = mode
+            $0.flight = mode?.hasTicket == true ? details : nil
         }
     }
 

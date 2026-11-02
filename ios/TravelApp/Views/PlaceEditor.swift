@@ -18,7 +18,7 @@ struct PlaceNoteCard: View {
                     HStack {
                         Text("Notun").font(Theme.headline)
                         Spacer()
-                        Text("Düzenle").font(Theme.font(14, .semibold)).foregroundStyle(Theme.accent)
+                        Text("Düzenle").font(Theme.font(14, .semibold)).foregroundStyle(Theme.button)
                     }
                     Text(note)
                         .font(Theme.body)

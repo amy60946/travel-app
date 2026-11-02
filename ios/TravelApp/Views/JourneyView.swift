@@ -17,6 +17,10 @@ struct JourneyView: View {
     @State private var renaming = false
     @State private var newName = ""
     @State private var confirmDelete = false
+    /// Geziden çıkarılacak şehir (planında yer varsa önce sorulur).
+    @State private var removing: Destination?
+    /// Yalnızca ekran görüntüsü için "Sil"i açık gösterilen şehir.
+    @State private var revealedStop: UUID?
     /// Alttaki şehir listesinin paneli: küçük, yarım, büyük.
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
@@ -52,6 +56,13 @@ struct JourneyView: View {
         } message: {
             Text("Kayıtlı yerlerin silinmez.")
         }
+        .confirmationDialog(removing.map { String(localized: "\($0.city) geziden çıkarılsın mı?") } ?? "",
+                            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            titleVisibility: .visible, presenting: removing) { stop in
+            Button("Geziden çıkar", role: .destructive) { store.removeStop(stop.id, from: journeyID) }
+        } message: { stop in
+            Text("\(store.trip(stop: stop.id).placeIDs.count) yer bu gezinin planından çıkar; kayıtlarında ve koleksiyonlarında kalır. Şehri yeniden eklersen planı boş başlar.")
+        }
         .task { await openLaunchScreen() }
     }
 
@@ -63,7 +74,7 @@ struct JourneyView: View {
                 .ignoresSafeArea()
                 .overlay(alignment: .top) { header(journey) }
         }
-        .slidingPanel(stops: [.height(140), .fraction(0.55), .fraction(0.9)], selection: $panelStop,
+        .slidingPanel(stops: [.height(110), .fraction(0.55), .belowTop(60)], selection: $panelStop,
                       isHidden: googlePlace != nil, onSettle: { panelHeight = $0 }) {
             Text(journey.stops.count == 1
                  ? String(localized: "\(days.reduce(0, +)) gün")
@@ -76,13 +87,16 @@ struct JourneyView: View {
         } content: {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
-                    if index > 0 || stop.flight != nil {
+                    if index > 0 || stop.arrivalMode != nil {
                         TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop) {
-                            sheet = .flight(stop.id)
+                            sheet = .transport(stop.id)
                         }
                     }
-                    stopCard(stop, index: index, count: journey.stops.count,
-                             range: ranges[index], days: days[index])
+                    // Sola kaydırınca "Sil" (Oguz, 2026-11-02).
+                    SwipeToDelete(reveals: revealedStop == stop.id) { remove(stop) } content: {
+                        stopCard(stop, index: index, count: journey.stops.count,
+                                 range: ranges[index], days: days[index])
+                    }
                 }
 
                 addCityRow(after: journey.stops.count - 1)
@@ -172,12 +186,21 @@ struct JourneyView: View {
             .accessibilityLabel(Text("Gezi seçenekleri"))
         }
         .overlay(alignment: .topTrailing) {
-            // Her haritadaki düğmeler, gezi menüsünün altında.
-            MapControls(focus: $mapFocus).padding(.top, 50)
+            // Her haritadaki düğmeler, gezi menüsünün altında (liste tam
+            // ekrandayken gizli).
+            if !isFullScreen { MapControls(focus: $mapFocus).padding(.top, 50) }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background {
+            if isFullScreen { Color.white.ignoresSafeArea(edges: .top) }
+        }
+        .animation(.snappy, value: isFullScreen)
     }
+
+    /// Şehir listesi tam ekranda: üst çubuk beyaz zeminli.
+    private var isFullScreen: Bool { panelStop == 2 && googlePlace == nil }
 
     // MARK: - Şehir kartı
 
@@ -200,7 +223,7 @@ struct JourneyView: View {
                                 .font(Theme.font(11, .bold))
                                 .textCase(.uppercase)
                                 .tracking(0.6)
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(Theme.muted)
                             HStack(spacing: 6) {
                                 Text(stop.city).font(Theme.font(18, .bold)).lineLimit(1)
                                 if let flag = stop.flag { Text(flag).font(.system(size: 15)) }
@@ -235,9 +258,18 @@ struct JourneyView: View {
                     Label("Sona doğru taşı", systemImage: "arrow.down")
                 }
             }
-            Button(role: .destructive) { store.removeStop(stop.id, from: journeyID) } label: {
+            Button(role: .destructive) { remove(stop) } label: {
                 Label("Geziden çıkar", systemImage: "minus.circle")
             }
+        }
+    }
+
+    /// Şehri geziden çıkarır; planında yer varsa önce sorar (Geri al da var).
+    private func remove(_ stop: Destination) {
+        if store.trip(stop: stop.id).placeIDs.isEmpty {
+            store.removeStop(stop.id, from: journeyID)
+        } else {
+            removing = stop
         }
     }
 
@@ -250,9 +282,10 @@ struct JourneyView: View {
             Button { sheet = .stay(stop.id) } label: {
                 Label("Konaklama ekle", systemImage: "bed.double")
             }
-            Button { sheet = .flight(stop.id) } label: {
-                Label(stop.flight == nil ? LocalizedStringKey("Geliş uçuşu ekle") : LocalizedStringKey("Uçuşu düzenle"),
-                      systemImage: "airplane")
+            Button { sheet = .transport(stop.id) } label: {
+                Label(stop.arrivalMode == nil ? LocalizedStringKey("Geliş ulaşımı ekle")
+                                              : LocalizedStringKey("Ulaşımı düzenle"),
+                      systemImage: stop.arrivalMode?.symbol ?? "airplane")
             }
             Button { sheet = .addCity(after: index) } label: {
                 Label("Sonrasına şehir ekle", systemImage: "plus.circle")
@@ -327,7 +360,7 @@ struct JourneyView: View {
     private func sheetView(_ sheet: JourneySheet) -> some View {
         switch sheet {
         case .addCity(let index): NewTripView(mode: .add(journeyID: journeyID, index: index + 1))
-        case .flight(let stopID): FlightSheet(journeyID: journeyID, stopID: stopID)
+        case .transport(let stopID): TransportSheet(journeyID: journeyID, stopID: stopID)
         case .stay(let stopID): StaySheet(journeyID: journeyID, stopID: stopID)
         case .addPlace(let stop): AddPlaceView(city: stop.city, stop: stop.id)
         }
@@ -352,7 +385,10 @@ struct JourneyView: View {
         let screen = UserDefaults.standard.string(forKey: "screen") ?? ""
         try? await Task.sleep(for: .seconds(1))
         switch screen {
-        case "flight": if let stop = journey.stops.last { sheet = .flight(stop.id) }
+        case "flight": if let stop = journey.stops.last { sheet = .transport(stop.id) }
+        case "transport": if journey.stops.count > 1 { sheet = .transport(journey.stops[1].id) }
+        case "swipeDelete": revealedStop = journey.stops.first?.id
+        case "journeyFull": panelStop = 2
         case "stay": if let stop = journey.stops.first { sheet = .stay(stop.id) }
         case "addCity": sheet = .addCity(after: journey.stops.count - 1)
         default: break
@@ -363,14 +399,14 @@ struct JourneyView: View {
 
 private enum JourneySheet: Identifiable {
     case addCity(after: Int)
-    case flight(UUID)
+    case transport(UUID)
     case stay(UUID)
     case addPlace(Destination)
 
     var id: String {
         switch self {
         case .addCity(let index): "city-\(index)"
-        case .flight(let id): "flight-\(id)"
+        case .transport(let id): "transport-\(id)"
         case .stay(let id): "stay-\(id)"
         case .addPlace(let stop): "place-\(stop.id)"
         }
@@ -411,8 +447,10 @@ private struct DayStepper: View {
     }
 }
 
-/// İki şehir arası: kesik çizgi ve araba süresi ("446 km · 4 sa 43 dk") ya
-/// da uçuş ("TK 52 · 10:30"). Yol yoksa "Uçuş ekle". Dokununca uçuş penceresi.
+/// İki şehir arası: kesik çizgi ve ulaşım çipi. Ulaşım seçilmediyse "+
+/// Ulaşım ekle" (araba simgesi kendiliğinden görünmez); araçla gidiliyorsa
+/// yol süresi ("446 km · 4 sa 43 dk"), uçak/tren/otobüste sefer ve saatler.
+/// Dokununca ulaşım penceresi açılır.
 private struct TransportConnector: View {
     let from: Destination?
     let to: Destination
@@ -427,39 +465,32 @@ private struct TransportConnector: View {
                 .padding(.leading, 45)
             Button(action: onTap) {
                 HStack(spacing: 6) {
-                    Image(systemName: symbol)
+                    Image(systemName: to.arrivalMode?.symbol ?? "plus")
                     Text(text)
                 }
                 .font(Theme.font(13, .semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(to.arrivalMode == nil ? .white : Theme.ink)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(Theme.surface, in: Capsule())
+                .background(to.arrivalMode == nil ? Theme.ink : Theme.surface, in: Capsule())
             }
             .buttonStyle(.plain)
             Spacer()
         }
-        .task(id: "\(from?.id.uuidString ?? "")>\(to.id)") {
-            guard let from, to.flight == nil else { return }
+        .task(id: "\(from?.id.uuidString ?? "")>\(to.id)>\(to.arrivalMode?.rawValue ?? "")") {
+            guard let from, to.arrivalMode == .car else { return }
             leg = await TravelLegs.leg(from: from.coordinate, to: to.coordinate)
         }
     }
 
-    private var symbol: String {
-        if to.flight != nil { return "airplane" }
-        if let leg, leg.seconds == nil { return "airplane" }
-        return "car.fill"
-    }
-
     private var text: String {
-        if let flight = to.flight {
-            return flight.from.isEmpty ? flight.summary : "\(flight.from) → \(flight.summary)"
+        guard let mode = to.arrivalMode else { return String(localized: "Ulaşım ekle") }
+        if mode == .car {
+            guard let leg else { return mode.title }
+            return leg.seconds == nil ? String(localized: "Araçla yol bulunamadı") : TravelLegs.text(leg)
         }
-        guard let leg else { return "…" }
-        if leg.seconds == nil {
-            return String(localized: "Uçuş ekle · \(Int((leg.meters / 1000).rounded())) km")
-        }
-        return TravelLegs.text(leg)
+        let summary = to.flight?.summary ?? ""
+        return summary.isEmpty ? mode.title : summary
     }
 }
 
@@ -472,15 +503,90 @@ private struct VerticalDash: Shape {
     }
 }
 
-// MARK: - Uçuş
+/// Sola kaydırınca sağda kırmızı "Sil" düğmesi çıkar (iOS listelerindeki
+/// gibi); sağa kaydırınca ya da başka yere dokununca kapanır.
+private struct SwipeToDelete<Content: View>: View {
+    /// Yalnızca ekran görüntüsü için düğmeyi açık gösterir.
+    var reveals = false
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var offset: CGFloat = 0
+    @State private var isOpen = false
 
-/// Şehre uçuş: nereden, uçuş numarası, kalkış saati, not. Bilet ya da tarih yok.
-struct FlightSheet: View {
+    private static var buttonWidth: CGFloat { 88 }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button {
+                close()
+                onDelete()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "trash").font(.system(size: 17, weight: .semibold))
+                    Text("Sil").font(Theme.font(13, .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(width: Self.buttonWidth)
+                .frame(maxHeight: .infinity)
+                .background(Color.red, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            }
+            .buttonStyle(.plain)
+            .opacity(offset < -4 ? 1 : 0)
+            .accessibilityHidden(true)
+
+            content()
+                .offset(x: offset)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 18)
+                        .onChanged { value in
+                            // Yalnızca yatay kaydırma; aşağı-yukarı liste kayar.
+                            guard abs(value.translation.width) > abs(value.translation.height) * 1.3 else { return }
+                            let base = isOpen ? -(Self.buttonWidth + 8) : 0
+                            offset = min(0, max(-(Self.buttonWidth + 60), base + value.translation.width))
+                        }
+                        .onEnded { value in
+                            guard abs(value.translation.width) > abs(value.translation.height) * 1.3 else {
+                                withAnimation(.snappy) { offset = isOpen ? -(Self.buttonWidth + 8) : 0 }
+                                return
+                            }
+                            withAnimation(.snappy) {
+                                isOpen = offset < -Self.buttonWidth / 2
+                                offset = isOpen ? -(Self.buttonWidth + 8) : 0
+                            }
+                        })
+                .accessibilityAction(named: Text("Sil")) { onDelete() }
+        }
+        .onChange(of: reveals, initial: true) { _, reveals in
+            guard reveals else { return }
+            withAnimation(.snappy) {
+                isOpen = true
+                offset = -(Self.buttonWidth + 8)
+            }
+        }
+    }
+
+    private func close() {
+        withAnimation(.snappy) {
+            isOpen = false
+            offset = 0
+        }
+    }
+}
+
+// MARK: - Ulaşım
+
+/// Şehre nasıl gelinir: Araç / Uçak / Tren / Otobüs. Araçta yol süresi
+/// kendiliğinden hesaplanır; uçak, tren ve otobüste nereden, uçuş ya da
+/// sefer numarası, kalkış ve varış saati, not. Yalnızca plana not; bilet,
+/// tarih ya da rezervasyon yok.
+struct TransportSheet: View {
     let journeyID: UUID
     let stopID: UUID
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
-    @State private var flight = Flight()
+    @State private var mode: TravelMode = .car
+    @State private var details = Flight()
+    @State private var leg: TravelLegs.Leg?
     @State private var loaded = false
 
     private var stops: [Destination] { store.journey(journeyID)?.stops ?? [] }
@@ -492,47 +598,108 @@ struct FlightSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Uçuş") { dismiss() }
+            SheetHeader(title: "Ulaşım") { dismiss() }
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
                     if let stop {
-                        HStack(spacing: 8) {
-                            Image(systemName: "airplane")
-                            Text(verbatim: "\(flight.from.isEmpty ? "…" : flight.from) → \(stop.city)")
-                        }
-                        .font(Theme.font(20, .bold))
+                        Text(verbatim: "\(fromText) → \(stop.city)")
+                            .font(Theme.font(22, .bold))
+                            .lineLimit(2)
                     }
-                    field("Nereden", text: $flight.from, prompt: "İstanbul")
-                    field("Uçuş numarası", text: $flight.number, prompt: "TK 52")
-                    field("Kalkış saati", text: $flight.departure, prompt: "10:30")
-                    field("Not", text: $flight.note, prompt: "Terminal, bagaj…")
+                    modePicker
+                    if mode == .car {
+                        carInfo
+                    } else {
+                        if previous == nil { field("Nereden", text: $details.from, prompt: "İstanbul") }
+                        field(mode == .flight ? "Uçuş numarası" : "Sefer numarası", text: $details.number,
+                              prompt: mode == .flight ? "TK 52" : "")
+                        HStack(spacing: 12) {
+                            TimeField(title: "Kalkış", text: $details.departure)
+                            TimeField(title: "Varış", text: Binding(get: { details.arrival ?? "" },
+                                                                   set: { details.arrival = $0 }))
+                        }
+                    }
+                    field("Not", text: $details.note, prompt: mode == .car ? "Mola, yakıt…" : "Terminal, peron, bagaj…")
                     WideButton(title: String(localized: "Kaydet")) {
-                        store.setFlight(flight, stop: stopID, in: journeyID)
+                        store.setTransport(mode, details: details, stop: stopID, in: journeyID)
                         dismiss()
                     }
-                    .padding(.top, 6)
-                    if stop?.flight != nil {
+                    .padding(.top, 4)
+                    if stop?.arrivalMode != nil {
                         Button(role: .destructive) {
-                            store.setFlight(nil, stop: stopID, in: journeyID)
+                            store.setTransport(nil, details: nil, stop: stopID, in: journeyID)
                             dismiss()
                         } label: {
-                            Text("Uçuşu sil").font(Theme.font(15, .semibold)).frame(maxWidth: .infinity)
+                            Text("Ulaşımı kaldır").font(Theme.font(15, .semibold)).frame(maxWidth: .infinity)
                         }
                     }
-                    Text("Uçuş yalnızca plana not olarak eklenir; bilet satın alma yok.")
-                        .font(Theme.font(12))
-                        .foregroundStyle(Theme.muted)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
             }
+            .scrollDismissesKeyboard(.immediately)
         }
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
+        .presentationDetents([.large])
         .onAppear {
             guard !loaded else { return }
             loaded = true
-            flight = stop?.flight ?? Flight(from: previous?.city ?? "")
+            mode = stop?.arrivalMode ?? .car
+            details = stop?.flight ?? Flight(from: previous?.city ?? "")
+        }
+        .task(id: mode) {
+            guard mode == .car, let previous, let stop else { return }
+            leg = await TravelLegs.leg(from: previous.coordinate, to: stop.coordinate)
+        }
+    }
+
+    private var fromText: String {
+        if let previous { return previous.city }
+        let typed = details.from.trimmingCharacters(in: .whitespaces)
+        return typed.isEmpty ? "…" : typed
+    }
+
+    /// Dört büyük düğme; seçili olan siyah.
+    private var modePicker: some View {
+        HStack(spacing: 10) {
+            ForEach(TravelMode.allCases) { option in
+                Button { withAnimation(.snappy) { mode = option } } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: option.symbol).font(.system(size: 20, weight: .semibold))
+                        Text(option.title).font(Theme.font(13, .semibold))
+                    }
+                    .foregroundStyle(mode == option ? .white : Theme.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 70)
+                    .background(mode == option ? Theme.ink : Theme.surface,
+                                in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(mode == option ? .isSelected : [])
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var carInfo: some View {
+        if previous == nil {
+            Text("Gezinin ilk şehri: araçla geliyorsan not ekleyebilirsin.")
+                .font(Theme.font(14))
+                .foregroundStyle(Theme.muted)
+        } else {
+            HStack(spacing: 10) {
+                Image(systemName: "car.fill").foregroundStyle(Theme.muted)
+                if let leg {
+                    Text(leg.seconds == nil ? String(localized: "Araçla yol bulunamadı") : TravelLegs.text(leg))
+                        .font(Theme.font(16, .semibold))
+                } else {
+                    ProgressView()
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         }
     }
 
@@ -545,6 +712,52 @@ struct FlightSheet: View {
                 .frame(height: 48)
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.hairline, lineWidth: 1.5))
         }
+    }
+}
+
+/// Saat seçimi ("10:30"): boşsa "Saat ekle" düğmesi, doluysa saat tekeri.
+private struct TimeField: View {
+    let title: LocalizedStringKey
+    @Binding var text: String
+
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private var date: Binding<Date> {
+        Binding(get: { Self.formatter.date(from: text) ?? Self.formatter.date(from: "10:00")! },
+                set: { text = Self.formatter.string(from: $0) })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(Theme.font(13, .semibold)).foregroundStyle(Theme.muted)
+            HStack {
+                if text.isEmpty {
+                    Button { text = "10:00" } label: {
+                        Label("Saat ekle", systemImage: "clock").font(Theme.font(15, .semibold))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    DatePicker("", selection: date, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                    Spacer(minLength: 0)
+                    Button { text = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.hairline)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("Saati sil"))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 48)
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Theme.hairline, lineWidth: 1.5))
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -602,10 +815,6 @@ struct StaySheet: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    Text("Arama: Apple Haritalar · Rezervasyon yok, yalnızca plana not.")
-                        .font(Theme.font(12))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.top, 12)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)

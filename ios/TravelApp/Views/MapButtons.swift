@@ -8,10 +8,10 @@ struct DirectionsButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 40, height: 40)
-                .overlay(Circle().stroke(Theme.hairline))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Theme.button, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Yol tarifi"))
@@ -196,7 +196,7 @@ struct MapLayersSheet: View {
                             hiddenPlaces = hidden.isEmpty ? MapSettings.store(Set(GooglePlaceLayer.allCases)) : ""
                         }
                         .font(Theme.font(14, .semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.button)
                     }
                     FlowLayout(spacing: 8) {
                         ForEach(GooglePlaceLayer.allCases) { layer in

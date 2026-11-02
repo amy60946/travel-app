@@ -17,7 +17,7 @@ struct DownloadsView: View {
 
                 Toggle("Yalnızca Wi-Fi ile indir", isOn: $downloads.wifiOnly)
                     .font(Theme.font(15, .semibold))
-                    .tint(Theme.accent)
+                    .tint(Theme.button)
 
                 if downloads.blockedByNetwork {
                     Text("Şu an mobil veridesin. İndirmek için Wi-Fi'ye bağlan ya da üstteki ayarı kapat.")

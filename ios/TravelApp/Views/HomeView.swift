@@ -84,15 +84,16 @@ struct HomeView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
+
+            // Panel tam ekrandayken saatin olduğu üst şerit de beyaz.
+            if panelStop == panelStops.count - 1 {
+                Color.white.ignoresSafeArea(edges: .top).frame(height: 0)
+            }
         }
         .slidingPanel(stops: panelStops, selection: $panelStop, onSettle: { panelHeight = $0 }) {
-            Picker("", selection: $section) {
-                Text("Gezilerim").tag(0)
-                Text("Koleksiyonlar").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
+            PanelTabs(titles: ["Gezilerim", "Koleksiyonlar"], selection: $section)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
         } content: {
             panelList
         }
@@ -113,7 +114,7 @@ struct HomeView: View {
             Group {
                 switch shown {
                 case .saved(let id):
-                    PlaceSheet(placeID: id) { place in open(place) }
+                    PlaceSheet(placeID: id)
                 case .google(let place):
                     GooglePlaceSheet(place: place) { saved in select(saved) }
                 }
@@ -137,12 +138,12 @@ struct HomeView: View {
         // alanın ortasında dursun.
         GoogleMap(focus: $mapFocus, markers: markers,
                   padding: EdgeInsets(top: 0, leading: 0,
-                                      bottom: mapSheet != nil ? mapHeight / 2 - 30 : panelHeight,
+                                      bottom: mapSheet != nil ? mapHeight * sheetDetent.placeFraction - 30 : panelHeight,
                                       trailing: 0),
                   onPlaceTap: { id, name, coordinate in showGooglePlace(id: id, name: name, coordinate: coordinate) },
                   onMapTap: {
                       // Yer penceresi uzunken haritaya dokununca pencere yarıya iner.
-                      if mapSheet != nil, sheetDetent == .placeTall { sheetDetent = .placeHalf }
+                      if mapSheet != nil, sheetDetent != .placeHalf { sheetDetent = .placeHalf }
                   },
                   onCameraIdle: { shown in
                       viewport = shown
@@ -193,13 +194,16 @@ struct HomeView: View {
 
     // MARK: - Alt bölüm
 
-    /// Panelin yükseklikleri: yalnızca sekmeler (altta sekme çubuğu), içeriği
-    /// kadar (en çok yarım ekran), büyük (üstteki düğmeler görünür kalır).
+    /// Panelin yükseklikleri: küçük (yalnızca tutamak ve sekmeler; altında
+    /// sekme çubuğu), içeriği kadar (en çok yarım ekran), tam ekran.
     private var panelStops: [PanelStop] {
-        let tabBar: CGFloat = 96
-        let fitting = min(64 + listHeight + tabBar, mapHeight * 0.5)
-        return [.height(150), .height(max(fitting, 151)), .fraction(0.85)]
+        let collapsed = Self.panelTop + RootView.tabBarHeight
+        let fitting = min(Self.panelTop + listHeight + RootView.tabBarHeight, mapHeight * 0.5)
+        return [.height(collapsed), .height(max(fitting, collapsed + 1)), .belowTop(0)]
     }
+
+    /// Tutamak (27) ve sekmeler (48 + 12 boşluk).
+    private static let panelTop: CGFloat = 87
 
     private var panelList: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -227,8 +231,8 @@ struct HomeView: View {
         }
         .padding(.horizontal, 16)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
-        // Altta yüzen sekme çubuğu son satırı örtmesin.
-        .padding(.bottom, 96)
+        // Alttaki sekme çubuğu son satırı örtmesin.
+        .padding(.bottom, RootView.tabBarHeight + 50)
     }
 
     private func journeyRow(_ journey: Journey) -> some View {
@@ -306,15 +310,6 @@ struct HomeView: View {
         mapFocus = .region(MKCoordinateRegion(focusing: place, among: store.places(in: place.city)))
     }
 
-    /// Yer penceresinden tam yer sayfasına geçer (pencere kapanınca).
-    private func open(_ place: Place) {
-        mapSheet = nil
-        Task {
-            try? await Task.sleep(for: .milliseconds(350))
-            path.append(.place(place.id))
-        }
-    }
-
     /// Haritada Google'ın bir yerine (restoran, müze, istasyon...) dokunuldu:
     /// kayıtlıysa kendi penceresi, değilse Google'ın bilgileriyle pencere.
     private func showGooglePlace(id: String, name: String, coordinate: CLLocationCoordinate2D) {
@@ -358,6 +353,8 @@ struct HomeView: View {
         if screen == "collections" || screen == "newCollection" { section = 1 }
         if screen == "newCollection" { showNewCollection = true }
         if screen == "layers" { panelStop = 0 }
+        if screen == "homeFull" { panelStop = 2 }
+        if screen == "homeSmall" { panelStop = 0 }
         // `googlePlace`: Shibuya'da bir restoranın Google penceresi (puan,
         // fotoğraflar); `googleTall` aynısı uzun (saatler, yorumlar).
         if screen == "googlePlace" || screen == "googleTall" {

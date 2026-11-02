@@ -33,10 +33,19 @@ struct DiscoverView: View {
                 .shadow(color: .black.opacity(0.5), radius: 6)
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
+
+            // Panel tam ekrandayken saatin olduğu üst şerit de beyaz.
+            if panelStop == 2 {
+                Color.white.ignoresSafeArea(edges: .top).frame(height: 0)
+            }
         }
-        .slidingPanel(stops: [.height(150), .fraction(0.55), .fraction(1)], selection: $panelStop,
+        .slidingPanel(stops: [.height(RootView.tabBarHeight + 89), .fraction(0.55), .belowTop(0)], selection: $panelStop,
                       onSettle: { panelHeight = $0 }) {
-            EmptyView()
+            // Arama hep görünür (panel küçükken de).
+            SearchField(text: $search.query, prompt: "Şehir ya da ülke ara", isSearching: search.isSearching,
+                        focus: $searchFocused)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
         } content: {
             VStack(alignment: .leading, spacing: 0) {
                 discover
@@ -88,9 +97,6 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var discover: some View {
-        SearchField(text: $search.query, prompt: "Şehir ya da ülke ara", isSearching: search.isSearching,
-                    focus: $searchFocused)
-            .padding(.top, 4)
         if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
             forYou
             continents
@@ -112,10 +118,6 @@ struct DiscoverView: View {
                         .accessibilityAddTraits(.isButton)
                 }
             }
-            Text("Fotoğraflar ve yer sayısı: Wikivoyage (CC BY-SA)")
-                .font(Theme.font(12))
-                .foregroundStyle(Theme.muted)
-                .padding(.top, 10)
         }
     }
 
@@ -132,10 +134,6 @@ struct DiscoverView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Fotoğraflar: Wikipedia / Wikimedia Commons")
-                .font(Theme.font(12))
-                .foregroundStyle(Theme.muted)
-                .padding(.top, 10)
         }
     }
 
@@ -275,10 +273,6 @@ struct ContinentView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    Text("Fotoğraflar: Wikivoyage / Wikimedia Commons (CC BY-SA)")
-                        .font(Theme.font(12))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.top, 10)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 60)
@@ -399,12 +393,6 @@ struct CountryView: View {
                     }
                     ForEach(Array(cities.enumerated()), id: \.element.id) { index, city in
                         cityRow(city, index: index)
-                    }
-                    if !cities.isEmpty {
-                        Text("Liste: Wikivoyage (CC BY-SA)")
-                            .font(Theme.font(12))
-                            .foregroundStyle(Theme.muted)
-                            .padding(.top, 10)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -742,7 +730,7 @@ private struct GuideRow: View {
                         .foregroundStyle(Theme.muted)
                     Button("Tekrar dene") { retry() }
                         .font(Theme.font(15, .semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.button)
                 }
                 .padding(.leading, 46)
                 .padding(.bottom, 12)

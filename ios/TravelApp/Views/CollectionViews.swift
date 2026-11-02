@@ -148,7 +148,7 @@ struct SaveToCollectionSheet: View {
                         Spacer()
                         Button("Yeni koleksiyon") { showNew = true }
                             .font(Theme.font(15, .semibold))
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(Theme.button)
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 4)
@@ -444,9 +444,14 @@ struct CollectionDetailView: View {
             MapControls(focus: $mapFocus)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
+
+            // Panel tam ekrandayken üst çubuk (geri düğmesinin zemini) beyaz.
+            if panelStop == 2 && googlePlace == nil {
+                Color.white.ignoresSafeArea(edges: .top).frame(maxWidth: .infinity).frame(height: 60)
+            }
         }
-        // En üstte geri düğmesi görünür kalsın diye ekranın %92'si.
-        .slidingPanel(stops: [.height(170), .fraction(0.55), .fraction(0.92)], selection: $panelStop,
+        // En üstte geri düğmesi görünür kalır.
+        .slidingPanel(stops: [.height(170), .fraction(0.55), .belowTop(60)], selection: $panelStop,
                       isHidden: googlePlace != nil, onSettle: { panelHeight = $0 }) {
             if let collection { header(collection) }
         } content: {
@@ -464,7 +469,7 @@ struct CollectionDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $googlePlace) { place in
-            GooglePlaceSheet(place: place) { saved in
+            GooglePlaceSheet(place: place, context: .collection) { saved in
                 if !store.contains(.place(saved), in: collectionID) { store.toggle(.place(saved), in: collectionID) }
                 googlePlace = nil
             }
