@@ -156,3 +156,8 @@ Onay bekleyen öneriler buraya yazılır.
   ile giriş anahtarlarının da iptal edilmesini istiyor; bunun için sunucuda
   Apple anahtarı gerekir (ücretsiz Supabase Edge Function ile yapılabilir).
   TestFlight için gerekmiyor; App Store öncesi Oguz'a sorulacak.
+- 2026-11-02: **Google ile giriş** Google Cloud'da "Testing" durumunda:
+  yalnızca *Test users* listesindeki Gmail hesapları girebilir (en çok 100).
+  "Publish app" için web sitesi ve gizlilik politikası adresi gerekiyor.
+  App Store'a çıkmadan önce gizlilik politikası sayfası hazırlanır (App
+  Store da istiyor), Branding'e girilir ve uygulama yayına alınır.
