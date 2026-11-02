@@ -290,7 +290,7 @@ struct SharedTripView: View {
             failed = true
         }
         let coordinates = spots.map { CLLocationCoordinate2D(latitude: $0.spot.latitude, longitude: $0.spot.longitude) }
-        if let region = MKCoordinateRegion(fitting: coordinates, padding: 1.3) {
+        if let region = MKCoordinateRegion(fitting: coordinates, padding: 1.6) {
             mapFocus = .region(region, animated: false)
         }
     }

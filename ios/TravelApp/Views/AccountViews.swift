@@ -423,9 +423,9 @@ struct ProfileEditor: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
-            PrimaryButton(title: "Kaydet") { Task { await save() } }
+            WideButton(title: String(localized: "Kaydet")) { Task { await save() } }
                 .disabled(saving || name.trimmingCharacters(in: .whitespaces).isEmpty)
-                .opacity(saving ? 0.6 : 1)
+                .opacity(saving || name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
         }
@@ -520,6 +520,8 @@ struct ShareTripSheet: View {
         .font(Theme.body)
         .foregroundStyle(Theme.ink)
         .presentationDetents([.medium])
+        // iOS 26'da yarım pencereler saydam görünüyor; beyaz olsun.
+        .presentationBackground(.white)
         .alert("İşlem yapılamadı", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Button("Tamam", role: .cancel) {}
         } message: {
