@@ -572,3 +572,10 @@
 "Türün ortalamasına dön" = "Use the usual time for this type";
 "Gün süresi ve tahmini saatler buna göre hesaplanır." = "The day's duration and estimated times are based on this.";
 "Gezme süresi: %@" = "Visit: %@";
+
+/* 5. sürüm: gezi sayfası */
+"Gezi başlangıcı" = "Trip start";
+"Gezi sonu" = "Trip end";
+"%lld gün planlandı" = "%lld days planned";
+"Araya şehir ekle" = "Add a city here";
+"Seçenekler" = "Options";

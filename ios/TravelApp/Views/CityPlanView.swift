@@ -199,7 +199,9 @@ struct CityPlanView: View {
                 // sürüklenince o günün sonuna geçer.
                 ForEach(Array(days.enumerated()), id: \.offset) { index, places in
                     dayHeader(index, isEmpty: places.isEmpty)
-                    ForEach(places) { place in row(place, day: index) }
+                    if !places.isEmpty {
+                        spotsCard { ForEach(places) { place in row(place, day: index) } }
+                    }
                 }
             } else {
                 if stops.isEmpty {
@@ -215,15 +217,31 @@ struct CityPlanView: View {
                         .padding(.bottom, 2)
                 }
                 let times = schedule(stops)
-                ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
-                    row(place, day: selectedDay, number: index + 1, time: times[place.id])
+                if !stops.isEmpty {
+                    spotsCard {
+                        ForEach(Array(stops.enumerated()), id: \.element.id) { index, place in
+                            row(place, day: selectedDay, number: index + 1, time: times[place.id])
+                        }
+                    }
                 }
             }
             addRow.padding(.top, 6)
+            PopularStrip(city: city, stopID: stopID, day: showsAll ? nil : selectedDay)
+                .padding(.horizontal, -20)
+                .padding(.top, 18)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
         .animation(.snappy, value: stops.map(\.id))
+    }
+
+    /// Günün yerleri tek yuvarlak kartın içinde (Polarsteps "Spots" gibi).
+    private func spotsCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
+            .padding(.top, 6)
     }
 
     private var orderHint: LocalizedStringKey {
@@ -506,10 +524,15 @@ struct CityPlanView: View {
                         .background(Theme.surface, in: Capsule())
                 }
                 if place.isEstimated { EstimatedTag() }
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Theme.hairline)
-                    .accessibilityHidden(true)
+                // "…": basılı tutunca açılan menünün aynısı (Polarsteps gibi).
+                Menu { menu(place, day: day) } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 32, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(Text("Seçenekler"))
             }
             .padding(.vertical, 7)
             .contentShape(Rectangle())
@@ -789,6 +812,90 @@ struct CityPlanView: View {
             Narrator.shared.togglePause()
         }
         #endif
+    }
+}
+
+/// Şehir planının altında yana kayan "Popüler yerler" (Wikipedia'da en çok
+/// okunan yakın yerler): fotoğraf, ad ve "+"; "+" yeri bu güne (Tüm
+/// yerler'de rotası en yakın güne) ekler, rotadaysa ✓.
+private struct PopularStrip: View {
+    let city: String
+    let stopID: UUID
+    let day: Int?
+    @EnvironmentObject private var store: AppStore
+    @State private var places: [WikipediaService.PopularPlace] = []
+
+    var body: some View {
+        Group {
+            if !places.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Popüler yerler").font(Theme.font(19, .bold)).padding(.horizontal, 20)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: 12) {
+                            ForEach(places.prefix(15)) { item in card(item) }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
+            }
+        }
+        .task(id: city) {
+            guard let center = store.center(of: city) else { return }
+            places = (try? await WikipediaService.shared.popularPlaces(latitude: center.latitude,
+                                                                      longitude: center.longitude)) ?? []
+        }
+    }
+
+    private func saved(_ item: WikipediaService.PopularPlace) -> Place? {
+        let coordinate = CLLocationCoordinate2D(latitude: item.latitude, longitude: item.longitude)
+        return store.savedPlace(named: item.name, near: coordinate) ?? store.savedPlace(named: item.title, near: coordinate)
+    }
+
+    private func card(_ item: WikipediaService.PopularPlace) -> some View {
+        let category = PlaceCategory.guess(name: item.title) ?? .sight
+        let existing = saved(item)
+        let planned = existing.map { store.isPlanned($0, stop: stopID) } ?? false
+        return VStack(alignment: .leading, spacing: 6) {
+            LocationPhoto(name: item.name, category: category, city: city,
+                          latitude: item.latitude, longitude: item.longitude, englishTitle: item.title,
+                          knownPhoto: item.thumbnailURL, size: 136, cornerRadius: 16)
+                .overlay(alignment: .topTrailing) {
+                    Button { add(item, category: category, existing: existing, planned: planned) } label: {
+                        Image(systemName: planned ? "checkmark" : "plus")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(planned ? .white : Theme.ink)
+                            .frame(width: 30, height: 30)
+                            .background(planned ? Theme.ink : Color.white, in: Circle())
+                            .softShadow()
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                    .accessibilityLabel(Text(planned ? LocalizedStringKey("Rotada") : LocalizedStringKey("Rotaya ekle")))
+                }
+            Text(item.name)
+                .font(Theme.font(14, .semibold))
+                .lineLimit(2)
+                .frame(width: 136, alignment: .leading)
+        }
+    }
+
+    private func add(_ item: WikipediaService.PopularPlace, category: PlaceCategory, existing: Place?, planned: Bool) {
+        if let existing {
+            if planned { store.removeFromPlan(existing, stop: stopID) } else { plan(existing) }
+            return
+        }
+        let place = Place(name: item.name, city: city, latitude: item.latitude, longitude: item.longitude,
+                          category: category, source: .search, wikipediaTitle: item.title)
+        store.add(place)
+        plan(place)
+    }
+
+    private func plan(_ place: Place) {
+        if let day {
+            store.plan(place, stop: stopID, day: day)
+        } else {
+            store.planNearest(place, stop: stopID)
+        }
     }
 }
 
