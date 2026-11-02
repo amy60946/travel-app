@@ -148,3 +148,50 @@ Anahtarı olmayan servis kapalı kalır; uygulama yine çalışır.
 
 Anahtarlar bir sonraki TestFlight yüklemesinde uygulamaya girer.
 Anahtarı sohbete yapıştırma.
+
+## Supabase (gezi paylaşımı ve profil, ücretsiz katman)
+
+Apple ile giriş, profil, herkese açık geziler ve gezilerde arama bu
+projeye ayrı açılan ücretsiz Supabase projesinde durur (başka projenin
+Supabase'i kullanılmaz). Kurulum bir kez yapılır:
+
+1. supabase.com → *New project* (plan **Free**), bölge **Central EU
+   (Frankfurt)**; şifreyi şifre yöneticine kaydet.
+2. Üstte **Connect**: *Session pooler* adresini kopyala, `[YOUR-PASSWORD]`
+   yerine şifreni koy. Uygulama sekmesinden **Project URL** ve **anon
+   (publishable) key**'i kopyala.
+3. GitHub → depo → *Settings* → *Secrets and variables* → *Actions* →
+   *New repository secret*: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_DB_URL` (şifreli adres).
+4. Supabase → *Authentication* → *Sign In / Providers* → **Apple** → aç,
+   *Client IDs*: `io.travelapp.ios` → *Save*.
+5. GitHub → *Actions* → **Supabase** → *Run workflow*: tablolar kurulur
+   (`supabase/migrations`). Sonra **TestFlight** → *Run workflow*.
+
+**Google ile giriş** (isteğe bağlı; yapılınca uygulamada "Google ile giriş
+yap" düğmesi kendiliğinden görünür):
+
+1. console.cloud.google.com → Maps projesi → **Google Auth Platform** →
+   *Get started*: App name `TravelApp`, destek e-postası, Audience
+   **External**.
+2. **Clients** → *Create client* → **Web application** → *Authorized
+   redirect URIs*: `https://<proje>.supabase.co/auth/v1/callback` →
+   Client ID ve Client secret'ı kopyala.
+3. **Audience** → **Publish app** (yoksa yalnızca test kullanıcıları girer).
+4. Supabase → *Authentication* → *Sign In / Providers* → **Google** → aç,
+   Client ID ve secret'ı gir → *Save*.
+5. Supabase → *Authentication* → **URL Configuration** → *Redirect URLs* →
+   `io.travelapp.ios://auth-callback` ekle.
+
+Uygulama Google'ın kendi kütüphanesini kullanmaz: Supabase'in
+`/auth/v1/authorize?provider=google` sayfası uygulama içi tarayıcı
+penceresinde (ASWebAuthenticationSession) açılır, dönüşteki kod PKCE ile
+oturuma çevrilir. Hangi giriş yollarının açık olduğu `/auth/v1/settings`'ten
+okunur.
+
+Teknik: tablolar `profiles` ve `shared_trips`; satır kuralları (RLS)
+herkesin okumasına, yalnızca sahibinin yazmasına izin verir. Hesabı silme
+`delete_my_account()` ile (profil ve paylaşımlar da silinir). TestFlight
+imzasında `ios/scripts/asc_signing.py` uygulama kimliğinde "Sign in with
+Apple"ı açar; açamazsa uygulama bu izinsiz imzalanır (iş uyarı verir).
+Ücretsiz katman dolarsa Supabase durur, ücret çıkmaz.

@@ -41,6 +41,10 @@ targets:
         GroqAPIKey: "$(GROQ_API_KEY)"
         # Google Cloud'da yalnızca bu uygulamaya kilitli anahtar (GitHub Secrets).
         GoogleMapsAPIKey: "$(GOOGLE_MAPS_API_KEY)"
+        # Gezi paylaşımı ve profil: Supabase adresi ve herkese açık anahtarı
+        # (GitHub Secrets; boşsa paylaşım bölümleri görünmez).
+        SupabaseURL: "$(SUPABASE_URL)"
+        SupabaseAnonKey: "$(SUPABASE_ANON_KEY)"
         CFBundleDevelopmentRegion: tr
         CFBundleLocalizations: [tr, en]
         # Veri dosyası (.zip / .json) "Paylaş → TravelApp" ile açılabilsin.
@@ -66,6 +70,10 @@ targets:
         # verilince Google paketinin kaynak paketine de gidip arşivi
         # bozuyor. testflight.yml APP_PROFILE ile verir.
         PROVISIONING_PROFILE_SPECIFIER: "$(APP_PROFILE)"
+        # "Apple ile giriş" izni (TravelApp/TravelApp.entitlements) yalnızca
+        # TestFlight imzasında: testflight.yml, Apple hesabında bu özellik
+        # açıksa APP_ENTITLEMENTS ile verir. Simülatör derlemelerinde boş.
+        CODE_SIGN_ENTITLEMENTS: "$(APP_ENTITLEMENTS)"
   TravelAppTests:
     type: bundle.unit-test
     platform: iOS

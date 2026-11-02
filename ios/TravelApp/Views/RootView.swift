@@ -15,6 +15,10 @@ enum Route: Hashable {
     case saved
     /// Profil → İndirilenler.
     case downloads
+    /// Herkese açık paylaşılan gezi (sunucudaki kimliği).
+    case sharedTrip(UUID)
+    /// Bir gezginin herkese açık gezileri.
+    case traveler(UUID)
 }
 
 enum RootTab: Hashable {
@@ -79,6 +83,8 @@ struct RootView: View {
                 case .collection(let id): CollectionDetailView(collectionID: id, path: $path).narrationBarInset()
                 case .saved: SavedPlacesView(path: $path).narrationBarInset()
                 case .downloads: DownloadsView().narrationBarInset()
+                case .sharedTrip(let id): SharedTripView(tripID: id, path: $path).narrationBarInset()
+                case .traveler(let id): TravelerView(ownerID: id, path: $path).narrationBarInset()
                 }
             }
         }
@@ -104,6 +110,8 @@ struct RootView: View {
         .task {
             openLaunchScreen()
             askLocationOnce()
+            // Paylaşılan geziler değişince sunucudaki kopyaları güncellenir.
+            TripSharing.shared.startSync(with: store)
             await openImportIfNewExport()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -158,7 +166,16 @@ struct RootView: View {
         case "discover", "discoverTall": tab = .discover
         case "collections", "newCollection": _ = demoCollection()
         case "collection": path = [.collection(demoCollection())]
-        case "profile", "settings": tab = .profile
+        case "profile", "settings", "profileShared": tab = .profile
+            if screen == "profileShared" { TripSharing.shared.demoMarkShared(demoJourney()) }
+        case "editProfile": tab = .profile; present(.editProfile)
+        case "shareTrip":
+            let id = demoJourney()
+            TripSharing.shared.demoMarkShared(id)
+            path = [.journey(id)]
+        case "sharedTrip": tab = .discover; open([.sharedTrip(SampleData.sharedTrips()[0].id)])
+        case "traveler": tab = .discover; open([.traveler(SampleData.sharedTrips()[0].owner)])
+        case "searchTrips": tab = .discover
         case "saveTo": tab = .discover; _ = demoCollection(); path = [.country("JP")]
         case "continent": tab = .discover; path = [.continent("asia")]
         case "country": tab = .discover; path = [.country("JP")]
@@ -277,6 +294,8 @@ enum AddSheet: Identifiable {
     case importFile(URL)
     case camera
     case newTrip
+    /// Profil → Düzenle (ad ve simge).
+    case editProfile
 
     var id: String {
         switch self {
@@ -287,6 +306,7 @@ enum AddSheet: Identifiable {
         case .importFile(let url): "import-\(url.lastPathComponent)"
         case .camera: "camera"
         case .newTrip: "newTrip"
+        case .editProfile: "editProfile"
         }
     }
 
@@ -299,6 +319,7 @@ enum AddSheet: Identifiable {
         case .importFile(let url): ImportView(initialFile: url)
         case .camera: CameraAddView()
         case .newTrip: NewTripView(mode: .new)
+        case .editProfile: ProfileEditor()
         }
     }
 }

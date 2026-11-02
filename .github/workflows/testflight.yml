@@ -30,6 +30,9 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       # Google Haritalar anahtarı (yalnızca io.travelapp.ios'a kilitli).
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      # Gezi paylaşımı ve profil (Supabase); boşsa paylaşım bölümleri görünmez.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +91,12 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN"
 
           UUID=$(python3 -c "import json;print(json.load(open('$SIGN_DIR/state.json'))['profileUUID'])")
+          # "Apple ile giriş" izni yalnızca Apple hesabında açılabildiyse.
+          if python3 -c "import json,sys;sys.exit(0 if json.load(open('$SIGN_DIR/state.json')).get('appleSignIn') else 1)"; then
+            echo "APP_ENTITLEMENTS=TravelApp/TravelApp.entitlements" >> "$GITHUB_ENV"
+          else
+            echo "APP_ENTITLEMENTS=" >> "$GITHUB_ENV"
+          fi
           for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
             mkdir -p "$dir"
             cp "$SIGN_DIR/dist.mobileprovision" "$dir/$UUID.mobileprovision"
@@ -111,6 +120,9 @@ jobs:
               GEMINI_API_KEY="$GEMINI_API_KEY" \
               GROQ_API_KEY="$GROQ_API_KEY" \
               GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
+              SUPABASE_URL="$SUPABASE_URL" \
+              SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+              APP_ENTITLEMENTS="$APP_ENTITLEMENTS" \
               CURRENT_PROJECT_VERSION="${{ github.run_number }}" && exit 0
             echo "::warning::Arşivleme $attempt. denemede bitmedi"
             killall -9 actool ibtoold AssetCatalogSimulatorAgent 2>/dev/null || true

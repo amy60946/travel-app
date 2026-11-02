@@ -54,6 +54,46 @@ def call(method, path, body=None):
         sys.exit(f"App Store Connect API hatası ({method} {path}): {error.code} {detail}")
 
 
+def try_call(method, path, body=None):
+    """call() gibi, ama hata olursa programı durdurmaz: (cevap, hata yazısı)."""
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(API + path, data=data, method=method)
+    request.add_header("Authorization", "Bearer " + token())
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            text = response.read()
+            return (json.loads(text) if text else {}), None
+    except urllib.error.HTTPError as error:
+        return None, f"{error.code} {error.read().decode(errors='replace')[:500]}"
+
+
+def ensure_sign_in_with_apple(bundle_id):
+    """Uygulama kimliğinde "Sign in with Apple" açık mı; değilse açar.
+    Açılamazsa (ör. anahtarın yetkisi yetmezse) False döner: uygulama bu
+    izin olmadan imzalanır, yalnızca Apple ile giriş çalışmaz."""
+    found, error = try_call("GET", f"/bundleIds/{bundle_id}/bundleIdCapabilities?limit=200")
+    if found is not None and any(c["attributes"].get("capabilityType") == "APPLE_ID_AUTH" for c in found["data"]):
+        print("Sign in with Apple zaten açık.")
+        return True
+    relationships = {"bundleId": {"data": {"type": "bundleIds", "id": bundle_id}}}
+    bodies = [
+        {"data": {"type": "bundleIdCapabilities", "attributes": {
+            "capabilityType": "APPLE_ID_AUTH",
+            "settings": [{"key": "APPLE_ID_AUTH_APP_CONSENT", "options": [{"key": "PRIMARY_APP_CONSENT"}]}]},
+            "relationships": relationships}},
+        {"data": {"type": "bundleIdCapabilities", "attributes": {"capabilityType": "APPLE_ID_AUTH"},
+                  "relationships": relationships}},
+    ]
+    for body in bodies:
+        _, error = try_call("POST", "/bundleIdCapabilities", body)
+        if error is None:
+            print("Sign in with Apple açıldı.")
+            return True
+    print(f"::warning::Sign in with Apple açılamadı ({error}); uygulama bu izin olmadan imzalanıyor.")
+    return False
+
+
 def setup(out):
     os.makedirs(out, exist_ok=True)
     state = {}
@@ -83,6 +123,11 @@ def setup(out):
                if b["attributes"]["identifier"] == bundle_id and b["attributes"].get("platform") in ("IOS", "UNIVERSAL")]
     if not bundles:
         sys.exit(f"{bundle_id} uygulama kimliği Apple Developer hesabında bulunamadı.")
+
+    # "Apple ile giriş" (gezi paylaşımı ve profil): profil bu izinle
+    # oluşturulsun diye önce uygulama kimliğinde açılır.
+    state["appleSignIn"] = ensure_sign_in_with_apple(bundles[0]["id"])
+    save(out, state)
 
     profile = call("POST", "/profiles", {"data": {
         "type": "profiles",

@@ -16,7 +16,11 @@ struct ProfileView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Profil").font(Theme.title).padding(.top, 8)
+                // Apple ile giriş ya da profil (ad, simge).
+                AccountCard().padding(.top, 16)
                 stats.padding(.top, 16)
+                // Girişliyken: gezilerin herkese açık anahtarları.
+                SharingSection(path: $path)
 
                 sectionTitle("Kayıtlar")
                 card {
@@ -67,6 +71,8 @@ struct ProfileView: View {
                 card {
                     row("Kaynaklar ve lisanslar", systemImage: "doc.text") { showCredits = true }
                 }
+                // Girişliyken: çıkış ve hesabı silme.
+                AccountActionsSection()
             }
             .padding(.horizontal, 20)
             // Altta yüzen sekme çubuğu son satırı örtmesin.

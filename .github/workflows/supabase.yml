@@ -1,0 +1,57 @@
+# Gezi paylaşımı ve profil için veritabanını kurar: supabase/migrations
+# klasöründeki SQL dosyalarını sırayla, her birini bir kez çalıştırır.
+# main'e yeni bir dosya gelince kendiliğinden, ya da elle çalışır:
+# GitHub → Actions → Supabase → Run workflow.
+# Gerekli GitHub Secret: SUPABASE_DB_URL (Supabase → Connect → Session pooler
+# adresi, şifresiyle). Girilmemişse iş uyarı verip geçer.
+name: Supabase
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**", ".github/workflows/supabase.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: supabase
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Veritabanı adresi girilmiş mi?
+        id: check
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::GitHub Secrets'ta SUPABASE_DB_URL yok; veritabanı kurulmadı (bkz. docs/GELISTIRME.md → Supabase)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: SQL dosyalarını çalıştır
+        if: steps.check.outputs.ready == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          command -v psql || { sudo apt-get update -q && sudo apt-get install -y -q postgresql-client; }
+          db() { psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1 "$@"; }
+          # Hangi dosyaların çalıştırıldığı API'ye açık olmayan ayrı bir şemada tutulur.
+          db -c "create schema if not exists private; create table if not exists private.migrations (name text primary key, applied_at timestamptz not null default now());"
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            name=$(basename "$file")
+            if [ "$(db -t -A -c "select 1 from private.migrations where name = '$name'")" = "1" ]; then
+              echo "Zaten kurulu: $name"
+              continue
+            fi
+            echo "Kuruluyor: $name"
+            db --single-transaction -f "$file" -c "insert into private.migrations (name) values ('$name');"
+          done
+          echo "Tablolar:"
+          db -t -A -c "select table_name from information_schema.tables where table_schema = 'public' order by 1;"

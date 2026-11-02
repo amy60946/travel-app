@@ -149,3 +149,15 @@ Onay bekleyen öneriler buraya yazılır.
   kaynak birlikte seçilmeli; Oguz'a sorulacak.
 - 2026-11-02: Koleksiyonda kişisel not ve kapak fotoğrafı seçme henüz yok
   (kapak ilk iki şeyin fotoğrafı). İstenirse eklenir.
+- 2026-11-02: **Paylaşım ve profil** yapıldı (Apple ile giriş, profil adı ve
+  simgesi, gezide "Paylaş" → herkese açık, Keşfet'te "Gezginlerin rotaları"
+  ve aramada geziler, paylaşılan gezide "Gezilerime kopyala", çıkış ve
+  hesabı silme). App Store'a çıkmadan önce: Apple, hesap silinince Apple
+  ile giriş anahtarlarının da iptal edilmesini istiyor; bunun için sunucuda
+  Apple anahtarı gerekir (ücretsiz Supabase Edge Function ile yapılabilir).
+  TestFlight için gerekmiyor; App Store öncesi Oguz'a sorulacak.
+- 2026-11-02: **Google ile giriş** Google Cloud'da "Testing" durumunda:
+  yalnızca *Test users* listesindeki Gmail hesapları girebilir (en çok 100).
+  "Publish app" için web sitesi ve gizlilik politikası adresi gerekiyor.
+  App Store'a çıkmadan önce gizlilik politikası sayfası hazırlanır (App
+  Store da istiyor), Branding'e girilir ve uygulama yayına alınır.

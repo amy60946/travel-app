@@ -174,6 +174,11 @@ struct JourneyView: View {
                 } label: {
                     Label("Adını değiştir", systemImage: "pencil")
                 }
+                if Supabase.isConfigured {
+                    Button { sheet = .share } label: {
+                        Label("Paylaş", systemImage: "square.and.arrow.up")
+                    }
+                }
                 Button(role: .destructive) { confirmDelete = true } label: {
                     Label("Geziyi sil", systemImage: "trash")
                 }
@@ -370,6 +375,7 @@ struct JourneyView: View {
         case .transport(let stopID): TransportSheet(journeyID: journeyID, stopID: stopID)
         case .stay(let stopID): StaySheet(journeyID: journeyID, stopID: stopID)
         case .addPlace(let stop): AddPlaceView(city: stop.city, stop: stop.id)
+        case .share: ShareTripSheet(journeyID: journeyID)
         }
     }
 
@@ -398,6 +404,7 @@ struct JourneyView: View {
         case "journeyFull": panelStop = 2
         case "stay": if let stop = journey.stops.first { sheet = .stay(stop.id) }
         case "addCity": sheet = .addCity(after: journey.stops.count - 1)
+        case "shareTrip": sheet = .share
         default: break
         }
         #endif
@@ -409,6 +416,7 @@ private enum JourneySheet: Identifiable {
     case transport(UUID)
     case stay(UUID)
     case addPlace(Destination)
+    case share
 
     var id: String {
         switch self {
@@ -416,6 +424,7 @@ private enum JourneySheet: Identifiable {
         case .transport(let id): "transport-\(id)"
         case .stay(let id): "stay-\(id)"
         case .addPlace(let stop): "place-\(stop.id)"
+        case .share: "share"
         }
     }
 }
