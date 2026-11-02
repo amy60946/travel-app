@@ -100,15 +100,33 @@ jobs:
               english) LANG_ARGS=(-appLanguage en -AppleLanguages "(en)" -AppleLocale en_US) ;;
               pins) EXTRA=(-pinStyle photo) ;;
             esac
-            t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" \
-              || t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" \
+            LAUNCHED=$(t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}" \
+              || t 120 xcrun simctl launch "$DEVICE_ID" io.travelapp.ios -screen "$screen" "${LANG_ARGS[@]}" "${EXTRA[@]}") \
               || echo "açılmadı: $screen"
+            echo "$LAUNCHED"
+            PID="${LAUNCHED##*: }"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
               guide|continent|country|cityGuide|addToPlan|journey|journeyFull|swipeDelete|transport|tripFromCollection|reorder|editPlace|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|cityTall|fewerDays|mapAdd|mapAdded|sheetTall|sheet|googlePlace|googleTall|map|homeFull|homeSmall|dayOrder|timed|walk|walkPlaying) sleep 14 ;;
               *) sleep 8 ;;
             esac
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
+            # Yalnızca seçili ekranlar çekilirken: uygulama takıldıysa nerede
+            # takıldığı görünsün (ana iş parçacığının yığını) ya da çöktüyse rapor.
+            if [ -n "$ONLY" ] && [ -n "$PID" ]; then
+              if kill -0 "$PID" 2>/dev/null; then
+                t 30 sample "$PID" 2 -file "$RUNNER_TEMP/sample-$screen.txt" >/dev/null 2>&1 || true
+                echo "::group::yığın: $screen"
+                grep -A250 -m1 "DispatchQueue_1: com.apple.main-thread" "$RUNNER_TEMP/sample-$screen.txt" | cut -c1-240 || true
+                sed -n '/Sort by top of stack/,/Binary Images/p' "$RUNNER_TEMP/sample-$screen.txt" | head -40 || true
+                echo "::endgroup::"
+              else
+                echo "uygulama kapanmış: $screen"
+                ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i travel | head -3 | while read r; do
+                  echo "::group::çökme raporu: $r"; head -c 6000 ~/Library/Logs/DiagnosticReports/"$r"; echo "::endgroup::"
+                done
+              fi
+            fi
           }
           i=1
           SCREENS="home homeSmall homeFull profile layers map sheet sheetTall googlePlace googleTall photo pins city cityTall fewerDays mapAdd mapAdded reorder editPlace dayOrder timed all spot listen player guide moved movedList saved downloads place walk walkPlaying add addSearch search searchSave import camera custom trips journey journeyFull swipeDelete transport flight stay addCity newTrip newTripCollection tripFromCollection discover discoverTall collections newCollection collection saveTo continent country cityGuide addToPlan english"
