@@ -12,6 +12,8 @@ struct DiscoverView: View {
     @StateObject private var search = CitySearch()
     @State private var photos: [String: URL] = [:]
     @State private var countryInfo: [String: DiscoverService.PageInfo] = [:]
+    /// Ülke kartlarının fotoğrafı (Wikivoyage manzarası ya da "Tourism in …").
+    @State private var countryPhotos: [String: URL] = [:]
     /// Popüler, Bu ay yükselenler, Gözden kaçanlar (Wikivoyage okunma sayılarından).
     @State private var lists = ExploreLists.Lists()
     @State private var resolving: String?
@@ -72,10 +74,11 @@ struct DiscoverView: View {
             async let interestTask = DiscoverService.shared.countryInterest()
             photos = await continentTask.compactMapValues(\.photo)
             countryInfo = await countryTask
+            countryPhotos = await DiscoverService.shared.countryPhotos(titles)
             let interest = await interestTask
             let made = ExploreLists.make(interest, excluding: Set(countries.map(\.code)))
-            let more = await DiscoverService.shared.info(made.all.map(\.title), from: .wikivoyage)
-            countryInfo.merge(more) { first, _ in first }
+            let more = await DiscoverService.shared.countryPhotos(made.all.map(\.title))
+            countryPhotos.merge(more) { first, _ in first }
             withAnimation(.snappy) { lists = made }
         }
     }
@@ -146,9 +149,9 @@ struct DiscoverView: View {
                 HStack(spacing: 14) {
                     Button { path.append(.country(country.code)) } label: {
                         HStack(spacing: 14) {
-                            RemoteImage(url: countryInfo[country.title]?.photo)
+                            RemoteImage(url: countryPhotos[country.title])
                                 .overlay {
-                                    if countryInfo[country.title]?.photo == nil {
+                                    if countryPhotos[country.title] == nil {
                                         Text(country.flag).font(.system(size: 26))
                                     }
                                 }
@@ -203,7 +206,7 @@ struct DiscoverView: View {
 
     private func countryCard(_ country: Country, height: CGFloat) -> some View {
         // Kartın içinde kaydet düğmesi var; kartın kendisi düğme değil, dokunulur.
-        CountryCard(country: country, photo: countryInfo[country.title]?.photo, height: height)
+        CountryCard(country: country, photo: countryPhotos[country.title], height: height)
             .contentShape(Rectangle())
             .onTapGesture { path.append(.country(country.code)) }
             .accessibilityAddTraits(.isButton)

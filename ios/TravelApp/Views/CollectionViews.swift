@@ -33,8 +33,7 @@ struct CollectionItemPhoto: View {
         let title = item.englishTitle ?? item.name
         switch item.kind {
         case .country:
-            if let banner = await DiscoverService.shared.info([title], from: .wikivoyage)[title]?.photo { return banner }
-            return await DiscoverService.shared.photo(title)
+            return await DiscoverService.shared.countryPhotos([title])[title]
         case .city:
             return await DiscoverService.shared.photo(title)
         case .place:

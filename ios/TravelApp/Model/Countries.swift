@@ -8,7 +8,11 @@ struct Country: Identifiable, Hashable {
     let title: String
 
     var id: String { code }
-    var name: String { AppLanguage.current.locale.localizedString(forRegionCode: code) ?? title }
+    var name: String {
+        // iOS "CN" için "Çin ana karası" (Mainland China) diyor; ülke listesinde yalnızca "Çin".
+        if code == "CN" { return AppLanguage.current == .turkish ? "Çin" : "China" }
+        return AppLanguage.current.locale.localizedString(forRegionCode: code) ?? title
+    }
     var flag: String { Country.flag(code) }
 
     /// "TR" → 🇹🇷

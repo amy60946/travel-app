@@ -733,8 +733,7 @@ struct CityPlanView: View {
         if screen == "cityTall" { panelStop = Self.panelStops.count - 1 }
         // `fewerDays`: gün sayısı 3'ten 2'ye inmiş; 3. günün yerleri "3. günden" etiketiyle 2. günde.
         if screen == "fewerDays" {
-            store.setDays(2, stop: stopID)
-            store.dismissUndo()
+            // Gün sayısı RootView'da (açılışta) 2'ye indirildi.
             selectedDay = 1
             return
         }
@@ -744,15 +743,8 @@ struct CityPlanView: View {
             return
         }
         // `timed`: 1. günde yemek yerine saat verilmiş ve akıllı sıra uygulanmış (saatler listede).
-        if screen == "timed", let firstDay = days.first, firstDay.count > 1 {
-            if let food = firstDay.first(where: { $0.category == .food }) {
-                store.setTime(19 * 60, for: food, stop: stopID)
-            }
-            let stops = store.dayStops(store.dayPlan(stop: stopID)[0], stop: stopID)
-            if let best = DayPlanner.smartOrders(stops).first {
-                store.applyOrder(best.map(\.id), day: 0, stop: stopID, smart: true)
-            }
-            store.dismissUndo()
+        if screen == "timed" {
+            // Saat ve akıllı sıra RootView'da (açılışta) verildi.
             panelStop = Self.panelStops.count - 1
             return
         }
@@ -826,19 +818,19 @@ private struct PopularStrip: View {
     @State private var places: [WikipediaService.PopularPlace] = []
 
     var body: some View {
-        Group {
+        // Boşken de görünüm var olsun: içi boş `Group`a bağlı görev hiç çalışmaz.
+        VStack(alignment: .leading, spacing: 10) {
             if !places.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Popüler yerler").font(Theme.font(19, .bold)).padding(.horizontal, 20)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .top, spacing: 12) {
-                            ForEach(places.prefix(15)) { item in card(item) }
-                        }
-                        .padding(.horizontal, 20)
+                Text("Popüler yerler").font(Theme.font(19, .bold)).padding(.horizontal, 20)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 12) {
+                        ForEach(places.prefix(15)) { item in card(item) }
                     }
+                    .padding(.horizontal, 20)
                 }
             }
         }
+        .frame(maxWidth: .infinity, minHeight: 1, alignment: .leading)
         .task(id: city) {
             guard let center = store.center(of: city) else { return }
             places = (try? await WikipediaService.shared.popularPlaces(latitude: center.latitude,

@@ -170,6 +170,19 @@ struct RootView: View {
         case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
              "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded", "dayOrder", "timed":
+            // `fewerDays`: gün sayısı 3'ten 2'ye inmiş (3. günün yerleri yerinde kalır).
+            if screen == "fewerDays" { store.setDays(2, stop: stop) }
+            // `timed`: 1. günde yemek yerine 19:00 verilmiş ve akıllı sıra uygulanmış.
+            if screen == "timed", let firstDay = store.dayPlan(stop: stop).first, firstDay.count > 1 {
+                if let food = firstDay.first(where: { $0.category == .food }) {
+                    store.setTime(19 * 60, for: food, stop: stop)
+                }
+                let stops = store.dayStops(store.dayPlan(stop: stop)[0], stop: stop)
+                if let best = DayPlanner.smartOrders(stops).first {
+                    store.applyOrder(best.map(\.id), day: 0, stop: stop, smart: true)
+                }
+            }
+            store.dismissUndo()
             path = [.plan(stop)]
         case "player":
             path = [.plan(stop)]

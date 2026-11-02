@@ -175,6 +175,20 @@ actor DiscoverService {
         site == .wikipedia && language != "en" ? "\(site.rawValue)|\(language)|\(title)" : "\(site.rawValue)|\(title)"
     }
 
+    /// Ülkelerin manzara fotoğrafı: Wikivoyage'ın üstteki manzarası; yoksa
+    /// Wikipedia'daki "Tourism in …" sayfasının fotoğrafı (ülke sayfasınınki
+    /// çoğunlukla bayrak ya da harita olduğu için kullanılmaz).
+    func countryPhotos(_ titles: [String]) async -> [String: URL] {
+        var result = await info(titles, from: .wikivoyage).compactMapValues(\.photo)
+        let missing = titles.filter { result[$0] == nil }
+        guard !missing.isEmpty else { return result }
+        let tourism = await info(missing.map { "Tourism in \($0)" }, from: .wikipedia)
+        for title in missing {
+            if let photo = tourism["Tourism in \(title)"]?.photo { result[title] = photo }
+        }
+        return result
+    }
+
     /// Şehrin ya da yerin fotoğrafı: önce Wikipedia, yoksa Wikivoyage manzarası.
     func photo(_ title: String) async -> URL? {
         if let photo = await info([title], from: .wikipedia)[title]?.photo { return photo }
