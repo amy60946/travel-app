@@ -262,9 +262,7 @@ struct HomeView: View {
 
     private func collectionRow(_ collection: PlaceCollection) -> some View {
         HStack(spacing: 14) {
-            CollectionCover(collection: collection)
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            CollectionStack(collection: collection, size: 56)
                 .overlay(alignment: .bottomTrailing) {
                     Text(collection.emoji)
                         .font(.system(size: 12))

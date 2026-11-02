@@ -256,12 +256,16 @@ struct EstimatedTag: View {
     }
 }
 
-/// "Dinle" kartı: yerin yazısını Türkçe iPhone sesiyle okur. Çalarken kart
-/// oynatıcıya dönüşür: 10 sn geri, duraklat, 10 sn ileri ve dokunulunca
-/// oraya saran çizgi. Bu yerin sayfasında alttaki çubuk ayrıca görünmez.
+/// "Dinle" kartı: yerin yazısını (özet ve yazının bütün bölümleri)
+/// uygulamanın dilinde iPhone sesiyle okur. Çalarken kart oynatıcıya
+/// dönüşür: 10 sn geri, duraklat, 10 sn ileri, hız, dokunulunca oraya saran
+/// çizgi ve bölüm çipleri (dokununca o bölüme atlar, basılı tutunca bölüm
+/// atlanır). Bu yerin sayfasında alttaki çubuk ayrıca görünmez.
 struct ListenCard: View {
     let title: String
     let summary: WikipediaService.Summary?
+    /// Yazının tamamı (başlık başlık); geldiyse özetten sonra okunur.
+    var article: WikipediaService.Article?
     @ObservedObject private var narrator = Narrator.shared
 
     var body: some View {
@@ -272,11 +276,17 @@ struct ListenCard: View {
         .padding(14)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .animation(.snappy, value: isCurrent)
+        // Özet okunurken yazının tamamı geldi: bölümler eklenir, özetten sonra okunur.
+        .onChange(of: article) { _, article in
+            guard let article, narrator.currentTitle == title, !narrator.hasChapters,
+                  article.language == summary?.language else { return }
+            narrator.append(sections: article.sections.map { (heading: $0.heading, text: $0.text) }, to: title)
+        }
     }
 
     private var idle: some View {
         Button {
-            if let summary { narrator.speak(summary.extract, title: title, language: summary.language) }
+            if let summary { narrator.speak(summary: summary, article: article, title: title) }
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "play.fill")
@@ -299,7 +309,9 @@ struct ListenCard: View {
 
     private var subtitle: String {
         guard let summary else { return String(localized: "Anlatım hazırlanıyor") }
-        let minutes = max(1, Int((Narrator.estimatedDuration(of: summary.extract) / 60).rounded()))
+        let sameLanguage = article?.language == summary.language
+        let text = summary.extract + (sameLanguage ? article?.spokenText ?? "" : "")
+        let minutes = max(1, Int((Narrator.estimatedDuration(of: text) / 60).rounded()))
         return summary.language == "tr"
             ? String(localized: "\(minutes) dk · Türkçe anlatım")
             : String(localized: "\(minutes) dk · İngilizce anlatım")
@@ -311,10 +323,97 @@ struct ListenCard: View {
                 Text(narrator.isPaused ? LocalizedStringKey("Duraklatıldı") : LocalizedStringKey("Dinleniyor"))
                     .font(Theme.headline)
                 Spacer(minLength: 0)
+                NarrationSpeedButton()
                 NarrationControls()
             }
             NarrationTimeline()
+            NarrationChapters().padding(.horizontal, -14)
         }
+    }
+}
+
+/// Anlatımın bölümleri yana kayan çipler halinde (Hakkında · Tarihçe ·
+/// Mimari...). Okunan bölüm siyah; dokununca o bölüme atlar; basılı tutunca
+/// bölüm atlanır ya da geri eklenir (atlanan bölüm soluk ve üstü çizili).
+struct NarrationChapters: View {
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        if !narrator.chapters.isEmpty {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(narrator.chapters.enumerated()), id: \.element.id) { index, chapter in
+                            chip(chapter, index: index).id(chapter.id)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                }
+                .onChange(of: narrator.chapterIndex) { _, index in
+                    guard narrator.chapters.indices.contains(index) else { return }
+                    withAnimation(.snappy) { proxy.scrollTo(narrator.chapters[index].id, anchor: .center) }
+                }
+            }
+        }
+    }
+
+    private func chip(_ chapter: Narrator.Chapter, index: Int) -> some View {
+        let isCurrent = index == narrator.chapterIndex
+        let isSkipped = narrator.skippedChapters.contains(index)
+        return Button { narrator.play(chapter: index) } label: {
+            HStack(spacing: 5) {
+                Text(chapter.heading).strikethrough(isSkipped)
+                Text(verbatim: Narrator.clock(narrator.duration(of: chapter)))
+                    .monospacedDigit()
+                    .opacity(0.6)
+            }
+            .font(Theme.font(13, .semibold))
+            .lineLimit(1)
+            .foregroundStyle(isCurrent ? .white : Theme.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(isCurrent ? Theme.ink : Color.white, in: Capsule())
+            .overlay(Capsule().stroke(Theme.hairline, lineWidth: isCurrent ? 0 : 1))
+            .opacity(isSkipped ? 0.45 : 1)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button { narrator.play(chapter: index) } label: {
+                Label("Bu bölümden dinle", systemImage: "play.fill")
+            }
+            Button { narrator.toggleSkip(chapter: index) } label: {
+                if isSkipped {
+                    Label("Bölümü geri ekle", systemImage: "plus.circle")
+                } else {
+                    Label("Bu bölümü atla", systemImage: "forward.end")
+                }
+            }
+        }
+        .accessibilityHint(Text("Basılı tutunca bölüm atlanır"))
+    }
+}
+
+/// Anlatım hızı: "1x" düğmesi; 0,75x – 1,5x.
+struct NarrationSpeedButton: View {
+    @ObservedObject private var narrator = Narrator.shared
+
+    var body: some View {
+        Menu {
+            Picker("Hız", selection: Binding(get: { narrator.rate }, set: { narrator.setRate($0) })) {
+                ForEach(Narrator.rates, id: \.self) { rate in
+                    Text(verbatim: Narrator.rateLabel(rate)).tag(rate)
+                }
+            }
+        } label: {
+            Text(verbatim: Narrator.rateLabel(narrator.rate))
+                .font(Theme.font(13, .bold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.ink)
+                .frame(minWidth: 40, minHeight: 30)
+                .background(Color.white, in: Capsule())
+                .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
+        }
+        .accessibilityLabel(Text("Anlatım hızı"))
     }
 }
 
@@ -696,12 +795,3 @@ struct ArticleSections: View {
     }
 }
 
-extension WikipediaService.Summary {
-    /// Dinlemek için özet ve yazının tamamı art arda.
-    func adding(_ article: WikipediaService.Article?) -> WikipediaService.Summary {
-        guard let article, !article.sections.isEmpty else { return self }
-        var full = self
-        full.extract = extract + "\n\n" + article.spokenText
-        return full
-    }
-}

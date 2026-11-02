@@ -86,11 +86,14 @@ struct JourneyView: View {
                 .padding(.bottom, 10)
         } content: {
             VStack(alignment: .leading, spacing: 0) {
+                // Polarsteps gibi: Gezi başlangıcı, şehirler (aralarında + ve
+                // ulaşım), Gezi sonu.
+                edgeRow(start: true, days: days.reduce(0, +))
                 ForEach(Array(journey.stops.enumerated()), id: \.element.id) { index, stop in
-                    if index > 0 || stop.arrivalMode != nil {
-                        TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop) {
-                            sheet = .transport(stop.id)
-                        }
+                    TransportConnector(from: index > 0 ? journey.stops[index - 1] : nil, to: stop,
+                                       showsTransport: index > 0 || stop.arrivalMode != nil,
+                                       onAddCity: { sheet = .addCity(after: index - 1) }) {
+                        sheet = .transport(stop.id)
                     }
                     // Sola kaydırınca "Sil" (Oguz, 2026-11-02).
                     SwipeToDelete(reveals: revealedStop == stop.id) { remove(stop) } content: {
@@ -98,9 +101,8 @@ struct JourneyView: View {
                                  range: ranges[index], days: days[index])
                     }
                 }
-
                 addCityRow(after: journey.stops.count - 1)
-                    .padding(.top, 14)
+                edgeRow(start: false, days: days.reduce(0, +))
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 100)
@@ -227,6 +229,9 @@ struct JourneyView: View {
                             HStack(spacing: 6) {
                                 Text(stop.city).font(Theme.font(18, .bold)).lineLimit(1)
                                 if let flag = stop.flag { Text(flag).font(.system(size: 15)) }
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Theme.muted)
                             }
                             Text(planned == 0 ? String(localized: "Henüz yer yok") : String(localized: "\(planned) yer"))
                                 .font(Theme.caption)
@@ -333,25 +338,27 @@ struct JourneyView: View {
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
     }
 
+    /// Son şehirden sonra: "+" ve "Şehir ekle" (sıradaki durak).
     private func addCityRow(after index: Int) -> some View {
         Button { sheet = .addCity(after: index) } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .semibold))
-                    .frame(width: 64, height: 64)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12)
-                        .stroke(Theme.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Şehir ekle").font(Theme.font(17, .bold))
-                    Text("Sıradaki durağın neresi?").font(Theme.caption).foregroundStyle(Theme.muted)
-                }
+            HStack(spacing: 12) {
+                AddCircle()
+                Text("Şehir ekle").font(Theme.font(15, .semibold))
                 Spacer()
             }
-            .padding(14)
+            .padding(.leading, EdgeRow.lineInset - AddCircle.size / 2)
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text("Şehir ekle"))
+    }
+
+    /// "Gezi başlangıcı" (ev) ve "Gezi sonu" (bayrak) satırları.
+    private func edgeRow(start: Bool, days: Int) -> some View {
+        EdgeRow(symbol: start ? "house.fill" : "flag.checkered",
+                title: start ? String(localized: "Gezi başlangıcı") : String(localized: "Gezi sonu"),
+                detail: start ? String(localized: "\(days) gün planlandı") : nil)
     }
 
     // MARK: - Pencereler
@@ -454,18 +461,40 @@ private struct DayStepper: View {
 private struct TransportConnector: View {
     let from: Destination?
     let to: Destination
+    /// Ulaşım çipi görünsün mü (ilk şehirde yalnızca seçildiyse).
+    var showsTransport = true
+    /// "+": bu iki şehrin arasına şehir ekler.
+    let onAddCity: () -> Void
     let onTap: () -> Void
     @State private var leg: TravelLegs.Leg?
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
+            Button(action: onAddCity) { AddCircle() }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Araya şehir ekle"))
+                .padding(.leading, EdgeRow.lineInset - AddCircle.size / 2)
+            if showsTransport { transportChip }
+            Spacer()
+        }
+        .frame(height: 52)
+        // Şehirleri birleştiren kesik çizgi; "+" onun üstünde.
+        .background(alignment: .leading) {
             VerticalDash()
-                .stroke(Theme.muted, style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
-                .frame(width: 2, height: 46)
-                .padding(.leading, 45)
+                .stroke(Theme.hairline, style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
+                .frame(width: 2)
+                .padding(.leading, EdgeRow.lineInset - 1)
+        }
+        .task(id: "\(from?.id.uuidString ?? "")>\(to.id)>\(to.arrivalMode?.rawValue ?? "")") {
+            guard let from, to.arrivalMode == .car else { return }
+            leg = await TravelLegs.leg(from: from.coordinate, to: to.coordinate)
+        }
+    }
+
+    private var transportChip: some View {
             Button(action: onTap) {
                 HStack(spacing: 6) {
-                    Image(systemName: to.arrivalMode?.symbol ?? "plus")
+                    Image(systemName: to.arrivalMode?.symbol ?? "point.topleft.down.to.point.bottomright.curvepath")
                     Text(text)
                 }
                 .font(Theme.font(13, .semibold))
@@ -475,12 +504,6 @@ private struct TransportConnector: View {
                 .background(to.arrivalMode == nil ? Theme.ink : Theme.surface, in: Capsule())
             }
             .buttonStyle(.plain)
-            Spacer()
-        }
-        .task(id: "\(from?.id.uuidString ?? "")>\(to.id)>\(to.arrivalMode?.rawValue ?? "")") {
-            guard let from, to.arrivalMode == .car else { return }
-            leg = await TravelLegs.leg(from: from.coordinate, to: to.coordinate)
-        }
     }
 
     private var text: String {
@@ -492,6 +515,56 @@ private struct TransportConnector: View {
         let summary = to.flight?.summary ?? ""
         return summary.isEmpty ? mode.title : summary
     }
+}
+
+/// Küçük yuvarlak "+" (şehirlerin arasında ve sonunda).
+private struct AddCircle: View {
+    static let size: CGFloat = 30
+
+    var body: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(Theme.ink)
+            .frame(width: Self.size, height: Self.size)
+            .background(.white, in: Circle())
+            .overlay(Circle().stroke(Theme.hairline))
+    }
+}
+
+/// "Gezi başlangıcı" ve "Gezi sonu": siyah yuvarlak simge, başlık, ayrıntı.
+private struct EdgeRow: View {
+    /// Şehir fotoğraflarının ortası: simgeler ve "+" bu çizgiye oturur
+    /// (kartın iç boşluğu 14 + fotoğrafın yarısı 32).
+    static let lineInset: CGFloat = 46
+
+    let symbol: String
+    let title: String
+    var detail: String?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Theme.ink, in: Circle())
+            Text(title).font(Theme.font(15, .bold))
+            Spacer()
+            if let detail {
+                Text(detail)
+                    .font(Theme.font(12, .semibold))
+                    .foregroundStyle(Theme.muted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.surface, in: Capsule())
+            }
+        }
+        .padding(.leading, lineInsetPadding)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var lineInsetPadding: CGFloat { Self.lineInset - 18 }
 }
 
 private struct VerticalDash: Shape {

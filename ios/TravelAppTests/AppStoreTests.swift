@@ -153,6 +153,51 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(Set(store.dayPlan(stop: stop)[0].map(\.id)), Set(before[0].map(\.id)))
     }
 
+    /// Akıllı sıra uygulanır; elle sürükleyince "Benim sıram"a döner; gün
+    /// takasında akıllı sıra da gider; rotadan çıkan yerin saati silinir.
+    func testSmartOrderAndTimes() throws {
+        let store = makeStore()
+        let stop = try tokyo(store)
+        let day = store.dayPlan(stop: stop)[0]
+        XCTAssertGreaterThan(day.count, 1)
+        let reversed = day.reversed().map(\.id)
+        store.applyOrder(reversed, day: 0, stop: stop, smart: true)
+        XCTAssertEqual(store.dayPlan(stop: stop)[0].map(\.id), reversed)
+        XCTAssertTrue(store.isSmartOrdered(day: 0, stop: stop))
+        XCTAssertTrue(store.isManuallyOrdered(day: 0, stop: stop))
+
+        store.swapDays(0, 1, stop: stop)
+        XCTAssertTrue(store.isSmartOrdered(day: 1, stop: stop))
+        XCTAssertFalse(store.isSmartOrdered(day: 0, stop: stop))
+        store.undo()
+
+        let moved = try XCTUnwrap(store.place(reversed[1]))
+        store.reorder(moved, before: store.place(reversed[0]), day: 0, stop: stop)
+        XCTAssertFalse(store.isSmartOrdered(day: 0, stop: stop), "elle sıralayınca Benim sıram")
+        XCTAssertTrue(store.isManuallyOrdered(day: 0, stop: stop))
+
+        store.orderByWalking(day: 0, stop: stop)
+        XCTAssertFalse(store.isManuallyOrdered(day: 0, stop: stop))
+        store.keepOrder(day: 0, stop: stop)
+        XCTAssertTrue(store.isManuallyOrdered(day: 0, stop: stop))
+
+        let place = try XCTUnwrap(store.place(reversed[0]))
+        store.setTime(14 * 60, for: place, stop: stop)
+        XCTAssertEqual(store.pinnedTime(of: place, stop: stop), 14 * 60)
+        XCTAssertEqual(store.dayStops([place], stop: stop).first?.pinned, 14 * 60)
+        store.removeFromPlan(place, stop: stop)
+        XCTAssertNil(store.pinnedTime(of: place, stop: stop))
+    }
+
+    /// Gezme süresi: kullanıcı verdiyse o, yoksa türün ortalaması.
+    func testVisitDuration() throws {
+        var museum = Place(name: "Müze", city: "Tokyo", latitude: 35.7, longitude: 139.7,
+                           category: .museum, source: .search)
+        XCTAssertEqual(museum.visitDuration, 90)
+        museum.visitMinutes = 45
+        XCTAssertEqual(museum.visitDuration, 45)
+    }
+
     /// Haritadan eklenen yer, rotası en yakın geçen güne girer.
     func testPlanNearestDay() throws {
         let store = makeStore()

@@ -169,8 +169,23 @@ struct RootView: View {
         case "saved": path = [.saved]
         case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
-             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded":
-            path = [.plan(stop)]
+             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded", "dayOrder", "timed":
+            // `fewerDays`: gün sayısı 3'ten 2'ye inmiş (3. günün yerleri yerinde kalır).
+            if screen == "fewerDays" { store.setDays(2, stop: stop) }
+            // `timed`: 1. günde yemek yerine 19:00 verilmiş ve akıllı sıra uygulanmış.
+            if screen == "timed", let firstDay = store.dayPlan(stop: stop).first, firstDay.count > 1 {
+                if let food = firstDay.first(where: { $0.category == .food }) {
+                    store.setTime(19 * 60, for: food, stop: stop)
+                }
+                let stops = store.dayStops(store.dayPlan(stop: stop)[0], stop: stop)
+                if let best = DayPlanner.smartOrders(stops).first {
+                    store.applyOrder(best.map(\.id), day: 0, stop: stop, smart: true)
+                }
+            }
+            store.dismissUndo()
+            // Veri değişikliğiyle aynı anda açılan sayfa bazen hiç açılmıyordu;
+            // ana sayfa yerleşince açılsın.
+            open([.plan(stop)])
         case "player":
             path = [.plan(stop)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
@@ -182,7 +197,7 @@ struct RootView: View {
                 guidance = GuidanceDestination(place: target)
             }
         case "place": if let firstPlace { path = [.plan(stop), .place(firstPlace.id)] }
-        case "walk": path = [.plan(stop), .walk(stop: stop, day: 0)]
+        case "walk", "walkPlaying": path = [.plan(stop), .walk(stop: stop, day: 0)]
         case "add", "addSearch": present(.addPlace(city: city, stop: stop))
         case "search", "searchSave": present(.search(city: city))
         case "import": present(.importData)
@@ -198,6 +213,14 @@ struct RootView: View {
     static let tabBarHeight: CGFloat = 58
 
     #if DEBUG
+    /// Açılışta sayfa, ana sayfa yerleştikten sonra açılsın.
+    private func open(_ routes: [Route]) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            path = routes
+        }
+    }
+
     /// Açılışta pencere, ana sayfa yerleştikten sonra açılsın (hemen
     /// açılınca bazen hiç görünmüyordu).
     private func present(_ launchSheet: AddSheet) {

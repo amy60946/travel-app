@@ -57,6 +57,93 @@ actor DiscoverService {
         return URLSession(configuration: config)
     }()
 
+    // MARK: - İlgi (Wikivoyage okunma sayıları)
+
+    private struct InterestSnapshot: Codable {
+        var date: Date
+        var values: [String: ExploreLists.Interest]
+    }
+
+    private let interestCache = DiskCache<InterestSnapshot>(name: "wikivoyage-interest")
+
+    /// Bütün ülkelerin Wikivoyage'da son 60 gündeki okunma sayısı (son 30
+    /// gün ve önceki 30 gün); üç günde bir yenilenir. İnternet yoksa son
+    /// bilinen, o da yoksa boş.
+    func countryInterest() async -> [String: ExploreLists.Interest] {
+        let key = "countries"
+        if let cached = interestCache[key], Date().timeIntervalSince(cached.date) < 3 * 86_400,
+           !cached.values.isEmpty {
+            return cached.values
+        }
+        let titles = Country.all.map(\.title)
+        var result: [String: ExploreLists.Interest] = [:]
+        for start in stride(from: 0, to: titles.count, by: 50) {
+            let chunk = Array(titles[start..<min(start + 50, titles.count)])
+            if let fetched = await fetchInterest(chunk) {
+                result.merge(fetched) { first, _ in first }
+            }
+        }
+        guard !result.isEmpty else { return interestCache[key]?.values ?? [:] }
+        interestCache[key] = InterestSnapshot(date: Date(), values: result)
+        return result
+    }
+
+    private func fetchInterest(_ titles: [String]) async -> [String: ExploreLists.Interest]? {
+        struct Response: Decodable {
+            struct Continue: Decodable { var pvipcontinue: String? }
+            struct Query: Decodable {
+                struct Rename: Decodable { var from: String; var to: String }
+                struct Page: Decodable {
+                    var title: String
+                    var pageviews: [String: Int?]?
+                }
+                var normalized: [Rename]?
+                var redirects: [Rename]?
+                var pages: [Page]?
+            }
+            var `continue`: Continue?
+            var query: Query?
+        }
+        var daily: [String: [String: Int?]] = [:]
+        var normalized: [String: String] = [:]
+        var redirects: [String: String] = [:]
+        var token: String?
+        // Çok sayfada sonuçlar parça parça gelir (pvipcontinue).
+        for _ in 0..<6 {
+            var components = URLComponents(string: "https://en.wikivoyage.org/w/api.php")!
+            var items: [URLQueryItem] = [
+                .init(name: "action", value: "query"),
+                .init(name: "format", value: "json"),
+                .init(name: "formatversion", value: "2"),
+                .init(name: "redirects", value: "1"),
+                .init(name: "prop", value: "pageviews"),
+                .init(name: "pvipdays", value: "60"),
+                .init(name: "titles", value: titles.joined(separator: "|")),
+            ]
+            if let token { items.append(.init(name: "pvipcontinue", value: token)) }
+            components.queryItems = items
+            guard let url = components.url, let (data, response) = try? await session.data(from: url),
+                  (response as? HTTPURLResponse)?.statusCode == 200,
+                  let decoded = try? JSONDecoder().decode(Response.self, from: data)
+            else { break }
+            for rename in decoded.query?.normalized ?? [] { normalized[rename.from] = rename.to }
+            for rename in decoded.query?.redirects ?? [] { redirects[rename.from] = rename.to }
+            for page in decoded.query?.pages ?? [] {
+                guard let views = page.pageviews else { continue }
+                daily[page.title, default: [:]].merge(views) { first, _ in first }
+            }
+            token = decoded.continue?.pvipcontinue
+            if token == nil { break }
+        }
+        guard !daily.isEmpty else { return nil }
+        var result: [String: ExploreLists.Interest] = [:]
+        for title in titles {
+            let name = normalized[title] ?? title
+            if let views = daily[redirects[name] ?? name] { result[title] = ExploreLists.interest(daily: views) }
+        }
+        return result
+    }
+
     // MARK: - Sayfa bilgisi (konum, fotoğraf)
 
     /// Başlıkların konumu ve fotoğrafı, 50'şerli toplu istekle. Wikivoyage'da
@@ -86,6 +173,20 @@ actor DiscoverService {
     /// Wikipedia'daki yerel ad uygulamanın diline bağlı; saklarken dil de anahtarda.
     private static func pageKey(_ title: String, _ site: Site) -> String {
         site == .wikipedia && language != "en" ? "\(site.rawValue)|\(language)|\(title)" : "\(site.rawValue)|\(title)"
+    }
+
+    /// Ülkelerin manzara fotoğrafı: Wikivoyage'ın üstteki manzarası; yoksa
+    /// Wikipedia'daki "Tourism in …" sayfasının fotoğrafı (ülke sayfasınınki
+    /// çoğunlukla bayrak ya da harita olduğu için kullanılmaz).
+    func countryPhotos(_ titles: [String]) async -> [String: URL] {
+        var result = await info(titles, from: .wikivoyage).compactMapValues(\.photo)
+        let missing = titles.filter { result[$0] == nil }
+        guard !missing.isEmpty else { return result }
+        let tourism = await info(missing.map { "Tourism in \($0)" }, from: .wikipedia)
+        for title in missing {
+            if let photo = tourism["Tourism in \(title)"]?.photo { result[title] = photo }
+        }
+        return result
     }
 
     /// Şehrin ya da yerin fotoğrafı: önce Wikipedia, yoksa Wikivoyage manzarası.

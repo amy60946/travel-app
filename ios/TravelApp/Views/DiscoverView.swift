@@ -12,6 +12,10 @@ struct DiscoverView: View {
     @StateObject private var search = CitySearch()
     @State private var photos: [String: URL] = [:]
     @State private var countryInfo: [String: DiscoverService.PageInfo] = [:]
+    /// Ülke kartlarının fotoğrafı (Wikivoyage manzarası ya da "Tourism in …").
+    @State private var countryPhotos: [String: URL] = [:]
+    /// Popüler, Bu ay yükselenler, Gözden kaçanlar (Wikivoyage okunma sayılarından).
+    @State private var lists = ExploreLists.Lists()
     @State private var resolving: String?
     @State private var panelStop = 1
     @State private var panelHeight: CGFloat = 400
@@ -67,8 +71,15 @@ struct DiscoverView: View {
             let titles = countries.map(\.title)
             async let continentTask = DiscoverService.shared.info(Continent.all.map(\.photoTitle), from: .wikipedia)
             async let countryTask = DiscoverService.shared.info(titles, from: .wikivoyage)
+            async let interestTask = DiscoverService.shared.countryInterest()
             photos = await continentTask.compactMapValues(\.photo)
             countryInfo = await countryTask
+            countryPhotos = await DiscoverService.shared.countryPhotos(titles)
+            let interest = await interestTask
+            let made = ExploreLists.make(interest, excluding: Set(countries.map(\.code)))
+            let more = await DiscoverService.shared.countryPhotos(made.all.map(\.title))
+            countryPhotos.merge(more) { first, _ in first }
+            withAnimation(.snappy) { lists = made }
         }
     }
 
@@ -99,26 +110,106 @@ struct DiscoverView: View {
     private var discover: some View {
         if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
             forYou
+            if !lists.popular.isEmpty { popular }
+            if !lists.trending.isEmpty { trending }
+            if !lists.underRadar.isEmpty { underRadar }
             continents
         } else {
             results
         }
     }
 
-    /// "Senin için": iki sütun ülke kartları.
+    /// "Senin için": büyük kartlar yana kayar (gezilerindeki ülkeler, sonra
+    /// en çok gezilenler).
     private var forYou: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle("Senin için")
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(countries) { country in
-                    // Kartın içinde kaydet düğmesi var; kartın kendisi düğme değil, dokunulur.
-                    CountryCard(country: country, photo: countryInfo[country.title]?.photo)
-                        .contentShape(Rectangle())
-                        .onTapGesture { path.append(.country(country.code)) }
-                        .accessibilityAddTraits(.isButton)
-                }
+            cardStrip(countries) { country in
+                countryCard(country, height: 250)
+                    .containerRelativeFrame(.horizontal) { width, _ in width - 56 }
             }
         }
+    }
+
+    /// "Popüler": Wikivoyage'da son 30 günde en çok okunan ülkeler.
+    private var popular: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle("Popüler")
+            cardStrip(lists.popular) { country in
+                countryCard(country, height: 210).frame(width: 170)
+            }
+        }
+    }
+
+    /// "Bu ay yükselenler": sıra numaralı liste; ilgisi en çok artan ülkeler.
+    private var trending: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle("Bu ay yükselenler")
+            ForEach(Array(lists.trending.enumerated()), id: \.element.id) { index, country in
+                HStack(spacing: 14) {
+                    Button { path.append(.country(country.code)) } label: {
+                        HStack(spacing: 14) {
+                            RemoteImage(url: countryPhotos[country.title])
+                                .overlay {
+                                    if countryPhotos[country.title] == nil {
+                                        Text(country.flag).font(.system(size: 26))
+                                    }
+                                }
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            Text(verbatim: "\(index + 1)")
+                                .font(Theme.font(20, .bold))
+                                .monospacedDigit()
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(country.name).font(Theme.font(16, .semibold)).lineLimit(1)
+                                Text(Continent.of(country.code)?.name ?? "")
+                                    .font(Theme.font(13))
+                                    .foregroundStyle(Theme.muted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    CollectButton(item: .country(country), size: 34)
+                }
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    /// "Gözden kaçanlar": küçük kartlar; çok gezilenler arasında olmayan ama
+    /// ilgisi artan ülkeler.
+    private var underRadar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle("Gözden kaçanlar")
+            cardStrip(lists.underRadar) { country in
+                countryCard(country, height: 150).frame(width: 150)
+            }
+        }
+    }
+
+    /// Yana kayan kart şeridi; kartlar panelin kenarından kenarına kayar.
+    private func cardStrip<Card: View>(_ countries: [Country],
+                                       @ViewBuilder card: @escaping (Country) -> Card) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 12) {
+                ForEach(countries) { country in card(country) }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .contentMargins(.horizontal, 20, for: .scrollContent)
+        .padding(.horizontal, -20)
+    }
+
+    private func countryCard(_ country: Country, height: CGFloat) -> some View {
+        // Kartın içinde kaydet düğmesi var; kartın kendisi düğme değil, dokunulur.
+        CountryCard(country: country, photo: countryPhotos[country.title], height: height)
+            .contentShape(Rectangle())
+            .onTapGesture { path.append(.country(country.code)) }
+            .accessibilityAddTraits(.isButton)
     }
 
     private var continents: some View {
@@ -188,6 +279,7 @@ struct DiscoverView: View {
 struct CountryCard: View {
     let country: Country
     let photo: URL?
+    var height: CGFloat = 190
     @State private var placeCount: Int?
 
     var body: some View {
@@ -195,10 +287,10 @@ struct CountryCard: View {
             .overlay {
                 if photo == nil { Text(country.flag).font(.system(size: 44)) }
             }
-            .frame(height: 190)
+            .frame(height: height)
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(country.name).font(Theme.font(19, .bold)).lineLimit(2)
+                    Text(country.name).font(Theme.font(height > 200 ? 24 : 18, .bold)).lineLimit(2)
                     if let placeCount, placeCount > 0 {
                         Text("\(placeCount) yer").font(Theme.font(12, .semibold)).opacity(0.9)
                     }

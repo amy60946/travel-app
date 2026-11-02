@@ -66,15 +66,19 @@ enum PlaceCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Yer başına ortalama süre (dakika), rota tahmini için.
+    /// Yerde ortalama gezme süresi (dakika), gün süresi ve saat tahmini
+    /// için (Oguz'a önerilen değerler, 2026-11-02). Kullanıcı yerin süresini
+    /// değiştirebilir (`Place.visitMinutes`).
     var averageMinutes: Int {
         switch self {
         case .museum: 90
-        case .temple, .park: 60
-        case .food, .bar: 60
-        case .cafe: 40
-        case .shopping: 45
-        case .viewpoint: 45
+        case .temple: 45
+        case .park: 60
+        case .food: 75
+        case .cafe: 45
+        case .shopping: 60
+        case .viewpoint: 30
+        case .bar: 60
         case .hotel: 15
         case .sight, .other: 30
         }
@@ -155,6 +159,11 @@ struct Place: Identifiable, Codable, Hashable {
     /// Yerin Google kimliği: puan, yorumlar ve fotoğraflar Google'dan bununla
     /// istenir (Google'ın kuralına göre saklanabilen tek Google bilgisi).
     var googlePlaceID: String?
+    /// Kullanıcının verdiği gezme süresi (dakika); yoksa türün ortalaması.
+    var visitMinutes: Int?
+
+    /// Bu yerde geçirilecek süre (dakika).
+    var visitDuration: Int { visitMinutes ?? category.averageMinutes }
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -183,6 +192,10 @@ struct Trip: Codable, Hashable {
     /// Kullanıcının basılı tutup sürükleyerek sıraladığı günler; öteki
     /// günler yürüme yoluna göre kendiliğinden sıralanır.
     var manualDays: Set<Int>?
+    /// "Akıllı sıra" ile dizilen günler (kullanıcı sırayı elle değiştirince düşer).
+    var smartDays: Set<Int>?
+    /// Saati sabitlenen yerler (ör. restoran 14:00), gece yarısından dakika.
+    var times: [UUID: Int]?
 
     init(city: String, days: Int, pace: Pace = .normal, placeIDs: [UUID] = [], dayOf: [UUID: Int]? = [:],
          stopID: UUID? = nil) {

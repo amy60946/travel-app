@@ -58,6 +58,8 @@ actor WikipediaService {
     /// fotoğraf) bir kez yeniden aranır (2026-10-30).
     private let placePhotos = DiskCache<URL>(name: "place-photos-2")
     private let articles = DiskCache<Article>(name: "wikipedia-articles")
+    /// Bu açılışta bulunan popüler yerler (şehir planı ve "Yer ekle" aynı listeyi kullanır).
+    private var popularCache: [String: [PopularPlace]] = [:]
     /// Bu açılışta fotoğrafı bulunamayan yerler (yeniden sorulmaz).
     private var missingPhotos: Set<String> = []
     private let session: URLSession = {
@@ -202,6 +204,14 @@ actor WikipediaService {
     /// son 30 günde en çok okunandan aza. Ad uygulamanın dilinde (Türkçe
     /// sayfası varsa Türkçe adı).
     func popularPlaces(latitude: Double, longitude: Double, limit: Int = 40) async throws -> [PopularPlace] {
+        let cacheKey = String(format: "%.3f,%.3f|%@|%d", latitude, longitude, Self.narrationLanguage, limit)
+        if let cached = popularCache[cacheKey] { return cached }
+        let found = try await fetchPopularPlaces(latitude: latitude, longitude: longitude, limit: limit)
+        if !found.isEmpty { popularCache[cacheKey] = found }
+        return found
+    }
+
+    private func fetchPopularPlaces(latitude: Double, longitude: Double, limit: Int) async throws -> [PopularPlace] {
         var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
         components.queryItems = [
             .init(name: "action", value: "query"),

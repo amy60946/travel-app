@@ -46,6 +46,8 @@ struct PlaceEditor: View {
     @State private var name: String
     @State private var category: PlaceCategory
     @State private var note: String
+    /// Kullanıcının verdiği gezme süresi (dakika); nil: türün ortalaması.
+    @State private var visitMinutes: Int?
     @FocusState private var noteFocused: Bool
 
     init(place: Place, focusesNote: Bool = false) {
@@ -54,6 +56,7 @@ struct PlaceEditor: View {
         _name = State(initialValue: place.name)
         _category = State(initialValue: place.category)
         _note = State(initialValue: place.note)
+        _visitMinutes = State(initialValue: place.visitMinutes)
     }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -66,6 +69,23 @@ struct PlaceEditor: View {
                     Picker("Tür", selection: $category) {
                         ForEach(PlaceCategory.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
                     }
+                }
+                Section {
+                    Stepper(value: Binding(get: { visitMinutes ?? category.averageMinutes },
+                                           set: { visitMinutes = $0 }),
+                            in: 15...480, step: 15) {
+                        HStack {
+                            Text("Gezme süresi")
+                            Spacer()
+                            Text(verbatim: DayPlanner.durationText(visitMinutes ?? category.averageMinutes))
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                    if visitMinutes != nil {
+                        Button("Türün ortalamasına dön") { visitMinutes = nil }
+                    }
+                } footer: {
+                    Text("Gün süresi ve tahmini saatler buna göre hesaplanır.")
                 }
                 Section {
                     TextField("Ör. Sabah erken git, sıra oluyor", text: $note, axis: .vertical)
@@ -98,6 +118,7 @@ struct PlaceEditor: View {
         updated.name = trimmedName
         updated.category = category
         updated.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.visitMinutes = visitMinutes
         store.update(updated)
         dismiss()
     }

@@ -512,3 +512,83 @@
 "Şehir ve ülke rehberleri, şehir listeleri. CC BY-SA 4.0." = "City and country guides, city lists. CC BY-SA 4.0.";
 "Yer ve şehir fotoğrafları; her fotoğrafın sahibi ve lisansı fotoğraf tam ekrandayken ⓘ düğmesinde." = "Place and city photos; each photo's author and license are under the ⓘ button in full screen.";
 "Şehir arama, konaklama arama, şehirler arası araç süresi ve iPhone çevirisi." = "City search, stay search, driving times between cities and iPhone translation.";
+
+/* 4. sürüm: yürüyüş modu, bölüm bölüm anlatım, akıllı sıra, gün süresi */
+"Bu bölümden dinle" = "Listen from this section";
+"Bölümü geri ekle" = "Add section back";
+"Bu bölümü atla" = "Skip this section";
+"Basılı tutunca bölüm atlanır" = "Touch and hold to skip the section";
+"Hız" = "Speed";
+"Anlatım hızı" = "Narration speed";
+"%lld sa" = "%lld h";
+"%lld. gün en kısa yola dizildi" = "Day %lld sorted by shortest route";
+"%lld. gün akıllı sıraya dizildi" = "Day %lld sorted by smart order";
+"%lld. gün yeniden dizildi" = "Day %lld reordered";
+"%@ saati %@" = "%1$@ set for %2$@";
+"%@ saati kaldırıldı" = "Time removed for %@";
+"Sıra" = "Order";
+"Akıllı sıra" = "Smart order";
+"En kısa yol" = "Shortest route";
+"Müze ve tapınaklar sabah, yemek öğle ve akşam saatinde, manzara gün batımına doğru, alışveriş ve bar gün sonunda; yürüme de kısa tutulur. Saat verdiğin yerlere o saatte varılır." = "Museums and temples in the morning, meals at lunch and dinner time, viewpoints towards sunset, shopping and bars at the end of the day, with as little walking as possible. Places you gave a time are reached at that time.";
+"Yalnızca mesafeye bakar: en az yürünen sıra." = "Looks only at distance: the order with the least walking.";
+"%lld durak · ~%@ km · yaklaşık %@" = "%1$lld stops · ~%2$@ km · about %3$@";
+"Öneri %lld/%lld" = "Option %1$lld/%2$lld";
+"Başka bir sıra öner" = "Suggest another order";
+"Uygula" = "Apply";
+"%lld. günün sırası" = "Order for day %lld";
+"Saatini sen verdin" = "You set this time";
+"Sabah daha sakin" = "Quieter in the morning";
+"Öğle yemeği saati" = "Lunch time";
+"Akşam yemeği saati" = "Dinner time";
+"Gün batımına doğru" = "Towards sunset";
+"Günün sonunda" = "At the end of the day";
+"%@ için saat" = "Time for %@";
+"Saat" = "Time";
+"Gün bu saate göre kurulur: öncesindeki ve sonrasındaki yerler buna göre dizilir." = "The day is planned around this time: the places before and after it are ordered to fit.";
+"Saati kaldır" = "Remove time";
+"Akıllı sıra: tahmini saatler 09:00'dan. Değiştirmek için basılı tutup sürükle." = "Smart order: estimated times from 09:00. Touch and hold, then drag to change.";
+"En kısa yol. Sırayı değiştirmek için basılı tutup sürükle." = "Shortest route. Touch and hold, then drag to reorder.";
+"%@ saat %@ olarak ayarlandı. Günün geri kalanı buna göre:" = "%1$@ is set for %2$@. The rest of the day around it:";
+"%lld durak · %@ km · yaklaşık %@" = "%1$lld stops · %2$@ km · about %3$@";
+"Akıllı sıra…" = "Smart order…";
+"Benim sıram" = "My order";
+"Saat: %@" = "Time: %@";
+"Saat belirle" = "Set a time";
+"%lld. gün · %lld durak" = "Day %1$lld · %2$lld stops";
+"Sana en yakın duraktan" = "From the stop nearest to you";
+"Yukarıdan gör" = "View from above";
+"Konumumu izle" = "Follow my location";
+"Bu gün boş" = "This day is empty";
+"Gezme süresi %@" = "Visit %@";
+"Buradasın" = "You are here";
+"%@ · yürüyerek %lld dk" = "%1$@ · %2$lld min walk";
+"Şu an: %@" = "Now playing: %@";
+"Önceki durak" = "Previous stop";
+"Sonraki durak" = "Next stop";
+"Durağa yaklaşınca anlatım kendiliğinden başlar" = "Narration starts by itself when you get close";
+"Rota sana en yakın duraktan başlıyor" = "The route starts from the stop nearest to you";
+"%@: anlatım başladı" = "%@: narration started";
+"Gezme süresi" = "Visit duration";
+"Türün ortalamasına dön" = "Use the usual time for this type";
+"Gün süresi ve tahmini saatler buna göre hesaplanır." = "The day's duration and estimated times are based on this.";
+"Gezme süresi: %@" = "Visit: %@";
+
+/* 5. sürüm: gezi sayfası */
+"Gezi başlangıcı" = "Trip start";
+"Gezi sonu" = "Trip end";
+"%lld gün planlandı" = "%lld days planned";
+"Araya şehir ekle" = "Add a city here";
+"Seçenekler" = "Options";
+
+/* 5. sürüm: Keşfet bölümleri */
+"Popüler" = "Popular";
+"Bu ay yükselenler" = "Trending this month";
+"Gözden kaçanlar" = "Under the radar";
+
+/* 5. sürüm: koleksiyonda seçim */
+"%lld seçildi" = "%lld selected";
+"Seç" = "Select";
+"Taşı" = "Move";
+"Çıkar" = "Remove";
+"%lld öğe %@ koleksiyonundan çıkarıldı" = "%1$lld items removed from %2$@";
+"%lld öğe %@ koleksiyonuna taşındı" = "%1$lld items moved to %2$@";

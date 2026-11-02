@@ -129,6 +129,21 @@ enum RoutePlanner {
         return order.map { filled[$0] } + groups.filter(\.isEmpty)
     }
 
+    /// Bir başlangıç noktasından (ör. kullanıcının konumu): ona en yakın
+    /// duraktan girer, kalanları en yakın komşu sırasıyla dizer.
+    static func nearestNeighborOrder(_ points: [Point], from start: Point) -> [Point] {
+        var current = start
+        var remaining = points
+        var result: [Point] = []
+        while !remaining.isEmpty {
+            let next = remaining.min { distance(current, $0) < distance(current, $1) }!
+            result.append(next)
+            remaining.removeAll { $0.id == next.id }
+            current = next
+        }
+        return result
+    }
+
     static func nearestNeighborOrder(_ points: [Point]) -> [Point] {
         guard points.count > 2 else { return points }
         let center = centroid(points)

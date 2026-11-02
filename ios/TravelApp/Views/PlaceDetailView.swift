@@ -56,12 +56,12 @@ struct PlaceDetailView: View {
                             }
                             .foregroundStyle(Theme.muted)
                         }
-                        Text("Ortalama süre: \(place.category.averageMinutes) dk")
+                        Text("Gezme süresi: \(DayPlanner.durationText(place.visitDuration))")
                             .font(Theme.caption)
                             .foregroundStyle(Theme.muted)
                     }
 
-                    ListenCard(title: place.name, summary: summary?.adding(article))
+                    ListenCard(title: place.name, summary: summary, article: article)
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
