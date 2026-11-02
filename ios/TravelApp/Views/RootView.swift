@@ -183,7 +183,9 @@ struct RootView: View {
                 }
             }
             store.dismissUndo()
-            path = [.plan(stop)]
+            // Veri değişikliğiyle aynı anda açılan sayfa bazen hiç açılmıyordu;
+            // ana sayfa yerleşince açılsın.
+            open([.plan(stop)])
         case "player":
             path = [.plan(stop)]
             Narrator.shared.speak("Sensō-ji, Tokyo'nun Asakusa semtinde bulunan eski bir Budist tapınağıdır. "
@@ -211,6 +213,14 @@ struct RootView: View {
     static let tabBarHeight: CGFloat = 58
 
     #if DEBUG
+    /// Açılışta sayfa, ana sayfa yerleştikten sonra açılsın.
+    private func open(_ routes: [Route]) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            path = routes
+        }
+    }
+
     /// Açılışta pencere, ana sayfa yerleştikten sonra açılsın (hemen
     /// açılınca bazen hiç görünmüyordu).
     private func present(_ launchSheet: AddSheet) {
