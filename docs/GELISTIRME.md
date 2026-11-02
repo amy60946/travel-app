@@ -148,3 +148,29 @@ Anahtarı olmayan servis kapalı kalır; uygulama yine çalışır.
 
 Anahtarlar bir sonraki TestFlight yüklemesinde uygulamaya girer.
 Anahtarı sohbete yapıştırma.
+
+## Supabase (gezi paylaşımı ve profil, ücretsiz katman)
+
+Apple ile giriş, profil, herkese açık geziler ve gezilerde arama bu
+projeye ayrı açılan ücretsiz Supabase projesinde durur (başka projenin
+Supabase'i kullanılmaz). Kurulum bir kez yapılır:
+
+1. supabase.com → *New project* (plan **Free**), bölge **Central EU
+   (Frankfurt)**; şifreyi şifre yöneticine kaydet.
+2. Üstte **Connect**: *Session pooler* adresini kopyala, `[YOUR-PASSWORD]`
+   yerine şifreni koy. Uygulama sekmesinden **Project URL** ve **anon
+   (publishable) key**'i kopyala.
+3. GitHub → depo → *Settings* → *Secrets and variables* → *Actions* →
+   *New repository secret*: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_DB_URL` (şifreli adres).
+4. Supabase → *Authentication* → *Sign In / Providers* → **Apple** → aç,
+   *Client IDs*: `io.travelapp.ios` → *Save*.
+5. GitHub → *Actions* → **Supabase** → *Run workflow*: tablolar kurulur
+   (`supabase/migrations`). Sonra **TestFlight** → *Run workflow*.
+
+Teknik: tablolar `profiles` ve `shared_trips`; satır kuralları (RLS)
+herkesin okumasına, yalnızca sahibinin yazmasına izin verir. Hesabı silme
+`delete_my_account()` ile (profil ve paylaşımlar da silinir). TestFlight
+imzasında `ios/scripts/asc_signing.py` uygulama kimliğinde "Sign in with
+Apple"ı açar; açamazsa uygulama bu izinsiz imzalanır (iş uyarı verir).
+Ücretsiz katman dolarsa Supabase durur, ücret çıkmaz.

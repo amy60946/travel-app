@@ -592,3 +592,43 @@
 "Çıkar" = "Remove";
 "%lld öğe %@ koleksiyonundan çıkarıldı" = "%1$lld items removed from %2$@";
 "%lld öğe %@ koleksiyonuna taşındı" = "%1$lld items moved to %2$@";
+
+/* Gezi paylaşımı ve profil */
+"Paylaşım bu sürümde kapalı." = "Sharing is turned off in this version.";
+"Önce giriş yapmalısın." = "Please sign in first.";
+"Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene." = "Couldn't reach the server. Check your internet connection and try again.";
+"Gezgin" = "Traveler";
+"Apple ile giriş yapılamadı. Yeniden dene." = "Couldn't sign in with Apple. Please try again.";
+"Giriş yapılamadı" = "Couldn't sign in";
+"Tamam" = "OK";
+"Apple ile giriş yapıldı" = "Signed in with Apple";
+"Gezilerini paylaş" = "Share your trips";
+"Apple ile giriş yap; gezilerini herkese açık paylaş, başka gezginlerin rotalarını Keşfet'te bul." = "Sign in with Apple to share your trips publicly and find other travelers' routes in Discover.";
+"Paylaşılan geziler" = "Shared trips";
+"Henüz gezin yok. Bir gezi oluşturunca buradan herkese açık paylaşabilirsin." = "No trips yet. Once you create a trip, you can share it publicly here.";
+"Açık olan geziler Keşfet'te ve aramada görünür; gezide değişiklik yapınca paylaşılan hali de güncellenir. Kişisel notların, uçuş ve konaklama bilgilerin paylaşılmaz." = "Trips that are on appear in Discover and search; when you change a trip, the shared version updates too. Your personal notes, flights and stays are not shared.";
+"Herkese açık" = "Public";
+"İşlem yapılamadı" = "Something went wrong";
+"Hesap" = "Account";
+"Çıkış yap" = "Sign out";
+"Hesabı sil" = "Delete account";
+"Hesabın silinsin mi?" = "Delete your account?";
+"Profilin ve paylaştığın geziler sunucudan silinir. Telefondaki gezilerin ve kayıtların yerinde kalır." = "Your profile and shared trips are deleted from the server. Trips and places on your phone stay.";
+"Profili düzenle" = "Edit profile";
+"Adın" = "Your name";
+"Paylaştığın gezilerde bu ad görünür." = "This name appears on the trips you share.";
+"Kaydedilemedi" = "Couldn't save";
+"Paylaş" = "Share";
+"Gezini herkese açık paylaşmak için Apple ile giriş yap." = "Sign in with Apple to share your trip publicly.";
+"Keşfet'te ve aramada görünüyor" = "Visible in Discover and search";
+"Yalnızca bu telefonda" = "Only on this phone";
+"Şehirler, günler ve yerler paylaşılır; gezide değişiklik yapınca paylaşılan hali de güncellenir. Kişisel notların, uçuş ve konaklama bilgilerin paylaşılmaz. Başkaları gezini kendi gezilerine kopyalayabilir." = "Cities, days and places are shared; when you change the trip, the shared version updates too. Your personal notes, flights and stays are not shared. Others can copy your trip to their own trips.";
+"Gezginlerin rotaları" = "Travelers' routes";
+"Gezi açılamadı" = "Couldn't open the trip";
+"Paylaşım kaldırılmış olabilir ya da internet yok." = "It may no longer be shared, or there's no internet connection.";
+"Senin gezin" = "Your trip";
+"Gezilerime kopyala" = "Copy to my trips";
+"Şehirler, günler ve yerler gezilerine gelir; sonra istediğin gibi değiştirebilirsin." = "Cities, days and places are added to your trips; you can change them however you like.";
+
+"Herkese açık gezisi yok." = "No public trips.";
+"Profil yüklenemedi" = "Couldn't load profile";

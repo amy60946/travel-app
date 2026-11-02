@@ -67,6 +67,10 @@ struct DiscoverView: View {
         .task {
             #if DEBUG
             if UserDefaults.standard.string(forKey: "screen") == "discoverTall" { panelStop = 2 }
+            if UserDefaults.standard.string(forKey: "screen") == "searchTrips" {
+                panelStop = 2
+                search.query = "Japonya"
+            }
             #endif
             let titles = countries.map(\.title)
             async let continentTask = DiscoverService.shared.info(Continent.all.map(\.photoTitle), from: .wikipedia)
@@ -110,6 +114,8 @@ struct DiscoverView: View {
     private var discover: some View {
         if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
             forYou
+            // Başka gezginlerin herkese açık paylaştığı geziler.
+            SharedTripsSection(path: $path)
             if !lists.popular.isEmpty { popular }
             if !lists.trending.isEmpty { trending }
             if !lists.underRadar.isEmpty { underRadar }
@@ -230,6 +236,8 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var results: some View {
+        // Aranan şehir ya da ülkedeki paylaşılan geziler.
+        SharedTripResults(query: search.query, path: $path)
         if !search.countries.isEmpty {
             SectionTitle("Ülkeler")
             ForEach(search.countries) { country in
