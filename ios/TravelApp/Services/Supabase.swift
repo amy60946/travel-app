@@ -97,6 +97,8 @@ final class Account: ObservableObject {
         var refreshToken: String
         var expiresAt: Date
         var userID: UUID
+        /// "apple" ya da "google" (Profil'de "… ile giriş yapıldı").
+        var provider: String?
     }
 
     struct Profile: Codable, Equatable, Hashable {
@@ -107,6 +109,8 @@ final class Account: ObservableObject {
 
     @Published private(set) var session: Session?
     @Published private(set) var profile: Profile?
+    /// Supabase'te Google ile giriş açık mı (açılınca düğme kendiliğinden görünür).
+    @Published private(set) var googleEnabled = false
 
     var isSignedIn: Bool { session != nil }
     var userID: UUID? { session?.userID }
@@ -114,6 +118,9 @@ final class Account: ObservableObject {
     /// Apple'a gönderilen tek kullanımlık sayı (girişin bu uygulamadan
     /// başlatıldığını sunucu doğrular).
     private var nonce: String?
+    /// Google ile girişte tarayıcıya verilen kodun gizli eşi (PKCE).
+    private var codeVerifier: String?
+    private var providersLoaded = false
     private var refreshing: Task<Session, Error>?
 
     private static let profileKey = "account.profile"
@@ -123,7 +130,8 @@ final class Account: ObservableObject {
         if let screen = Self.demoScreen {
             if Self.signedInDemoScreens.contains(screen) {
                 let id = UUID(uuidString: "0B6E1F3C-6A2D-4C34-9E43-9D2B2C0F7A11")!
-                session = Session(accessToken: "", refreshToken: "", expiresAt: .distantFuture, userID: id)
+                session = Session(accessToken: "", refreshToken: "", expiresAt: .distantFuture, userID: id,
+                                  provider: "apple")
                 profile = Profile(id: id, name: "Oguz", emoji: "🧭")
             }
             return
@@ -163,13 +171,76 @@ final class Account: ObservableObject {
         let request = try Supabase.request("auth/v1/token", method: "POST",
                                            query: [URLQueryItem(name: "grant_type", value: "id_token")],
                                            json: ["provider": "apple", "id_token": idToken, "nonce": nonce])
-        let session = try Self.session(from: try await Supabase.send(request))
+        let (session, _) = try Self.session(from: try await Supabase.send(request))
         self.nonce = nil
         store(session)
         // Apple adı yalnızca ilk girişte verir.
         let given = [credential.fullName?.givenName, credential.fullName?.familyName]
             .compactMap { $0 }.joined(separator: " ").trimmingCharacters(in: .whitespaces)
         try await loadProfile(defaultName: given)
+    }
+
+    // MARK: - Google ile giriş
+
+    /// Uygulamaya dönüş adresi (Supabase → URL Configuration → Redirect URLs'te kayıtlı olmalı).
+    static let callbackScheme = "io.travelapp.ios"
+    private static let callbackURL = "io.travelapp.ios://auth-callback"
+
+    /// Supabase'te hangi giriş yolları açık (Google düğmesi yalnızca açıksa görünür).
+    func loadProviders() async {
+        #if DEBUG
+        if Self.demoScreen != nil { googleEnabled = true; return }
+        #endif
+        guard !providersLoaded, let request = try? Supabase.request("auth/v1/settings"),
+              let data = try? await Supabase.send(request),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let external = object["external"] as? [String: Any] else { return }
+        providersLoaded = true
+        googleEnabled = external["google"] as? Bool == true
+    }
+
+    /// Google giriş sayfasının adresi (Supabase üzerinden; uygulamada Google
+    /// anahtarı yok). Tarayıcı penceresinde açılır, bitince
+    /// `completeGoogle(_:)` dönüş adresiyle çağrılır.
+    func googleSignInURL() throws -> URL {
+        guard let base = Supabase.url else { throw Supabase.Failure.notConfigured }
+        let verifier = Self.randomNonce() + Self.randomNonce()
+        codeVerifier = verifier
+        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        var components = URLComponents(url: base.appending(path: "auth/v1/authorize"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "provider", value: "google"),
+            URLQueryItem(name: "redirect_to", value: Self.callbackURL),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "code_challenge_method", value: "s256"),
+        ]
+        guard let url = components?.url else { throw Supabase.Failure.notConfigured }
+        return url
+    }
+
+    /// Google'dan dönüş: adresteki kod oturuma çevrilir; profil yoksa
+    /// Google'daki adla oluşturulur.
+    func completeGoogle(_ callback: URL) async throws {
+        var items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let fragment = callback.fragment {
+            items += URLComponents(string: "?" + fragment)?.queryItems ?? []
+        }
+        if let message = items.first(where: { $0.name == "error_description" || $0.name == "error" })?.value {
+            throw Supabase.Failure.http(400, message)
+        }
+        guard let code = items.first(where: { $0.name == "code" })?.value, let verifier = codeVerifier else {
+            throw Supabase.Failure.signedOut
+        }
+        let request = try Supabase.request("auth/v1/token", method: "POST",
+                                           query: [URLQueryItem(name: "grant_type", value: "pkce")],
+                                           json: ["auth_code": code, "code_verifier": verifier])
+        let (session, name) = try Self.session(from: try await Supabase.send(request))
+        codeVerifier = nil
+        store(session)
+        try await loadProfile(defaultName: name ?? "")
     }
 
     func signOut() async {
@@ -232,7 +303,7 @@ final class Account: ObservableObject {
             let request = try Supabase.request("auth/v1/token", method: "POST",
                                                query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
                                                json: ["refresh_token": session.refreshToken])
-            return try Self.session(from: try await Supabase.send(request))
+            return try Self.session(from: try await Supabase.send(request)).0
         }
         refreshing = task
         defer { refreshing = nil }
@@ -267,17 +338,30 @@ final class Account: ObservableObject {
         TripSharing.shared.forgetLocalState()
     }
 
-    private static func session(from data: Data) throws -> Session {
+    /// Sunucunun oturum cevabı; yanında giriş yapılan hesaptaki ad (Google verir).
+    private static func session(from data: Data) throws -> (Session, String?) {
         struct Response: Decodable {
-            struct User: Decodable { let id: UUID }
+            struct User: Decodable {
+                struct AppMetadata: Decodable { let provider: String? }
+                struct UserMetadata: Decodable {
+                    let full_name: String?
+                    let name: String?
+                }
+                let id: UUID
+                let app_metadata: AppMetadata?
+                let user_metadata: UserMetadata?
+            }
             let access_token: String
             let refresh_token: String
             let expires_in: Double?
             let user: User
         }
         let response = try Supabase.decoder.decode(Response.self, from: data)
-        return Session(accessToken: response.access_token, refreshToken: response.refresh_token,
-                       expiresAt: Date().addingTimeInterval(response.expires_in ?? 3600), userID: response.user.id)
+        let session = Session(accessToken: response.access_token, refreshToken: response.refresh_token,
+                              expiresAt: Date().addingTimeInterval(response.expires_in ?? 3600),
+                              userID: response.user.id, provider: response.user.app_metadata?.provider)
+        let name = response.user.user_metadata?.full_name ?? response.user.user_metadata?.name
+        return (session, name)
     }
 
     private static func randomNonce() -> String {

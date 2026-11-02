@@ -603,7 +603,7 @@
 "Tamam" = "OK";
 "Apple ile giriş yapıldı" = "Signed in with Apple";
 "Gezilerini paylaş" = "Share your trips";
-"Apple ile giriş yap; gezilerini herkese açık paylaş, başka gezginlerin rotalarını Keşfet'te bul." = "Sign in with Apple to share your trips publicly and find other travelers' routes in Discover.";
+"Giriş yap; gezilerini herkese açık paylaş, başka gezginlerin rotalarını Keşfet'te bul." = "Sign in to share your trips publicly and find other travelers' routes in Discover.";
 "Paylaşılan geziler" = "Shared trips";
 "Henüz gezin yok. Bir gezi oluşturunca buradan herkese açık paylaşabilirsin." = "No trips yet. Once you create a trip, you can share it publicly here.";
 "Açık olan geziler Keşfet'te ve aramada görünür; gezide değişiklik yapınca paylaşılan hali de güncellenir. Kişisel notların, uçuş ve konaklama bilgilerin paylaşılmaz." = "Trips that are on appear in Discover and search; when you change a trip, the shared version updates too. Your personal notes, flights and stays are not shared.";
@@ -619,7 +619,7 @@
 "Paylaştığın gezilerde bu ad görünür." = "This name appears on the trips you share.";
 "Kaydedilemedi" = "Couldn't save";
 "Paylaş" = "Share";
-"Gezini herkese açık paylaşmak için Apple ile giriş yap." = "Sign in with Apple to share your trip publicly.";
+"Gezini herkese açık paylaşmak için giriş yap." = "Sign in to share your trip publicly.";
 "Keşfet'te ve aramada görünüyor" = "Visible in Discover and search";
 "Yalnızca bu telefonda" = "Only on this phone";
 "Şehirler, günler ve yerler paylaşılır; gezide değişiklik yapınca paylaşılan hali de güncellenir. Kişisel notların, uçuş ve konaklama bilgilerin paylaşılmaz. Başkaları gezini kendi gezilerine kopyalayabilir." = "Cities, days and places are shared; when you change the trip, the shared version updates too. Your personal notes, flights and stays are not shared. Others can copy your trip to their own trips.";
@@ -632,3 +632,6 @@
 
 "Herkese açık gezisi yok." = "No public trips.";
 "Profil yüklenemedi" = "Couldn't load profile";
+"Google ile giriş yap" = "Sign in with Google";
+"Google ile giriş yapıldı" = "Signed in with Google";
+"Google ile giriş yapılamadı. Yeniden dene." = "Couldn't sign in with Google. Please try again.";

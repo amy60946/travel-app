@@ -38,6 +38,73 @@ struct AppleSignInButton: View {
     }
 }
 
+/// Giriş düğmeleri: Apple, Supabase'te açıksa altında Google.
+struct SignInButtons: View {
+    @ObservedObject private var account = Account.shared
+
+    var body: some View {
+        VStack(spacing: 10) {
+            AppleSignInButton()
+            if account.googleEnabled { GoogleSignInButton() }
+        }
+        .task { await account.loadProviders() }
+    }
+}
+
+/// "Google ile giriş yap" (beyaz, Google'ın renkli G'si). Supabase'in giriş
+/// sayfası uygulamanın içinde tarayıcı penceresinde açılır; uygulamada
+/// Google anahtarı yok.
+struct GoogleSignInButton: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @ObservedObject private var account = Account.shared
+    @State private var error: String?
+    @State private var working = false
+
+    var body: some View {
+        Button { Task { await signIn() } } label: {
+            HStack(spacing: 10) {
+                Image("GoogleLogo").resizable().frame(width: 18, height: 18)
+                Text("Google ile giriş yap").font(.system(size: 19, weight: .medium))
+            }
+            .foregroundStyle(Theme.ink)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(.white, in: Capsule())
+            .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
+            .overlay { if working { ProgressView() } }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(working)
+        .alert("Giriş yapılamadı", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("Tamam", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
+        }
+    }
+
+    private func signIn() async {
+        #if DEBUG
+        if Account.demoScreen != nil { return }
+        #endif
+        working = true
+        defer { working = false }
+        do {
+            let url = try account.googleSignInURL()
+            let callback = try await webAuthenticationSession.authenticate(using: url,
+                                                                           callbackURLScheme: Account.callbackScheme)
+            try await account.completeGoogle(callback)
+            await TripSharing.shared.refreshMine(store: store)
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // Vazgeçildi.
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription
+                ?? String(localized: "Google ile giriş yapılamadı. Yeniden dene.")
+        }
+    }
+}
+
 /// Profil sekmesinin üstü: girişsizken "Gezilerini paylaş" kartı, girince
 /// simge, ad ve "Düzenle".
 struct AccountCard: View {
@@ -54,7 +121,11 @@ struct AccountCard: View {
                         Text(verbatim: profile.name.isEmpty ? String(localized: "Gezgin") : profile.name)
                             .font(Theme.font(22, .bold))
                             .lineLimit(1)
-                        Text("Apple ile giriş yapıldı").font(Theme.font(13)).foregroundStyle(Theme.muted)
+                        Text(account.session?.provider == "google"
+                             ? LocalizedStringKey("Google ile giriş yapıldı")
+                             : LocalizedStringKey("Apple ile giriş yapıldı"))
+                            .font(Theme.font(13))
+                            .foregroundStyle(Theme.muted)
                     }
                     Spacer(minLength: 8)
                     Button { editing = true } label: {
@@ -90,11 +161,11 @@ struct AccountCard: View {
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Gezilerini paylaş").font(Theme.font(20, .bold))
-                    Text("Apple ile giriş yap; gezilerini herkese açık paylaş, başka gezginlerin rotalarını Keşfet'te bul.")
+                    Text("Giriş yap; gezilerini herkese açık paylaş, başka gezginlerin rotalarını Keşfet'te bul.")
                         .font(Theme.font(14))
                         .foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    AppleSignInButton().padding(.top, 4)
+                    SignInButtons().padding(.top, 4)
                 }
                 .padding(16)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
@@ -405,11 +476,11 @@ struct ShareTripSheet: View {
                 if !Supabase.isConfigured {
                     Text("Paylaşım bu sürümde kapalı.").font(Theme.font(15)).foregroundStyle(Theme.muted)
                 } else if !account.isSignedIn {
-                    Text("Gezini herkese açık paylaşmak için Apple ile giriş yap.")
+                    Text("Gezini herkese açık paylaşmak için giriş yap.")
                         .font(Theme.font(15))
                         .foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    AppleSignInButton()
+                    SignInButtons()
                 } else if let journey = store.journey(journeyID) {
                     HStack(spacing: 14) {
                         VStack(alignment: .leading, spacing: 2) {

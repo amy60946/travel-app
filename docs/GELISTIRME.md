@@ -168,6 +168,27 @@ Supabase'i kullanılmaz). Kurulum bir kez yapılır:
 5. GitHub → *Actions* → **Supabase** → *Run workflow*: tablolar kurulur
    (`supabase/migrations`). Sonra **TestFlight** → *Run workflow*.
 
+**Google ile giriş** (isteğe bağlı; yapılınca uygulamada "Google ile giriş
+yap" düğmesi kendiliğinden görünür):
+
+1. console.cloud.google.com → Maps projesi → **Google Auth Platform** →
+   *Get started*: App name `TravelApp`, destek e-postası, Audience
+   **External**.
+2. **Clients** → *Create client* → **Web application** → *Authorized
+   redirect URIs*: `https://<proje>.supabase.co/auth/v1/callback` →
+   Client ID ve Client secret'ı kopyala.
+3. **Audience** → **Publish app** (yoksa yalnızca test kullanıcıları girer).
+4. Supabase → *Authentication* → *Sign In / Providers* → **Google** → aç,
+   Client ID ve secret'ı gir → *Save*.
+5. Supabase → *Authentication* → **URL Configuration** → *Redirect URLs* →
+   `io.travelapp.ios://auth-callback` ekle.
+
+Uygulama Google'ın kendi kütüphanesini kullanmaz: Supabase'in
+`/auth/v1/authorize?provider=google` sayfası uygulama içi tarayıcı
+penceresinde (ASWebAuthenticationSession) açılır, dönüşteki kod PKCE ile
+oturuma çevrilir. Hangi giriş yollarının açık olduğu `/auth/v1/settings`'ten
+okunur.
+
 Teknik: tablolar `profiles` ve `shared_trips`; satır kuralları (RLS)
 herkesin okumasına, yalnızca sahibinin yazmasına izin verir. Hesabı silme
 `delete_my_account()` ile (profil ve paylaşımlar da silinir). TestFlight
