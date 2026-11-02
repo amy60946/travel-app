@@ -137,11 +137,13 @@ final class Account: ObservableObject {
 
     // MARK: - Apple ile giriş
 
-    /// "Apple ile giriş" düğmesine basınca: ad istenir, tek kullanımlık sayı eklenir.
+    /// "Apple ile giriş" düğmesine basınca: ad ve e-posta istenir (Supabase
+    /// e-postasız girişi kabul etmez; kullanıcı Apple'da "E-postamı gizle"yi
+    /// seçebilir), tek kullanımlık sayı eklenir.
     func prepare(_ request: ASAuthorizationAppleIDRequest) {
         let raw = Self.randomNonce()
         nonce = raw
-        request.requestedScopes = [.fullName]
+        request.requestedScopes = [.fullName, .email]
         request.nonce = Self.sha256(raw)
     }
 
