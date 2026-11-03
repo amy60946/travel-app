@@ -65,8 +65,6 @@ struct PlaceSheet: View {
                 }
                 PlaceNoteCard(note: place.note) { editsNote = true }
                 about(place)
-                if let listing { TravelerNoteCard(listing: listing) }
-                if let facts, !facts.isEmpty { PlaceFactsCard(facts: facts) }
                 if let google { GooglePlaceInfo(details: google, showsRating: false, showsPhotos: false) }
             }
             .padding(.horizontal, 20)
@@ -161,11 +159,13 @@ struct PlaceSheet: View {
         }
     }
 
-    /// Dinle kartı ve Wikipedia yazısı; yazı yoksa notu.
+    /// Dinle kartı, kısa bilgiler (gezgin notu, Wikidata) ve Wikipedia
+    /// yazısı; uzun yazı bilgileri aşağıda bırakmasın diye bilgiler önce.
     @ViewBuilder
     private func about(_ place: Place) -> some View {
         if let summary {
             ListenCard(title: place.name, summary: summary, article: article)
+            sourceCards
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)
@@ -185,11 +185,18 @@ struct PlaceSheet: View {
         } else if let listing {
             // Wikipedia yazısı yok: gezgin notu dinlenir.
             ListenCard(title: place.name, summary: listing.summary)
+            sourceCards
         } else {
             Text("Bu yer hakkında Wikipedia'da yazı bulunamadı.")
                 .font(Theme.font(14))
                 .foregroundStyle(Theme.muted)
         }
+    }
+
+    @ViewBuilder
+    private var sourceCards: some View {
+        if let listing { TravelerNoteCard(listing: listing) }
+        if let facts, !facts.isEmpty { PlaceFactsCard(facts: facts) }
     }
 
     /// Wikipedia sayfası yoksa yakındaki sayfalardan adı örtüşeni bulup
