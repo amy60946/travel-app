@@ -198,3 +198,14 @@ Onay bekleyen öneriler buraya yazılır.
   popüler restoranlar. "Bunu kaydedenler şunları da ekledi" türü
   (Wanderlog, Polarsteps) çok kullanıcı verisi ister; paylaşılan geziler
   çoğalınca Supabase'ten yapılabilir.
+- 2026-11-03: **"Bunu kaydedenler şunu da kaydetti" önerisi** (Oguz sordu,
+  karar bekliyor). Hazır servis: Recombee ücretsiz planı (ayda 100.000
+  öneri isteği, 20.000 kullanıcı/yer) bu işi yapar ama kullanıcı kayıtlarıyla
+  öğrenir (şu an tek kullanıcı; kayıtlar dış şirkete gider). Google Maps,
+  Tripadvisor ve Wanderlog bunu kendi milyonlarca kullanıcısının verisiyle
+  yapıyor. Bugün çalışan ücretsiz yol: **Wikipedia clickstream** (aylık,
+  CC0; okurların hangi sayfadan hangisine geçtiği, 10'dan az geçiş
+  yayımlanmaz; İngilizce, Japonca gibi dillerde var, Türkçe yok). Her ay
+  GitHub Actions'ta işlenip yerler için "buna bakanlar şunlara da baktı"
+  listesi çıkarılır; öneri puanına ölçü olarak girer, yer penceresinde liste
+  olabilir. Kullanıcılar çoğalınca Supabase'teki kendi verimiz eklenir.
