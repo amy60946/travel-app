@@ -74,6 +74,11 @@ actor WikipediaService {
     func summary(englishTitle: String, language: String = WikipediaService.narrationLanguage) async -> Summary? {
         let key = "\(language)|\(englishTitle)"
         if let cached = summaries[key] { return cached }
+        if let local = Self.localOnly(englishTitle) {
+            // İngilizce sayfası olmayan yer: yalnızca o dilde okunur.
+            guard local.language == language else { return nil }
+            return await localSummary(englishTitle)
+        }
         if language != "en", let local = try? await localTitle(for: englishTitle, language: language),
            let result = try? await fetchSummary(title: local, language: language) {
             summaries[key] = result
@@ -96,6 +101,14 @@ actor WikipediaService {
     func article(englishTitle: String, language: String = WikipediaService.narrationLanguage) async -> Article? {
         let key = "\(language)|\(englishTitle)"
         if let cached = articles[key] { return cached }
+        if let local = Self.localOnly(englishTitle) {
+            guard local.language == language,
+                  let sections = await fetchSections(title: local.title, language: local.language), !sections.isEmpty
+            else { return nil }
+            let result = Article(sections: sections, language: language)
+            articles[key] = result
+            return result
+        }
         if language != "en", let local = try? await localTitle(for: englishTitle, language: language),
            let sections = await fetchSections(title: local, language: language), !sections.isEmpty {
             let result = Article(sections: sections, language: language)
@@ -189,8 +202,33 @@ actor WikipediaService {
 
     /// Sayfanın küçük fotoğrafı (İngilizce özetten; çeviri gerekmez).
     func thumbnailURL(englishTitle: String) async -> URL? {
-        await englishSummary(englishTitle)?.thumbnailURL
+        if Self.localOnly(englishTitle) != nil { return await localSummary(englishTitle)?.thumbnailURL }
+        return await englishSummary(englishTitle)?.thumbnailURL
     }
+
+    /// İngilizce sayfası olmayan yerin ("tr:Başlık") kendi dilindeki özeti.
+    private func localSummary(_ encoded: String) async -> Summary? {
+        guard let local = Self.localOnly(encoded) else { return nil }
+        let key = "\(local.language)|\(encoded)"
+        if let cached = summaries[key] { return cached }
+        guard let result = try? await fetchSummary(title: local.title, language: local.language) else { return nil }
+        summaries[key] = result
+        return result
+    }
+
+    /// İngilizce sayfası olmayan yerler (ör. yalnızca Türkçe sayfası olan
+    /// bir cami) "tr:Başlık" diye saklanır. İngilizce başlıklar büyük
+    /// harfle başladığı için karışmaz.
+    static func localOnly(_ title: String) -> (language: String, title: String)? {
+        guard let colon = title.firstIndex(of: ":") else { return nil }
+        let prefix = title[..<colon]
+        guard (2...3).contains(prefix.count),
+              prefix.allSatisfy({ $0.isASCII && $0.isLetter && $0.isLowercase }) else { return nil }
+        let rest = String(title[title.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? nil : (String(prefix), rest)
+    }
+
+    static func localOnlyTitle(_ title: String, language: String) -> String { "\(language):\(title)" }
 
     private func englishSummary(_ title: String) async -> Summary? {
         let key = "en|\(title)"
@@ -203,15 +241,19 @@ actor WikipediaService {
     /// Bir noktanın 10 km çevresindeki Wikipedia sayfaları (en çok 300),
     /// son 30 günde en çok okunandan aza. Ad uygulamanın dilinde (Türkçe
     /// sayfası varsa Türkçe adı).
-    func popularPlaces(latitude: Double, longitude: Double, limit: Int = 40) async throws -> [PopularPlace] {
-        let cacheKey = String(format: "%.3f,%.3f|%@|%d", latitude, longitude, Self.narrationLanguage, limit)
+    /// `radius` metre (en çok 10 km); "Yer ekle"deki "Yakınındaki popüler
+    /// yerler" günün her yeri için 1,5 km çevreye bakar.
+    func popularPlaces(latitude: Double, longitude: Double, limit: Int = 40,
+                       radius: Int = 10_000) async throws -> [PopularPlace] {
+        let cacheKey = String(format: "%.3f,%.3f|%@|%d|%d", latitude, longitude, Self.narrationLanguage, limit, radius)
         if let cached = popularCache[cacheKey] { return cached }
-        let found = try await fetchPopularPlaces(latitude: latitude, longitude: longitude, limit: limit)
+        let found = try await fetchPopularPlaces(latitude: latitude, longitude: longitude, limit: limit, radius: radius)
         if !found.isEmpty { popularCache[cacheKey] = found }
         return found
     }
 
-    private func fetchPopularPlaces(latitude: Double, longitude: Double, limit: Int) async throws -> [PopularPlace] {
+    private func fetchPopularPlaces(latitude: Double, longitude: Double, limit: Int,
+                                    radius: Int) async throws -> [PopularPlace] {
         var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
         components.queryItems = [
             .init(name: "action", value: "query"),
@@ -219,8 +261,8 @@ actor WikipediaService {
             .init(name: "formatversion", value: "2"),
             .init(name: "list", value: "geosearch"),
             .init(name: "gscoord", value: "\(latitude)|\(longitude)"),
-            .init(name: "gsradius", value: "10000"),
-            .init(name: "gslimit", value: "300"),
+            .init(name: "gsradius", value: "\(min(max(radius, 10), 10_000))"),
+            .init(name: "gslimit", value: radius >= 5000 ? "300" : "150"),
             .init(name: "gsprop", value: "type"),
         ]
         struct Response: Decodable {
@@ -330,7 +372,8 @@ actor WikipediaService {
         if let title { url = await thumbnailURL(englishTitle: title) }
         if url == nil {
             url = await nearbyPhotos(latitude: latitude, longitude: longitude,
-                                     matching: [name, title].compactMap { $0 }, city: city).first
+                                     matching: [name, title.map { Self.localOnly($0)?.title ?? $0 }].compactMap { $0 },
+                                     city: city).first
         }
         if let url {
             placePhotos[key] = url
@@ -372,7 +415,9 @@ actor WikipediaService {
             }
             var items: [Item]
         }
-        guard let url = Self.restURL(language: "en", endpoint: "media-list", title: englishTitle),
+        let local = Self.localOnly(englishTitle)
+        guard let url = Self.restURL(language: local?.language ?? "en", endpoint: "media-list",
+                                     title: local?.title ?? englishTitle),
               let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let items = try? JSONDecoder().decode(Response.self, from: data).items
@@ -488,7 +533,13 @@ actor WikipediaService {
     /// adında geçiyor.
     static func fileMatches(_ fileTitle: String, name: String, city: String) -> Bool {
         let file = words(fold(fileTitle))
-        return !significantWords(name, city: city).isDisjoint(with: file)
+        let significant = significantWords(name, city: city)
+        if !significant.isEmpty { return !significant.isDisjoint(with: file) }
+        // "Kız Kulesi" gibi yalnızca kısa ve tür kelimelerinden oluşan ad:
+        // bütün kelimeleri dosya adında geçmeli.
+        let cityWord = fold(city)
+        let nameWords = words(fold(name)).filter { $0.count >= 2 && $0 != cityWord }
+        return nameWords.count >= 2 && nameWords.isSubset(of: file)
     }
 
     private static func significantWords(_ text: String, city: String) -> Set<String> {
@@ -498,32 +549,97 @@ actor WikipediaService {
         }
     }
 
-    /// Kayıtlı yerin İngilizce Wikipedia sayfası: 300 m içindeki sayfalardan
-    /// adı yerin adıyla örtüşen ("Meiji Tapınağı" → "Meiji Shrine").
-    /// Emin olunamazsa nil (yanlış yazı göstermektense hiç göstermemek).
+    /// Kayıtlı yerin Wikipedia sayfası (İngilizce başlığı): 500 m içindeki
+    /// sayfalardan adı yerin adıyla örtüşen, en yakını. Ad uygulamanın
+    /// dilinde olabilir: İngilizce sayfanın Türkçe adıyla da karşılaştırılır
+    /// ("Kız Kulesi" → "Maiden's Tower"). İngilizce sayfası olmayan yer
+    /// Türkçe Wikipedia'da aranır ("tr:Başlık"). Emin olunamazsa nil
+    /// (yanlış yazı göstermektense hiç göstermemek).
     func findArticle(name: String, city: String, latitude: Double, longitude: Double) async -> String? {
-        var components = URLComponents(string: "https://en.wikipedia.org/w/api.php")!
-        components.queryItems = [
+        if case .found(let title) = await lookupArticle(name: name, city: city, latitude: latitude, longitude: longitude) {
+            return title
+        }
+        return nil
+    }
+
+    enum ArticleLookup: Equatable {
+        case found(String)
+        /// Yakında adı tutan sayfa yok.
+        case none
+        /// İstek yapılamadı (internet yok): sonra yeniden denenir.
+        case failed
+    }
+
+    func lookupArticle(name: String, city: String, latitude: Double, longitude: Double) async -> ArticleLookup {
+        let language = Self.narrationLanguage
+        guard let english = await nearbyPages(wiki: "en", linkLanguage: language == "en" ? nil : language,
+                                              latitude: latitude, longitude: longitude) else { return .failed }
+        if let match = Self.bestMatch(english, name: name, city: city) { return .found(match.title) }
+        guard language != "en" else { return .none }
+        guard let local = await nearbyPages(wiki: language, linkLanguage: "en",
+                                            latitude: latitude, longitude: longitude) else { return .failed }
+        guard let match = Self.bestMatch(local, name: name, city: city) else { return .none }
+        return .found(match.link ?? Self.localOnlyTitle(match.title, language: language))
+    }
+
+    /// Yakındaki bir Wikipedia sayfası: başlığı, başka dildeki adı (varsa) ve uzaklığı.
+    struct NearbyPage: Equatable {
+        var title: String
+        var link: String?
+        var distance: Double
+    }
+
+    /// Adı en iyi tutan sayfa: önce adı aynı ya da içeren (başlık ya da
+    /// öteki dildeki adı), yoksa ortak kelimesi olan; eşitse en yakını.
+    static func bestMatch(_ pages: [NearbyPage], name: String, city: String) -> NearbyPage? {
+        let sorted = pages.sorted { $0.distance < $1.distance }
+        let names = { (page: NearbyPage) in [page.title, page.link].compactMap { $0 }.map(Self.withoutQualifier) }
+        return sorted.first { page in names(page).contains { matchesStrongly(title: $0, name: name) } }
+            ?? sorted.first { page in names(page).contains { matches(title: $0, name: name, city: city) } }
+    }
+
+    /// "Kız Kulesi (İstanbul)" → "Kız Kulesi".
+    private static func withoutQualifier(_ title: String) -> String {
+        title.replacingOccurrences(of: "\\s*\\([^)]*\\)$", with: "", options: .regularExpression)
+    }
+
+    private func nearbyPages(wiki: String, linkLanguage: String?, latitude: Double,
+                             longitude: Double) async -> [NearbyPage]? {
+        var components = URLComponents(string: "https://\(wiki).wikipedia.org/w/api.php")!
+        var items: [URLQueryItem] = [
             .init(name: "action", value: "query"),
             .init(name: "format", value: "json"),
             .init(name: "formatversion", value: "2"),
-            .init(name: "list", value: "geosearch"),
-            .init(name: "gscoord", value: "\(latitude)|\(longitude)"),
-            .init(name: "gsradius", value: "300"),
-            .init(name: "gslimit", value: "20"),
+            .init(name: "generator", value: "geosearch"),
+            .init(name: "ggscoord", value: "\(latitude)|\(longitude)"),
+            .init(name: "ggsradius", value: "500"),
+            .init(name: "ggslimit", value: "30"),
+            .init(name: "prop", value: linkLanguage == nil ? "coordinates" : "coordinates|langlinks"),
+            .init(name: "colimit", value: "max"),
+            .init(name: "codistancefrompoint", value: "\(latitude)|\(longitude)"),
         ]
+        if let linkLanguage {
+            items += [.init(name: "lllang", value: linkLanguage), .init(name: "lllimit", value: "max")]
+        }
+        components.queryItems = items
         struct Response: Decodable {
-            struct Query: Decodable { var geosearch: [Page] }
-            struct Page: Decodable { var title: String }
+            struct Query: Decodable { var pages: [Page]? }
+            struct Page: Decodable {
+                struct Coordinate: Decodable { var dist: Double? }
+                struct Link: Decodable { var title: String }
+                var title: String
+                var coordinates: [Coordinate]?
+                var langlinks: [Link]?
+            }
             var query: Query?
         }
-        guard let (data, _) = try? await session.data(from: components.url!),
-              let pages = try? JSONDecoder().decode(Response.self, from: data).query?.geosearch
-        else { return nil }
-        // Önce adı aynı ya da içeren sayfa, yoksa ortak kelimesi olan.
-        let titles = pages.map(\.title)
-        return titles.first { Self.matchesStrongly(title: $0, name: name) }
-            ?? titles.first { Self.matches(title: $0, name: name, city: city) }
+        guard let url = components.url, let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let decoded = try? JSONDecoder().decode(Response.self, from: data) else { return nil }
+        return (decoded.query?.pages ?? []).map { page in
+            NearbyPage(title: page.title, link: page.langlinks?.first?.title,
+                       distance: page.coordinates?.first?.dist ?? 10_000)
+        }
     }
 
     /// Sayfa başlığı yerin adıyla örtüşüyor mu: biri ötekini içeriyor ya da

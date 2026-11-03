@@ -32,6 +32,41 @@ final class WikipediaMatchTests: XCTestCase {
                                                    city: "İstanbul"))
     }
 
+    /// Yerin adı Türkçe olabilir: İngilizce sayfanın Türkçe adıyla eşleşir
+    /// ("Kız Kulesi" → "Maiden's Tower"); adı tutan en yakın sayfa seçilir.
+    func testMatchesLocalNameOfEnglishPage() {
+        let pages = [
+            WikipediaService.NearbyPage(title: "Salacak", link: "Salacak", distance: 350),
+            WikipediaService.NearbyPage(title: "Maiden's Tower", link: "Kız Kulesi", distance: 25),
+            WikipediaService.NearbyPage(title: "Galata Tower", link: "Galata Kulesi", distance: 480),
+        ]
+        XCTAssertEqual(WikipediaService.bestMatch(pages, name: "Kız Kulesi", city: "İstanbul")?.title, "Maiden's Tower")
+        XCTAssertEqual(WikipediaService.bestMatch(pages, name: "Maiden's Tower", city: "Istanbul")?.title, "Maiden's Tower")
+        XCTAssertNil(WikipediaService.bestMatch(pages, name: "Çamlıca Kulesi", city: "İstanbul"))
+        let qualified = [WikipediaService.NearbyPage(title: "Kız Kulesi (İstanbul)", link: nil, distance: 10)]
+        XCTAssertEqual(WikipediaService.bestMatch(qualified, name: "Kız Kulesi", city: "İstanbul")?.title,
+                       "Kız Kulesi (İstanbul)")
+    }
+
+    /// İngilizce sayfası olmayan yer "tr:Başlık" diye saklanır; İngilizce
+    /// başlıklardaki iki nokta ile karışmaz.
+    func testLocalOnlyTitles() {
+        let encoded = WikipediaService.localOnlyTitle("Şemsi Paşa Camii", language: "tr")
+        XCTAssertEqual(WikipediaService.localOnly(encoded)?.language, "tr")
+        XCTAssertEqual(WikipediaService.localOnly(encoded)?.title, "Şemsi Paşa Camii")
+        XCTAssertNil(WikipediaService.localOnly("Maiden's Tower"))
+        XCTAssertNil(WikipediaService.localOnly("Star Wars: Episode IV"))
+        XCTAssertNil(WikipediaService.localOnly("tr:"))
+    }
+
+    /// Yalnızca kısa ve tür kelimelerinden oluşan adlarda bütün kelimeler dosya adında geçmeli.
+    func testPhotoMatchingForShortNames() {
+        XCTAssertTrue(WikipediaService.fileMatches("File:Kız Kulesi, İstanbul (2019).jpg", name: "Kız Kulesi",
+                                                   city: "İstanbul"))
+        XCTAssertFalse(WikipediaService.fileMatches("File:Galata Kulesi.jpg", name: "Kız Kulesi", city: "İstanbul"))
+        XCTAssertFalse(WikipediaService.fileMatches("File:Kulesi.jpg", name: "Kule", city: "İstanbul"))
+    }
+
     func testArticleSectionsSkipReferencesAndKeepSubheadings() {
         let extract = """
         Çırağan Palace is a former Ottoman palace.

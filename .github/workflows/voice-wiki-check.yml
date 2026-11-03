@@ -1,0 +1,41 @@
+# Ses örnekleri ve Wikipedia denemesi: aynı Türkçe yazıyı iPhone/Mac sesi
+# (Yelda), Gemini TTS ücretsiz katmanı ve (açıksa) Google Cloud
+# Text-to-Speech ile okur; dosyaları "ses-ornekleri" dalına koyar. Uygulamanın
+# Wikipedia eşleme ve yakındaki öneri isteklerini Kız Kulesi çevresinde
+# dener. Anahtarlar günlüğe yazılmaz. Yalnızca commit mesajında "[ses-test]"
+# geçen gönderimlerde ya da elle başlatılınca çalışır.
+name: Ses ve Wikipedia denemesi
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ses-test]')
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dene ve ses örneklerini üret
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          SES_OUT: ${{ runner.temp }}/ses
+        run: python3 ios/scripts/voice_wiki_check.py
+      - name: Ses örneklerini dala koy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/ses"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b ses-ornekleri
+          git add .
+          git commit -qm "Ses örnekleri: ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ses-ornekleri

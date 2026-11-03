@@ -39,8 +39,10 @@ final class DownloadManager: ObservableObject {
         progress[city] = 0
 
         for place in places {
-            if let title = place.wikipediaTitle {
+            // Yürüyüşte internetsiz dinlenebilsin: özet ve yazının tamamı.
+            if let title = await store.wikipediaTitle(for: place) {
                 _ = await WikipediaService.shared.summary(englishTitle: title)
+                _ = await WikipediaService.shared.article(englishTitle: title)
             }
             done += 1
             progress[city] = done / max(total, 1)

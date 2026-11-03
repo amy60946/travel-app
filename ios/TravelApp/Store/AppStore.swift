@@ -683,6 +683,44 @@ final class AppStore: ObservableObject {
 
     private static let categoryCheckedKey = "categoryChecked"
 
+    /// Wikipedia sayfası bilinmeyen yerlerin (ör. aramayla eklenen Kız
+    /// Kulesi) sayfası bir kez aranıp yere yazılır: yer penceresi hiç
+    /// açılmadan da listede ve haritada fotoğrafı, yürüyüşte anlatımı
+    /// gelir. İnternet yoksa yer işaretlenmez, sonra yeniden denenir.
+    func resolveWikipediaTitles() async {
+        let defaults = UserDefaults.standard
+        var checked = Set(defaults.stringArray(forKey: Self.wikipediaCheckedKey) ?? [])
+        let candidates = places.filter { $0.wikipediaTitle == nil && !checked.contains($0.id.uuidString) }
+        for place in candidates {
+            if Task.isCancelled { return }
+            let lookup = await WikipediaService.shared.lookupArticle(
+                name: place.name, city: place.city, latitude: place.latitude, longitude: place.longitude)
+            if lookup == .failed || Task.isCancelled { continue }
+            checked.insert(place.id.uuidString)
+            defaults.set(Array(checked), forKey: Self.wikipediaCheckedKey)
+            if case .found(let title) = lookup, var current = self.place(place.id), current.wikipediaTitle == nil {
+                current.wikipediaTitle = title
+                update(current)
+            }
+        }
+    }
+
+    /// Yerin Wikipedia sayfası; bilinmiyorsa hemen aranır ve yere yazılır
+    /// (yürüyüşte "Dinle", yol tarifinde varınca anlatım).
+    func wikipediaTitle(for place: Place) async -> String? {
+        if let title = self.place(place.id)?.wikipediaTitle ?? place.wikipediaTitle { return title }
+        guard let found = await WikipediaService.shared.findArticle(
+            name: place.name, city: place.city, latitude: place.latitude, longitude: place.longitude) else { return nil }
+        if var current = self.place(place.id), current.wikipediaTitle == nil {
+            current.wikipediaTitle = found
+            update(current)
+        }
+        return found
+    }
+
+    /// "-2": Türkçe adla eşleme gelmeden önce bulunamayan yerler bir kez daha aranır (2026-11-03).
+    private static let wikipediaCheckedKey = "wikipediaChecked-2"
+
     /// Aktarılan yerleri ekler; aynı ad ve yakın konumdakileri atlar.
     /// Yeri böylece bulunan gönderiler "Yeri belirle" listesinden çıkar.
     /// Eklenen sayısını döndürür.

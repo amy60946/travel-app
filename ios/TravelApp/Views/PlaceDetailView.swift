@@ -96,11 +96,12 @@ struct PlaceDetailView: View {
         .sheet(isPresented: $editsNote) { PlaceEditor(place: place, focusesNote: true) }
         .task(id: place.wikipediaTitle) {
             isLoading = true
-            if let title = place.wikipediaTitle {
+            let title = await store.wikipediaTitle(for: place)
+            if let title {
                 summary = await WikipediaService.shared.summary(englishTitle: title)
             }
             isLoading = false
-            if let title = place.wikipediaTitle, summary != nil {
+            if let title, summary != nil {
                 article = await WikipediaService.shared.article(englishTitle: title)
             }
         }
