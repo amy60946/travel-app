@@ -638,4 +638,16 @@
 "Yakınındaki popüler yerler" = "Popular nearby";
 "Günündeki yerlerin yakınında popüler bir yer bulunamadı." = "No popular places found near the places in this day.";
 "Yakında yemek ve kahve" = "Food and coffee nearby";
-"%@ yakınında · yürüyerek %lld dk" = "Near %1$@ · %2$lld min walk";
+"yürüyerek %lld dk · %@ yakınında" = "%1$lld min walk · near %2$@";
+"Yakında yemek, kahve ve park" = "Food, coffee and parks nearby";
+"Yakında park ve manzara" = "Parks and viewpoints nearby";
+"Bilgiler" = "Facts";
+"Yapım" = "Built";
+"Mimar" = "Architect";
+"Mimari üslup" = "Style";
+"Yükseklik" = "Height";
+"Yılda ziyaretçi" = "Visitors a year";
+"Koruma" = "Heritage";
+"Resmi site" = "Official site";
+"%@ milyon" = "%@ million";
+"Gezgin notu" = "Traveller's note";

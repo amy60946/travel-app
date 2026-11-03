@@ -100,6 +100,63 @@ def wiki_checks():
         print(f"   {total:7d} okunma  {dist_of.get(title, 0):5.0f} m  {local or title}  ({description[:60]})")
 
 
+def source_checks():
+    """Wikidata, Wikivoyage ve Geoapify: uygulamadaki isteklerin aynısı."""
+    print("\n===== Wikidata: Maiden's Tower (enwiki) bilgileri")
+    query = {"action": "wbgetentities", "format": "json", "sites": "enwiki", "titles": "Maiden's Tower",
+             "normalize": "1", "props": "claims|descriptions", "languages": "tr|en"}
+    status, raw, _ = call("https://www.wikidata.org/w/api.php?" + urllib.parse.urlencode(query))
+    entities = json.loads(raw).get("entities", {}) if status == 200 else {}
+    entity = next((e for e in entities.values() if "missing" not in e and "id" in e), None)
+    if entity:
+        claims = entity.get("claims", {})
+        def first(prop):
+            for st in claims.get(prop, []):
+                value = st.get("mainsnak", {}).get("datavalue", {}).get("value")
+                if value is not None:
+                    return value
+        print(f"   {entity['id']}: {entity.get('descriptions', {}).get('tr', {}).get('value')}")
+        for prop in ["P571", "P84", "P149", "P2048", "P1174", "P1435", "P856", "P18"]:
+            print(f"   {prop}: {first(prop)}")
+    else:
+        print(f"   bulunamadı (HTTP {status})")
+
+    print("\n===== Wikivoyage: Kız Kulesi çevresindeki sayfalar ve listeleri")
+    query = {"action": "query", "format": "json", "formatversion": "2", "list": "geosearch",
+             "gscoord": f"{KIZ_KULESI[0]}|{KIZ_KULESI[1]}", "gsradius": "10000", "gslimit": "4"}
+    status, raw, _ = call("https://en.wikivoyage.org/w/api.php?" + urllib.parse.urlencode(query))
+    pages = json.loads(raw).get("query", {}).get("geosearch", []) if status == 200 else []
+    print(f"   HTTP {status}: {[(p['title'], round(p.get('dist', 0))) for p in pages]}")
+    for page in pages[:3]:
+        query = {"action": "query", "format": "json", "formatversion": "2", "prop": "revisions",
+                 "rvprop": "content", "rvslots": "main", "titles": page["title"]}
+        status, raw, _ = call("https://en.wikivoyage.org/w/api.php?" + urllib.parse.urlencode(query))
+        found = json.loads(raw).get("query", {}).get("pages", [{}]) if status == 200 else [{}]
+        text = (found[0].get("revisions") or [{}])[0].get("slots", {}).get("main", {}).get("content", "")
+        names = re.findall(r"\{\{\s*(see|do|eat|drink|buy|sleep|listing)\s*\|[^}]*?name\s*=\s*([^|\n]+)", text, re.I)
+        print(f"   {page['title']}: {len(text)} harf, {len(names)} liste; örnek: {[n[1].strip() for n in names[:8]]}")
+        tower = re.search(r"\{\{\s*see[^}]*?name\s*=\s*Maiden'?s Tower[\s\S]{0,600}", text, re.I)
+        if tower:
+            print("   Maiden's Tower listesi:\n   " + tower.group(0)[:600].replace("\n", " "))
+
+    key = os.environ.get("GEOAPIFY_API_KEY")
+    print("\n===== Geoapify: Kız Kulesi'nin 900 m çevresi (kafe, restoran, park, manzara)")
+    if not key:
+        print("   GEOAPIFY_API_KEY yok")
+        return
+    query = {"categories": "catering.restaurant,catering.cafe,leisure.park,tourism.attraction.viewpoint",
+             "filter": f"circle:{KIZ_KULESI[1]},{KIZ_KULESI[0]},900",
+             "bias": f"proximity:{KIZ_KULESI[1]},{KIZ_KULESI[0]}", "limit": "40", "lang": "tr", "apiKey": key}
+    status, raw, seconds = call("https://api.geoapify.com/v2/places?" + urllib.parse.urlencode(query))
+    features = json.loads(raw).get("features", []) if status == 200 else []
+    print(f"   HTTP {status}, {seconds:.1f} sn, {len(features)} yer")
+    for feature in features[:15]:
+        props = feature.get("properties", {})
+        raw_tags = props.get("datasource", {}).get("raw", {})
+        print(f"   {props.get('name')}  {props.get('categories', [])[:2]}  wikidata={raw_tags.get('wikidata')}  "
+              f"site={'var' if props.get('website') or raw_tags.get('website') else '-'}")
+
+
 def turkish_text():
     url = "https://tr.wikipedia.org/api/rest_v1/page/summary/K%C4%B1z_Kulesi"
     status, raw, _ = call(url)
@@ -194,7 +251,10 @@ def google_cloud_tts(text):
         return
     names = [v["name"] for v in json.loads(raw).get("voices", [])]
     print(f"   Türkçe sesler: {names}")
-    picks = [n for n in names if "Chirp3-HD" in n][:1] + [n for n in names if "Wavenet" in n][:1]
+    # Uygulamadaki ses (Kore) ve karşılaştırma için iki Chirp 3 HD sesi daha.
+    chirp = [n for n in names if "Chirp3-HD" in n]
+    wanted = [f"tr-TR-Chirp3-HD-{v}" for v in ["Kore", "Aoede", "Charon"]]
+    picks = [n for n in wanted if n in chirp] or chirp[:1]
     for name in picks:
         body = {"input": {"text": text}, "voice": {"languageCode": "tr-TR", "name": name},
                 "audioConfig": {"audioEncoding": "MP3"}}
@@ -230,13 +290,16 @@ def apple_voice(text):
 def main():
     os.makedirs(OUT, exist_ok=True)
     wiki_checks()
+    source_checks()
     text = turkish_text()
     with open(os.path.join(OUT, "0-okunan-yazi.txt"), "w", encoding="utf-8") as file:
         file.write(text + "\n")
     print(f"\n===== Okunan yazı ({len(text)} harf):\n{text}")
     apple_voice(text)
-    gemini_tts(text)
-    gemini_tts_quota()
+    # Ses kararı verildi (Chirp 3 HD, 2026-11-03); Gemini örnekleri yalnızca istenirse.
+    if os.environ.get("TTS_GEMINI"):
+        gemini_tts(text)
+        gemini_tts_quota()
     google_cloud_tts(text)
     print("\n===== Dosyalar:", sorted(os.listdir(OUT)))
 

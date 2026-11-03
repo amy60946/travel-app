@@ -42,6 +42,8 @@ struct AddPlaceView: View {
     @State private var showAllNearby = false
     /// Günde yemek ya da kafe yoksa yakındaki popüler restoran ve kafeler (Google).
     @State private var nearbyFood: [GooglePlaces.SearchResult] = []
+    /// Geoapify'dan (OpenStreetMap) yakındaki kafe, restoran, park ve manzara.
+    @State private var nearbySpots: [GeoapifyService.Spot] = []
     /// Bu pencerede yakındaki önerilerden eklenenler: yenilenen listede yerinde kalır (✓).
     @State private var addedHere: Set<String> = []
 
@@ -304,6 +306,48 @@ struct AddPlaceView: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.top, 6)
         }
+        if !nearbySpots.isEmpty {
+            Text(nearbySpots.contains { Self.isFood($0.category) }
+                 ? LocalizedStringKey("Yakında yemek, kahve ve park") : LocalizedStringKey("Yakında park ve manzara"))
+                .font(Theme.font(15, .bold))
+                .foregroundStyle(Theme.muted)
+                .padding(.top, 18)
+                .padding(.bottom, 2)
+            ForEach(nearbySpots) { spot in spotRow(spot) }
+            // Geoapify ve OpenStreetMap lisansı gereği.
+            Text(verbatim: "Powered by Geoapify · © OpenStreetMap")
+                .font(Theme.font(11))
+                .foregroundStyle(Theme.muted)
+                .padding(.top, 6)
+        }
+    }
+
+    nonisolated private static func isFood(_ category: PlaceCategory) -> Bool {
+        category == .food || category == .cafe || category == .bar
+    }
+
+    /// "yürüyerek 4 dk · Kız Kulesi yakınında": süre önde, satıra sığmasa da görünür.
+    private func walkSubtitle(to location: CLLocation) -> String? {
+        guard let nearest = dayPlaces.min(by: {
+            $0.location.distance(from: location) < $1.location.distance(from: location)
+        }) else { return nil }
+        let minutes = max(Int((nearest.location.distance(from: location) * 1.3 / 80).rounded()), 1)
+        return Self.walkText(minutes: minutes, near: nearest.name)
+    }
+
+    static func walkText(minutes: Int, near name: String) -> String {
+        String(localized: "yürüyerek \(minutes) dk · \(name) yakınında")
+    }
+
+    private func spotRow(_ spot: GeoapifyService.Spot) -> some View {
+        let saved = store.savedPlace(named: spot.name, near: spot.coordinate)
+        return SpotRow(category: spot.category, title: spot.name, subtitle: walkSubtitle(to: spot.location) ?? "",
+                       isAdded: isAdded(saved), general: general,
+                       onAdd: { addSpot(spot, saved: saved) }) {
+            LocationPhoto(name: spot.name, category: spot.category, city: city,
+                          latitude: spot.latitude, longitude: spot.longitude,
+                          size: 64, cornerRadius: 14)
+        }
     }
 
     private var showAllLabel: some View {
@@ -323,7 +367,7 @@ struct AddPlaceView: View {
         let saved = store.savedPlace(named: place.name, near: coordinate)
             ?? store.savedPlace(named: place.title, near: coordinate)
         return SpotRow(category: item.category, title: place.name,
-                       subtitle: String(localized: "\(item.anchorName) yakınında · yürüyerek \(item.walkingMinutes) dk"),
+                       subtitle: Self.walkText(minutes: item.walkingMinutes, near: item.anchorName),
                        isAdded: isAdded(saved), general: general,
                        onAdd: {
                            addedHere.insert(item.id)
@@ -338,12 +382,8 @@ struct AddPlaceView: View {
     private func foodRow(_ result: GooglePlaces.SearchResult) -> some View {
         let category = result.category
         let saved = store.savedPlace(googleID: result.id, named: result.name, near: result.coordinate)
-        let location = CLLocation(latitude: result.latitude, longitude: result.longitude)
-        let nearest = dayPlaces.min { $0.location.distance(from: location) < $1.location.distance(from: location) }
-        let minutes = nearest.map { max(Int(($0.location.distance(from: location) * 1.3 / 80).rounded()), 1) }
-        let subtitle = nearest.flatMap { place in
-            minutes.map { String(localized: "\(place.name) yakınında · yürüyerek \($0) dk") }
-        } ?? result.address
+        let subtitle = walkSubtitle(to: CLLocation(latitude: result.latitude, longitude: result.longitude))
+            ?? result.address
         return SpotRow(category: category, title: result.name, subtitle: subtitle,
                        isAdded: isAdded(saved), general: general,
                        onAdd: { add(result, saved: saved) },
@@ -424,6 +464,7 @@ struct AddPlaceView: View {
         guard let stop, !day.isEmpty else {
             nearby = []
             nearbyFood = []
+            nearbySpots = []
             return
         }
         if !nearby.isEmpty {
@@ -453,7 +494,27 @@ struct AddPlaceView: View {
         }
         withAnimation(.snappy) { nearby = Recommender.merge(fresh, previous: nearby, keeping: kept) }
 
-        if Recommender.needsFood(day), GoogleAPI.isConfigured, let center = Recommender.center(of: day) {
+        // Yakındaki kafe, restoran ve park Geoapify'dan (Google kotası harcanmaz);
+        // son eklenen iki yerin çevresi aranır.
+        let needsFood = Recommender.needsFood(day)
+        var spots: [GeoapifyService.Spot] = []
+        if GeoapifyService.isConfigured {
+            for anchor in anchors.prefix(2) {
+                spots += await GeoapifyService.shared.nearby(
+                    CLLocationCoordinate2D(latitude: anchor.latitude, longitude: anchor.longitude), food: needsFood)
+            }
+            guard !Task.isCancelled else { return }
+            spots = GeoapifyService.pick(spots, anchors: day) { spot in
+                planned.contains {
+                    $0.name.lowercased() == spot.name.lowercased() && $0.location.distance(from: spot.location) < 150
+                }
+            }
+        }
+        withAnimation(.snappy) { nearbySpots = spots }
+
+        // Geoapify yoksa ya da yemek bulamadıysa Google'ın popüler restoran ve kafeleri.
+        if needsFood, !spots.contains(where: { Self.isFood($0.category) }), GoogleAPI.isConfigured,
+           let center = Recommender.center(of: day) {
             let food = await GooglePlaces.shared.popularFood(near: center)
             guard !Task.isCancelled else { return }
             let plannedIDs = Set(planned.compactMap(\.googlePlaceID))
@@ -504,6 +565,15 @@ struct AddPlaceView: View {
                               longitude: result.longitude, category: result.category, source: .search,
                               googlePlaceID: result.id)
             save(place)
+        }
+    }
+
+    private func addSpot(_ spot: GeoapifyService.Spot, saved: Place?) {
+        if let saved { return toggle(saved) }
+        Task {
+            let city = await placeCity(spot.coordinate)
+            save(Place(name: spot.name, city: city, latitude: spot.latitude, longitude: spot.longitude,
+                       category: spot.category, source: .search))
         }
     }
 

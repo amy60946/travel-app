@@ -41,6 +41,8 @@ targets:
         GroqAPIKey: "$(GROQ_API_KEY)"
         # Google Cloud'da yalnızca bu uygulamaya kilitli anahtar (GitHub Secrets).
         GoogleMapsAPIKey: "$(GOOGLE_MAPS_API_KEY)"
+        # Geoapify (OpenStreetMap yerleri; boşsa yakındaki yemek önerisi Google'dan).
+        GeoapifyAPIKey: "$(GEOAPIFY_API_KEY)"
         # Gezi paylaşımı ve profil: Supabase adresi ve herkese açık anahtarı
         # (GitHub Secrets; boşsa paylaşım bölümleri görünmez).
         SupabaseURL: "$(SUPABASE_URL)"

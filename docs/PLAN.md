@@ -161,21 +161,21 @@ Onay bekleyen öneriler buraya yazılır.
   "Publish app" için web sitesi ve gizlilik politikası adresi gerekiyor.
   App Store'a çıkmadan önce gizlilik politikası sayfası hazırlanır (App
   Store da istiyor), Branding'e girilir ve uygulama yayına alınır.
-- 2026-11-03: **Daha doğal ses** (Oguz sordu, karar bekliyor). Şimdiki ses
-  iPhone'un Yelda'sı; telefonda küçük sürümü yüklüyse hece hece okur.
-  Seçenekler: A) iPhone'da "Yelda (Enhanced)" indirmek (ücretsiz, kod yok);
-  B) Google Cloud Chirp 3 HD (ayda 1 milyon harf ücretsiz, sonrası 1M harf
-  30 $; kartlı hesapta Text-to-Speech açılır, uygulama günlük harf sınırı
-  koyar, sesi telefonda saklar, sınırda iPhone sesine döner); C) Google
-  Cloud WaveNet (ayda 4M harf ücretsiz, sonrası 4 $); D) Gemini sesi ücretsiz
-  katmanı: ölçülen sınır dakikada 3 istek, günlük sınır çok düşük ve bütün
-  kullanıcılar paylaşır, tam anlatıma yetmez. Önerilen: bugün A, asıl çözüm
-  B. Ücret çıkabileceği için Oguz'un onayı olmadan açılmaz.
-- 2026-11-03: **Ücretsiz ek yer kaynakları** (Oguz sordu, karar bekliyor).
-  Önerilen: Wikidata (CC0, anahtarsız: kesin sayfa, yapım yılı, mimar,
-  resmi site, fotoğraf) ve Wikivoyage yer listeleri (CC BY-SA: sayfası
-  olmayan kafe/restoran için kısa açıklama, öneri adayı). İsteğe bağlı:
-  Geoapify (OSM verisi, günde 3.000 istek ücretsiz, kart yok, "Powered by
-  Geoapify" yazısı gerekir, `GEOAPIFY_API_KEY`). Foursquare (puan, yorum,
-  fotoğraf ücretli) ve doğrudan Overpass (uygulama arka ucu olarak uygun
-  değil) önerilmez.
+- 2026-11-03: **Daha doğal ses** kararı verildi: Google Cloud Chirp 3 HD
+  (bkz. CLAUDE.md Kararlar). Yapıldı: yazı cümle sonlarından parçalara
+  bölünür (ilk parça kısa, okuma hemen başlar), sonraki iki parça çalarken
+  hazırlanır, sesler telefonda saklanır (en çok 300 MB), telefon başına
+  günde 60.000 / ayda 900.000 harf; olmazsa iPhone sesi. Oguz'un Google
+  Cloud'da Text-to-Speech API'yi açması ve harita anahtarının izin
+  listesine eklemesi gerekiyor. TestFlight'ta birden çok kişi dinlerse
+  aylık ücretsiz kota (1 milyon harf) aşılabilir; o zaman sınır birlikte
+  düşürülür.
+- 2026-11-03: **Ek yer kaynakları** kararı verildi: Wikidata + Wikivoyage +
+  Geoapify. Yapıldı: yer penceresinde "Bilgiler" (Wikidata: yapım yılı,
+  mimar, üslup, yükseklik, yıllık ziyaretçi, koruma, resmi site) ve
+  Wikipedia'da fotoğraf yoksa Wikidata fotoğrafı; "Gezgin notu"
+  (Wikivoyage: açıklama, saat, fiyat), Wikipedia yazısı olmayan yerde
+  Dinle ve yürüyüşte bu not okunur; "Yer ekle"de "Yakında yemek, kahve ve
+  park" Geoapify'dan (anahtar gelince; yoksa yemek Google'dan).
+  Sonra düşünülebilir: Geoapify kaydındaki Wikidata bağlantısıyla
+  restoran/kafe fotoğrafı; Wikivoyage listelerini öneri adayı yapmak.

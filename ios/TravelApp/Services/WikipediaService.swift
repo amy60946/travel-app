@@ -384,6 +384,8 @@ actor WikipediaService {
         }
         var url: URL?
         if let title { url = await thumbnailURL(englishTitle: title) }
+        // Sayfada fotoğraf yoksa Wikidata'daki fotoğraf.
+        if url == nil, let title { url = await WikidataService.shared.facts(wikipediaTitle: title)?.imageURL }
         if url == nil {
             url = await nearbyPhotos(latitude: latitude, longitude: longitude,
                                      matching: [name, title.map { Self.localOnly($0)?.title ?? $0 }].compactMap { $0 },
