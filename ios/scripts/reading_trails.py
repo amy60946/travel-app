@@ -46,14 +46,21 @@ TOP = 25
 TILE = 0.5
 
 TUPLE = re.compile(r"\(((?:'(?:[^'\\]|\\.)*'|[^'()])*)\)")
-FIELD = re.compile(r"'(?:[^'\\]|\\.)*'|[^,]+")
+FIELD = re.compile(r"(?:_binary\s*)?'(?:[^'\\]|\\.)*'|[^,]+")
+HEX = re.compile(r"0x[0-9A-Fa-f]+")
 
 
 def unquote(value):
+    """SQL değeri: NULL, 'yazı' (MariaDB'de _binary 'yazı' da) ya da 0x... ."""
+    value = value.strip()
     if value == "NULL":
         return None
+    if value.startswith("_binary"):
+        value = value[len("_binary"):].strip()
     if value.startswith("'"):
         return re.sub(r"\\(.)", r"\1", value[1:-1])
+    if HEX.fullmatch(value):
+        return bytes.fromhex(value[2:]).decode("utf-8", "replace")
     return value
 
 
@@ -92,9 +99,14 @@ def read_geotags(path):
             if line.startswith("CREATE TABLE"):
                 create = line
                 continue
-            if "INSERT INTO" not in line[:40]:
+            # MariaDB dökümünde kayıtlar INSERT satırında ya da her biri ayrı
+            # satırda "(1,2,'earth',...)," olabilir.
+            if "INSERT INTO" in line[:40]:
+                inserts += 1
+                if inserts == 1:
+                    print("ilk INSERT:", line[:300].rstrip(), flush=True)
+            elif not line.startswith("("):
                 continue
-            inserts += 1
             names = columns if {"gt_page_id", "gt_globe", "gt_primary", "gt_lat", "gt_lon"} <= set(columns) \
                 else DEFAULT_COLUMNS
             index = {name: i for i, name in enumerate(names)}
