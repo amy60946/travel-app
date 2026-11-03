@@ -127,7 +127,16 @@ def source_checks():
     status, raw, _ = call("https://en.wikivoyage.org/w/api.php?" + urllib.parse.urlencode(query))
     pages = json.loads(raw).get("query", {}).get("geosearch", []) if status == 200 else []
     print(f"   HTTP {status}: {[(p['title'], round(p.get('dist', 0))) for p in pages]}")
-    for page in pages[:3]:
+    found_titles = []
+    for name in ["Kız Kulesi", "Maiden's Tower"]:
+        query = {"action": "query", "format": "json", "formatversion": "2", "list": "search",
+                 "srsearch": f'"{name}"', "srnamespace": "0", "srlimit": "3", "srprop": ""}
+        status, raw, _ = call("https://en.wikivoyage.org/w/api.php?" + urllib.parse.urlencode(query))
+        titles = [p["title"] for p in json.loads(raw).get("query", {}).get("search", [])] if status == 200 else []
+        print(f"   arama \"{name}\": HTTP {status} {titles}")
+        found_titles += [t for t in titles if t not in found_titles]
+    pages = [{"title": t} for t in found_titles] + pages
+    for page in pages[:4]:
         query = {"action": "query", "format": "json", "formatversion": "2", "prop": "revisions",
                  "rvprop": "content", "rvslots": "main", "titles": page["title"]}
         status, raw, _ = call("https://en.wikivoyage.org/w/api.php?" + urllib.parse.urlencode(query))

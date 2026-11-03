@@ -554,8 +554,8 @@ enum PlaceNarration {
         var found: WikipediaService.Summary?
         if let title { found = await WikipediaService.shared.summary(englishTitle: title) }
         guard let title, let summary = found else {
-            let listing = await WikivoyageListings.shared.listing(name: place.name, latitude: place.latitude,
-                                                                  longitude: place.longitude)
+            let listing = await WikivoyageListings.shared.listing(name: place.name, englishTitle: title,
+                                                                  latitude: place.latitude, longitude: place.longitude)
             ready()
             guard !Task.isCancelled else { return }
             if let listing {

@@ -209,8 +209,8 @@ struct PlaceSheet: View {
         let englishTitle = await store.wikipediaTitle(for: place)
         async let foundSummary = loadSummary(englishTitle)
         async let foundFacts = loadFacts(englishTitle)
-        async let foundListing = WikivoyageListings.shared.listing(name: place.name, latitude: place.latitude,
-                                                                   longitude: place.longitude)
+        async let foundListing = WikivoyageListings.shared.listing(name: place.name, englishTitle: englishTitle,
+                                                                   latitude: place.latitude, longitude: place.longitude)
         if let englishTitle { photos = await WikipediaService.shared.photos(englishTitle: englishTitle) }
         facts = await foundFacts
         // Wikipedia sayfasında fotoğraf yoksa Wikidata'daki fotoğraf.

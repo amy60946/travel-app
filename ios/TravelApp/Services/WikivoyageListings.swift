@@ -45,15 +45,31 @@ actor WikivoyageListings {
     private static let api = "https://en.wikivoyage.org/w/api.php"
 
     /// Yerin Wikivoyage'daki listesi (adı tutan ve 300 m içinde olan), yoksa nil.
-    func listing(name: String, latitude: Double, longitude: Double,
+    /// Önce adı (ve İngilizce Wikipedia adı) geçen sayfalar, sonra en yakın
+    /// sayfalar aranır: Kız Kulesi'ne en yakın sayfa karşı yakadaki Galata,
+    /// listesi ise "Istanbul/Asian Side"da.
+    func listing(name: String, englishTitle: String? = nil, latitude: Double, longitude: Double,
                  language: String = WikipediaService.narrationLanguage) async -> Listing? {
         let key = "\(language)|\(name)|\((latitude * 1000).rounded() / 1000)|\((longitude * 1000).rounded() / 1000)"
         if let cached = found[key] { return cached }
         guard !missing.contains(key), !name.isEmpty else { return nil }
         var match: Listing?
-        for article in await nearbyArticles(latitude: latitude, longitude: longitude) {
+        var articles: [String] = []
+        var queries = [name]
+        if let englishTitle, WikipediaService.localOnly(englishTitle) == nil, englishTitle != name {
+            queries.append(englishTitle)
+        }
+        for query in queries {
+            articles += await searchArticles(query)
+        }
+        articles += await nearbyArticles(latitude: latitude, longitude: longitude)
+        var seen: Set<String> = []
+        articles = articles.filter { seen.insert($0).inserted }
+        for article in articles.prefix(5) {
             let listings = await listings(in: article)
-            if let best = Self.bestMatch(listings, name: name, latitude: latitude, longitude: longitude) {
+            let best = Self.bestMatch(listings, name: name, latitude: latitude, longitude: longitude)
+                ?? englishTitle.flatMap { Self.bestMatch(listings, name: $0, latitude: latitude, longitude: longitude) }
+            if let best {
                 match = best
                 break
             }
@@ -69,6 +85,30 @@ actor WikivoyageListings {
         }
         found[key] = match
         return match
+    }
+
+    /// Adı geçen Wikivoyage sayfaları (en çok 3).
+    private func searchArticles(_ text: String) async -> [String] {
+        var components = URLComponents(string: Self.api)!
+        components.queryItems = [
+            .init(name: "action", value: "query"),
+            .init(name: "format", value: "json"),
+            .init(name: "formatversion", value: "2"),
+            .init(name: "list", value: "search"),
+            .init(name: "srsearch", value: "\"\(text)\""),
+            .init(name: "srnamespace", value: "0"),
+            .init(name: "srlimit", value: "3"),
+            .init(name: "srprop", value: ""),
+        ]
+        struct Response: Decodable {
+            struct Query: Decodable { var search: [Page] }
+            struct Page: Decodable { var title: String }
+            var query: Query?
+        }
+        guard let url = components.url,
+              let result = try? await session.data(from: url),
+              let response = try? JSONDecoder().decode(Response.self, from: result.0) else { return [] }
+        return (response.query?.search ?? []).map(\.title)
     }
 
     /// Yerin çevresindeki Wikivoyage sayfaları (şehir ve semt), en yakını önce.
