@@ -198,8 +198,10 @@ Onay bekleyen öneriler buraya yazılır.
   popüler restoranlar. "Bunu kaydedenler şunları da ekledi" türü
   (Wanderlog, Polarsteps) çok kullanıcı verisi ister; paylaşılan geziler
   çoğalınca Supabase'ten yapılabilir.
-- 2026-11-03: **"Bunu kaydedenler şunu da kaydetti" önerisi** (Oguz sordu,
-  karar bekliyor). Hazır servis: Recombee ücretsiz planı (ayda 100.000
+- 2026-11-03: **"Bunu kaydedenler şunu da kaydetti" önerisi** (Oguz sordu;
+  karar: **Wikipedia okuma izleri**, yapıldı: ayda bir "Okuma izleri" işi,
+  "okuma-izleri" dalı, "Yer ekle"de birlikte okunan yer öne çıkar, yer
+  penceresinde "Buna bakanlar şunlara da baktı"). Hazır servis: Recombee ücretsiz planı (ayda 100.000
   öneri isteği, 20.000 kullanıcı/yer) bu işi yapar ama kullanıcı kayıtlarıyla
   öğrenir (şu an tek kullanıcı; kayıtlar dış şirkete gider). Google Maps,
   Tripadvisor ve Wanderlog bunu kendi milyonlarca kullanıcısının verisiyle

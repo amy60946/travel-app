@@ -33,6 +33,8 @@ struct PlaceSheet: View {
     @State private var facts: WikidataService.Facts?
     /// Wikivoyage'da gezginlerin yazdığı not (saat, fiyat).
     @State private var listing: WikivoyageListings.Listing?
+    /// "Buna bakanlar şunlara da baktı" (Wikipedia okuma izleri).
+    @State private var alsoRead: [WikipediaService.PopularPlace] = []
     @State private var editsNote = false
 
     var body: some View {
@@ -166,6 +168,9 @@ struct PlaceSheet: View {
         if let summary {
             ListenCard(title: place.name, summary: summary, article: article)
             sourceCards
+            if !alsoRead.isEmpty {
+                AlsoReadSection(place: place, items: alsoRead, stop: stop, fallbackDay: fallbackDay)
+            }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)
@@ -208,6 +213,7 @@ struct PlaceSheet: View {
         article = nil
         facts = nil
         listing = nil
+        alsoRead = []
         photos = []
         photosAreNearby = false
         defer { isLoading = false }
@@ -218,6 +224,7 @@ struct PlaceSheet: View {
         async let foundFacts = loadFacts(englishTitle)
         async let foundListing = WikivoyageListings.shared.listing(name: place.name, englishTitle: englishTitle,
                                                                    latitude: place.latitude, longitude: place.longitude)
+        async let foundAlsoRead = AlsoReadSection.load(for: place, englishTitle: englishTitle)
         if let englishTitle { photos = await WikipediaService.shared.photos(englishTitle: englishTitle) }
         facts = await foundFacts
         // Wikipedia sayfasında fotoğraf yoksa Wikidata'daki fotoğraf.
@@ -229,6 +236,7 @@ struct PlaceSheet: View {
         isLoadingPhotos = false
         summary = await foundSummary
         listing = await foundListing
+        alsoRead = await foundAlsoRead
         // Yazının tamamı (çevirisi sürebilir) özetten sonra.
         if let englishTitle, summary != nil {
             isLoadingArticle = true

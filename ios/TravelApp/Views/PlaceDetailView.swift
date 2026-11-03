@@ -15,6 +15,8 @@ struct PlaceDetailView: View {
     /// Wikidata bilgileri ve Wikivoyage gezgin notu.
     @State private var facts: WikidataService.Facts?
     @State private var listing: WikivoyageListings.Listing?
+    /// "Buna bakanlar şunlara da baktı" (Wikipedia okuma izleri).
+    @State private var alsoRead: [WikipediaService.PopularPlace] = []
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -69,6 +71,7 @@ struct PlaceDetailView: View {
 
                     if let listing { TravelerNoteCard(listing: listing) }
                     if let facts, !facts.isEmpty { PlaceFactsCard(facts: facts) }
+                    if !alsoRead.isEmpty { AlsoReadSection(place: place, items: alsoRead) }
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
@@ -107,11 +110,13 @@ struct PlaceDetailView: View {
             async let foundFacts = Self.facts(title)
             async let foundListing = WikivoyageListings.shared.listing(name: place.name, englishTitle: title,
                                                                        latitude: place.latitude, longitude: place.longitude)
+            async let foundAlsoRead = AlsoReadSection.load(for: place, englishTitle: title)
             if let title {
                 summary = await WikipediaService.shared.summary(englishTitle: title)
             }
             facts = await foundFacts
             listing = await foundListing
+            alsoRead = await foundAlsoRead
             isLoading = false
             if let title, summary != nil {
                 article = await WikipediaService.shared.article(englishTitle: title)
