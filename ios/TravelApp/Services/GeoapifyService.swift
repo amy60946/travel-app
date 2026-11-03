@@ -61,7 +61,7 @@ final class GeoapifyService {
         guard let url = components.url,
               let result = try? await URLSession.shared.data(from: url),
               (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return [] }
-        let places = Self.parse(result.0)
+        let places = Self.readable(Self.parse(result.0))
         cache[key] = places
         return places
     }
@@ -83,6 +83,39 @@ final class GeoapifyService {
                          openingHours: properties["opening_hours"] as? String ?? raw?["opening_hours"] as? String,
                          wikidata: raw?["wikidata"] as? String)
         }
+    }
+
+    /// Çevrede pek görülmeyen yazıyla girilmiş adlar alınmaz (Kız Kulesi
+    /// önünde Arapça adlı bir "manzara" gibi). Latin harfli adlar hep
+    /// kalır; Tokyo'da çoğunluk Japonca olduğu için Japonca adlar da kalır.
+    nonisolated static func readable(_ spots: [Spot]) -> [Spot] {
+        let scripts = spots.map { script(of: $0.name) }
+        var counts: [String: Int] = [:]
+        for script in scripts { counts[script, default: 0] += 1 }
+        let common = counts.max { $0.value < $1.value }?.key
+        return zip(spots, scripts).filter { $0.1 == "latin" || $0.1 == common }.map(\.0)
+    }
+
+    /// Adın yazısı (kaba): latin, arabic, hebrew, cyrillic, greek, cjk, hangul, thai ya da other.
+    nonisolated static func script(of name: String) -> String {
+        var found: String?
+        for scalar in name.unicodeScalars where scalar.properties.isAlphabetic {
+            let value = scalar.value
+            let script: String
+            switch value {
+            case 0x41...0x24F, 0x1E00...0x1EFF: return "latin"
+            case 0x370...0x3FF: script = "greek"
+            case 0x400...0x52F: script = "cyrillic"
+            case 0x590...0x5FF: script = "hebrew"
+            case 0x600...0x6FF, 0x750...0x77F, 0xFB50...0xFDFF, 0xFE70...0xFEFF: script = "arabic"
+            case 0xE00...0xE7F: script = "thai"
+            case 0x1100...0x11FF, 0xAC00...0xD7AF: script = "hangul"
+            case 0x3000...0x9FFF, 0xFF00...0xFFEF: script = "cjk"
+            default: script = "other"
+            }
+            if found == nil { found = script }
+        }
+        return found ?? "other"
     }
 
     nonisolated static func category(_ categories: [String]) -> PlaceCategory {

@@ -121,6 +121,22 @@ final class PlaceSourcesTests: XCTestCase {
         XCTAssertGreaterThan(spots[0].prominence, spots[1].prominence)
     }
 
+    func testDropsNamesInUncommonScript() {
+        func spot(_ name: String) -> GeoapifyService.Spot {
+            GeoapifyService.Spot(id: name, name: name, latitude: 41, longitude: 29, category: .cafe,
+                                 website: nil, openingHours: nil, wikidata: nil)
+        }
+        // İstanbul: Latin harfli adlar kalır, Arapça ad çıkar.
+        let istanbul = GeoapifyService.readable([spot("Fazıl Bey"), spot("جلسة امام برج الفتاة (m&h)"),
+                                                 spot("Korcan Aile Çay Bahçesi")])
+        XCTAssertEqual(istanbul.map(\.name), ["Fazıl Bey", "Korcan Aile Çay Bahçesi"])
+        // Tokyo: çoğunluk Japonca, Japonca adlar da Latin adlar da kalır.
+        let tokyo = GeoapifyService.readable([spot("浅草寺"), spot("カフェ ムルソー"), spot("Fuglen Asakusa"), spot("上野公園")])
+        XCTAssertEqual(tokyo.count, 4)
+        XCTAssertEqual(GeoapifyService.script(of: "123 Café"), "latin")
+        XCTAssertEqual(GeoapifyService.script(of: "Москва"), "cyrillic")
+    }
+
     func testPicksNearAndKnownSpots() {
         func spot(_ name: String, _ lat: Double, _ category: PlaceCategory, wikidata: String? = nil) -> GeoapifyService.Spot {
             GeoapifyService.Spot(id: name, name: name, latitude: lat, longitude: 29.0, category: category,

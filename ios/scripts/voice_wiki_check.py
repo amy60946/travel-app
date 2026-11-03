@@ -162,7 +162,7 @@ def source_checks():
     for feature in features[:15]:
         props = feature.get("properties", {})
         raw_tags = props.get("datasource", {}).get("raw", {})
-        print(f"   {props.get('name')}  {props.get('categories', [])[:2]}  wikidata={raw_tags.get('wikidata')}  "
+        print(f"   {props.get('name')}  {[c for c in props.get('categories', []) if '.' in c][:3]}  wikidata={raw_tags.get('wikidata')}  "
               f"site={'var' if props.get('website') or raw_tags.get('website') else '-'}")
 
 
