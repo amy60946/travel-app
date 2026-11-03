@@ -13,7 +13,7 @@ final class CloudVoice {
     static let shared = CloudVoice()
 
     /// Chirp 3 HD sesinin adı; Türkçe ve İngilizcede aynı ses.
-    static let voiceName = "Kore"
+    static let voiceName = "Aoede"
 
     private let defaults: UserDefaults
     private var inFlight: [String: Task<URL?, Never>] = [:]
@@ -77,7 +77,7 @@ final class CloudVoice {
         }
     }
 
-    /// "tr-TR-Chirp3-HD-Kore" gibi.
+    /// "tr-TR-Chirp3-HD-Aoede" gibi.
     static func voice(for language: String) -> (language: String, name: String) {
         let code = language == "tr" ? "tr-TR" : "en-US"
         return (code, "\(code)-Chirp3-HD-\(voiceName)")

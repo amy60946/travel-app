@@ -11,6 +11,7 @@
 """
 import base64
 import json
+import math
 import os
 import re
 import subprocess
@@ -40,6 +41,13 @@ def call(url, headers=None, body=None, timeout=120):
     except Exception as error:  # ağ hatası
         status, raw = 0, repr(error).encode()
     return status, raw, time.time() - started
+
+
+def haversine(a, b):
+    """İki (enlem, boylam) arası kuş uçuşu metre."""
+    lat1, lon1, lat2, lon2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
+    return 2 * 6_371_000 * math.asin(math.sqrt(h))
 
 
 def wiki(wiki_lang, params):
@@ -165,6 +173,28 @@ def source_checks():
         print(f"   {props.get('name')}  {[c for c in props.get('categories', []) if '.' in c][:3]}  wikidata={raw_tags.get('wikidata')}  "
               f"site={'var' if props.get('website') or raw_tags.get('website') else '-'}")
 
+    # Uygulamadaki gerçek yürüme süreleri: Kız Kulesi'nden yakındaki ve
+    # karşı kıyıdaki yerlere (kuş uçuşu ile yürüyerek karşılaştırma).
+    print("\n===== Geoapify Route Matrix: Kız Kulesi'nden yürüyerek")
+    targets = [("Salacak", 41.0245, 29.0070), ("Şemsi Paşa Camii", 41.0262, 29.0101),
+               ("Kuzguncuk", 41.0355, 29.0310), ("Galata Kulesi (karşı kıyı)", 41.0256, 28.9742),
+               ("Ayasofya (karşı kıyı)", 41.0086, 28.9802)]
+    body = {"mode": "walk", "sources": [{"location": [KIZ_KULESI[1], KIZ_KULESI[0]]}],
+            "targets": [{"location": [lon, lat]} for _, lat, lon in targets]}
+    status, raw, seconds = call("https://api.geoapify.com/v1/routematrix?apiKey=" + urllib.parse.quote(key), body=body)
+    print(f"   HTTP {status}, {seconds:.1f} sn")
+    if status != 200:
+        print("   " + raw.decode("utf-8", "replace")[:600])
+        return
+    result = json.loads(raw)
+    snapped = result.get("sources", [{}])[0].get("location")
+    print(f"   başlangıç yola oturtuldu: {snapped}")
+    for (name, lat, lon), cell in zip(targets, result.get("sources_to_targets", [[]])[0]):
+        straight = haversine(KIZ_KULESI, (lat, lon))
+        meters, secs = cell.get("distance"), cell.get("time")
+        walked = f"{meters:.0f} m, {secs / 60:.0f} dk" if meters is not None and secs is not None else "yol yok"
+        print(f"   {name}: kuş uçuşu {straight:.0f} m (tahmin {straight * 1.3 / 80:.0f} dk) · yürüyerek {walked}")
+
 
 def turkish_text():
     url = "https://tr.wikipedia.org/api/rest_v1/page/summary/K%C4%B1z_Kulesi"
@@ -260,7 +290,7 @@ def google_cloud_tts(text):
         return
     names = [v["name"] for v in json.loads(raw).get("voices", [])]
     print(f"   Türkçe sesler: {names}")
-    # Uygulamadaki ses (Kore) ve karşılaştırma için iki Chirp 3 HD sesi daha.
+    # Uygulamadaki ses (Aoede, Oguz seçti) ve karşılaştırma için iki Chirp 3 HD sesi daha.
     chirp = [n for n in names if "Chirp3-HD" in n]
     wanted = [f"tr-TR-Chirp3-HD-{v}" for v in ["Kore", "Aoede", "Charon"]]
     picks = [n for n in wanted if n in chirp] or chirp[:1]

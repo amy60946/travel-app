@@ -25,6 +25,8 @@ struct CityPlanView: View {
     @ObservedObject private var pinPhotos = PinPhotos.shared
     @State private var selectedDay = 0
     @State private var route: WalkingRoutes.DayRoute?
+    /// Günün yerleri arası gerçek yürüme süreleri (Geoapify).
+    @State private var walks = DayPlanner.Walks()
     @State private var sheet: AddSheet?
     /// Bakılan yer: harita ona yakınlaşır, alttan penceresi açılır.
     @State private var focusedID: UUID?
@@ -259,7 +261,7 @@ struct CityPlanView: View {
         let dayStops = store.dayStops(stops, stop: stopID)
         guard store.isSmartOrdered(day: selectedDay, stop: stopID) || dayStops.contains(where: { $0.pinned != nil })
         else { return [:] }
-        let entries = DayPlanner.schedule(dayStops, walkingMinutes: route.map { Double($0.minutes) })
+        let entries = DayPlanner.schedule(dayStops, walkingMinutes: route.map { Double($0.minutes) }, walks: walks)
         return Dictionary(entries.map { ($0.id, $0) }) { first, _ in first }
     }
 
@@ -370,8 +372,8 @@ struct CityPlanView: View {
     private func daySummary(_ stops: [Place]) -> String {
         let dayStops = store.dayStops(stops, stop: stopID)
         let walking = route.map { Double($0.minutes) }
-        let total = DayPlanner.totalMinutes(dayStops, walkingMinutes: walking)
-        let meters = route?.meters ?? DayPlanner.legMinutes(dayStops).reduce(0, +) * 80
+        let total = DayPlanner.totalMinutes(dayStops, walkingMinutes: walking, walks: walks)
+        let meters = route?.meters ?? DayPlanner.legMinutes(dayStops, walks: walks).reduce(0, +) * 80
         let kilometers = (meters / 1000).formatted(.number.precision(.fractionLength(meters < 10_000 ? 1 : 0)))
         return String(localized: "\(stops.count) durak · \(kilometers) km · yaklaşık \(DayPlanner.durationText(total))")
     }
@@ -712,7 +714,12 @@ struct CityPlanView: View {
     private func loadRoute() async {
         let stops = self.stops
         guard !stops.isEmpty, !showsAll else { route = nil; return }
+        walks = WalkingTimes.shared.table(for: stops)
         route = await WalkingRoutes.route(through: stops)
+        // Bacak süreleri ve "Akıllı sıra" için yerler arası yürüme (bir kez sorulur).
+        await WalkingTimes.shared.load(stops.map(\.coordinate))
+        guard !Task.isCancelled else { return }
+        walks = WalkingTimes.shared.table(for: stops)
     }
 
     /// Yalnızca geliştirme sürümünde (ekran görüntüleri için): `-screen spot`

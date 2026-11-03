@@ -71,7 +71,7 @@ final class CloudVoiceTests: XCTestCase {
 
     @MainActor
     func testVoiceNamesAndCacheFiles() {
-        XCTAssertEqual(CloudVoice.voice(for: "tr").name, "tr-TR-Chirp3-HD-Kore")
+        XCTAssertEqual(CloudVoice.voice(for: "tr").name, "tr-TR-Chirp3-HD-Aoede")
         XCTAssertEqual(CloudVoice.voice(for: "en").language, "en-US")
         let first = CloudVoice.cacheFile(text: "Merhaba.", voice: "tr-TR-Chirp3-HD-Kore")
         XCTAssertEqual(first, CloudVoice.cacheFile(text: "Merhaba.", voice: "tr-TR-Chirp3-HD-Kore"))

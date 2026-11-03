@@ -46,6 +46,8 @@ struct AddPlaceView: View {
     @State private var nearbySpots: [GeoapifyService.Spot] = []
     /// Bu pencerede yakındaki önerilerden eklenenler: yenilenen listede yerinde kalır (✓).
     @State private var addedHere: Set<String> = []
+    /// Gerçek yürüme süreleri gelince artar (alt yazılar yenilensin).
+    @State private var walkVersion = 0
 
     init(city: String, stop: UUID? = nil, day: Int = 0) {
         self.city = city
@@ -326,8 +328,17 @@ struct AddPlaceView: View {
         category == .food || category == .cafe || category == .bar
     }
 
-    /// "yürüyerek 4 dk · Kız Kulesi yakınında": süre önde, satıra sığmasa da görünür.
+    /// "yürüyerek 4 dk · Kız Kulesi yakınında": süre önde, satıra sığmasa da
+    /// görünür. Gerçek yürüme süresi biliniyorsa o (en kısa yürünen yer).
     private func walkSubtitle(to location: CLLocation) -> String? {
+        _ = walkVersion
+        let walked = dayPlaces.compactMap { place in
+            WalkingTimes.shared.walk(place.coordinate, location.coordinate).map { (place, $0) }
+        }
+        .min { $0.1.seconds < $1.1.seconds }
+        if let walked {
+            return Self.walkText(minutes: max(Int(walked.1.minutes.rounded()), 1), near: walked.0.name)
+        }
         guard let nearest = dayPlaces.min(by: {
             $0.location.distance(from: location) < $1.location.distance(from: location)
         }) else { return nil }
@@ -521,6 +532,19 @@ struct AddPlaceView: View {
             nearbyFood = Array(food.filter { !plannedIDs.contains($0.id) }.prefix(5))
         } else {
             nearbyFood = []
+        }
+
+        // Gerçek yürüme süreleri (Geoapify): her önerinin kuş uçuşu en yakın
+        // yerine; karşı kıyıdaki gibi yürüyerek uzak öneriler çıkar.
+        guard WalkingTimes.shared.isAvailable else { return }
+        let points = nearby.map(\.coordinate) + spots.map(\.coordinate) + nearbyFood.map(\.coordinate)
+        let near = Recommender.nearestAnchors(to: points, in: day)
+        await WalkingTimes.shared.load(from: points, to: near.map(\.coordinate))
+        guard !Task.isCancelled else { return }
+        let walked = Recommender.applyingWalks(fresh, anchors: day) { WalkingTimes.shared.walk($0.coordinate, $1) }
+        withAnimation(.snappy) {
+            nearby = Recommender.merge(walked, previous: nearby, keeping: addedHere)
+            walkVersion += 1
         }
     }
 

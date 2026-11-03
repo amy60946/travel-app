@@ -4,8 +4,9 @@ import Foundation
 ///
 /// - Saat tahmini: gün 09:00'da başlar; her yere varış = önceki yerden
 ///   ayrılış + yürüme. Saati sabitlenen yere erken varılırsa o saate kadar
-///   beklenir. Yürüme süresi Google'ın yürüyüş rotasından (biliniyorsa)
-///   bacaklara mesafeye göre paylaştırılır; yoksa düz mesafe × 1,3, 80 m/dk.
+///   beklenir. Bacakların yürüme süresi Geoapify'ın yürüme yolundan
+///   (`Walks`, biliniyorsa), yoksa düz mesafe × 1,3, 80 m/dk; Google'ın
+///   yürüyüş rotası biliniyorsa toplam ona göre ölçeklenir.
 /// - Akıllı sıra: müze ve tapınaklar sabah, yemek öğle (11:30–14:00) ve akşam
 ///   (18:00–21:00), manzara gün batımına doğru, alışveriş ve bar gün sonunda;
 ///   aynı zamanda az yürüme. Saati sabitlenen yere o saatte varılır.
@@ -33,6 +34,18 @@ enum DayPlanner {
         case pinned, morning, lunch, dinner, sunset, evening
     }
 
+    /// Yerler arası gerçek yürüme süreleri (dakika, Geoapify); olmayan
+    /// çiftte kuş uçuşu tahmin kullanılır.
+    struct Walks: Equatable {
+        struct Leg: Hashable {
+            let from: UUID
+            let to: UUID
+        }
+        var minutes: [Leg: Double] = [:]
+
+        subscript(from: UUID, to: UUID) -> Double? { minutes[Leg(from: from, to: to)] }
+    }
+
     /// Günün başlangıcı: 09:00.
     static let dayStart = 9 * 60
     /// Yürüme hızı (m/dk) ve sokakların düz çizgiden uzunluğu.
@@ -43,8 +56,9 @@ enum DayPlanner {
 
     /// Sıradaki yerlere varış saatleri. `walkingMinutes`: Google'ın bu sıra
     /// için bulduğu toplam yürüme süresi (varsa bacaklara paylaştırılır).
-    static func schedule(_ stops: [Stop], start: Int = DayPlanner.dayStart, walkingMinutes: Double? = nil) -> [Entry] {
-        let legs = legMinutes(stops, total: walkingMinutes)
+    static func schedule(_ stops: [Stop], start: Int = DayPlanner.dayStart, walkingMinutes: Double? = nil,
+                         walks: Walks = Walks()) -> [Entry] {
+        let legs = legMinutes(stops, total: walkingMinutes, walks: walks)
         var time = Double(start)
         var entries: [Entry] = []
         for (index, stop) in stops.enumerated() {
@@ -58,21 +72,26 @@ enum DayPlanner {
 
     /// Günün toplam süresi (dakika): ilk yere varıştan son yerden ayrılışa
     /// (yürüme, gezme ve sabit saate kadar bekleme).
-    static func totalMinutes(_ stops: [Stop], walkingMinutes: Double? = nil) -> Int {
+    static func totalMinutes(_ stops: [Stop], walkingMinutes: Double? = nil, walks: Walks = Walks()) -> Int {
         guard let last = stops.last else { return 0 }
-        let entries = schedule(stops, walkingMinutes: walkingMinutes)
+        let entries = schedule(stops, walkingMinutes: walkingMinutes, walks: walks)
         guard let end = entries.last?.arrival, let first = entries.first?.arrival else { return 0 }
         return end + last.visitMinutes - first
     }
 
-    /// Bacakların yürüme süresi: Google toplamı düz mesafeye göre
-    /// paylaştırılır; toplam yoksa düz mesafeden tahmin.
-    static func legMinutes(_ stops: [Stop], total: Double? = nil) -> [Double] {
-        let estimates = zip(stops, stops.dropFirst()).map { walk($0, $1) }
+    /// Bacakların yürüme süresi: gerçek yürüme süresi ya da düz mesafeden
+    /// tahmin; Google toplamı varsa bacaklara bu oranla paylaştırılır.
+    static func legMinutes(_ stops: [Stop], total: Double? = nil, walks: Walks = Walks()) -> [Double] {
+        let estimates = zip(stops, stops.dropFirst()).map { leg($0, $1, walks) }
         guard let total, total > 0 else { return estimates }
         let sum = estimates.reduce(0, +)
         guard sum > 0 else { return estimates.map { _ in total / Double(max(estimates.count, 1)) } }
         return estimates.map { $0 / sum * total }
+    }
+
+    /// İki yer arası yürüme (dakika): gerçek süre biliniyorsa o, yoksa tahmin.
+    static func leg(_ a: Stop, _ b: Stop, _ walks: Walks) -> Double {
+        walks[a.id, b.id] ?? walk(a, b)
     }
 
     /// İki yer arası tahmini yürüme (dakika).
@@ -108,18 +127,18 @@ enum DayPlanner {
     /// Önerilen sıralar (en iyisi önce, en çok `count`). `origin`: başlangıç
     /// noktası (ör. kullanıcının konumu); yoksa ilk yer saatine göre seçilir.
     static func smartOrders(_ stops: [Stop], origin: (latitude: Double, longitude: Double)? = nil,
-                            start: Int = DayPlanner.dayStart, count: Int = 3) -> [[Stop]] {
+                            start: Int = DayPlanner.dayStart, count: Int = 3, walks: Walks = Walks()) -> [[Stop]] {
         guard stops.count > 1 else { return stops.isEmpty ? [] : [stops] }
         var seen: Set<[UUID]> = []
         var results: [(order: [Stop], cost: Double)] = []
         let firsts: [Stop?] = [nil] + stops.filter { $0.pinned == nil }.map { Optional($0) }
         for weight in [1.0, 0.5, 2.0] {
             for first in firsts {
-                let order = greedy(stops, origin: origin, first: first, weight: weight, start: start)
+                let order = greedy(stops, origin: origin, first: first, weight: weight, start: start, walks: walks)
                 let ids = order.map(\.id)
                 guard !seen.contains(ids) else { continue }
                 seen.insert(ids)
-                results.append((order, cost(order, origin: origin, start: start)))
+                results.append((order, cost(order, origin: origin, start: start, walks: walks)))
             }
         }
         return results.sorted { $0.cost < $1.cost }.prefix(count).map { $0.order }
@@ -127,12 +146,13 @@ enum DayPlanner {
 
     /// Sıranın maliyeti: yürüme + saatine uymayan dakikalar + bekleme.
     static func cost(_ order: [Stop], origin: (latitude: Double, longitude: Double)? = nil,
-                     start: Int = DayPlanner.dayStart) -> Double {
+                     start: Int = DayPlanner.dayStart, walks: Walks = Walks()) -> Double {
         var time = Double(start)
         var total = 0.0
         var previous: Stop?
         for stop in order {
-            let travel = previous.map { walk($0, stop) } ?? origin.map { walk(from: ($0.latitude, $0.longitude), to: stop) } ?? 0
+            let travel = previous.map { leg($0, stop, walks) }
+                ?? origin.map { walk(from: ($0.latitude, $0.longitude), to: stop) } ?? 0
             time += travel
             total += travel
             if let pinned = stop.pinned {
@@ -150,18 +170,22 @@ enum DayPlanner {
     }
 
     private static func greedy(_ stops: [Stop], origin: (latitude: Double, longitude: Double)?, first: Stop?,
-                               weight: Double, start: Int) -> [Stop] {
+                               weight: Double, start: Int, walks: Walks) -> [Stop] {
         var remaining = stops
         var order: [Stop] = []
         var time = Double(start)
-        var position: (Double, Double)? = origin.map { ($0.latitude, $0.longitude) }
+        let position: (Double, Double)? = origin.map { ($0.latitude, $0.longitude) }
+
+        /// Son yerden (ilk adımda başlangıçtan) bu yere yürüme.
+        func minutes(to stop: Stop) -> Double {
+            if let previous = order.last { return leg(previous, stop, walks) }
+            return position.map { walk(from: $0, to: stop) } ?? 0
+        }
 
         func visit(_ stop: Stop) {
-            let travel = position.map { walk(from: $0, to: stop) } ?? 0
-            time += travel
+            time += minutes(to: stop)
             if let pinned = stop.pinned { time = max(time, Double(pinned)) }
             time += Double(stop.visitMinutes)
-            position = (stop.latitude, stop.longitude)
             order.append(stop)
             remaining.removeAll { $0.id == stop.id }
         }
@@ -172,15 +196,15 @@ enum DayPlanner {
             let nextPinned = remaining.filter { $0.pinned != nil }.min { $0.pinned! < $1.pinned! }
             var best: (stop: Stop, score: Double)?
             for stop in remaining where stop.pinned == nil {
-                let travel = position.map { walk(from: $0, to: stop) } ?? 0
+                let travel = minutes(to: stop)
                 let arrival = time + travel
                 let mismatch = penalty(stop.category, at: arrival)
                 if let pinnedStop = nextPinned, let pinned = pinnedStop.pinned {
                     let leave = arrival + Double(stop.visitMinutes)
-                    if leave + walk(stop, pinnedStop) > Double(pinned) + 10 { continue }
+                    if leave + leg(stop, pinnedStop, walks) > Double(pinned) + 10 { continue }
                     // Sabit saatli yerden sonrası bu yere daha uygunsa ertelenir
                     // (ör. manzara akşam yemeğinden sonra, gün batımına doğru).
-                    let later = Double(pinned + pinnedStop.visitMinutes) + walk(pinnedStop, stop)
+                    let later = Double(pinned + pinnedStop.visitMinutes) + leg(pinnedStop, stop, walks)
                     if penalty(stop.category, at: later) + 30 < mismatch { continue }
                 }
                 let score = travel + weight * mismatch

@@ -1,6 +1,13 @@
 import CoreLocation
 import Foundation
 
+/// İki yer arası yürüme (Geoapify, OpenStreetMap yolları).
+struct WalkLeg: Codable, Equatable {
+    var meters: Double
+    var seconds: Double
+    var minutes: Double { seconds / 60 }
+}
+
 /// Geoapify Places (OpenStreetMap verisi; ücretsiz planda günde 3.000
 /// istek, kart yok, Oguz'un 2026-11-03 kararı): yakındaki kafe, restoran,
 /// park ve manzara noktaları. "Yer ekle"deki "Yakında yemek, kahve ve park"
@@ -46,7 +53,8 @@ final class GeoapifyService {
     func nearby(_ center: CLLocationCoordinate2D, radius: Int = 900, food: Bool) async -> [Spot] {
         let key = "\(food)|\((center.latitude * 500).rounded())|\((center.longitude * 500).rounded())"
         if let cached = cache[key] { return cached }
-        guard let apiKey = Self.apiKey, !Self.skipsForScreenshot, Self.takeAllowance() else { return [] }
+        // 40 sonuç 2 kredi (her 20 sonuç 1 kredi).
+        guard let apiKey = Self.apiKey, !Self.skipsForScreenshot, Self.spend(2) else { return [] }
         var categories = ["leisure.park", "tourism.attraction.viewpoint"]
         if food { categories = ["catering.restaurant", "catering.cafe"] + categories }
         var components = URLComponents(string: "https://api.geoapify.com/v2/places")!
@@ -146,12 +154,66 @@ final class GeoapifyService {
         return Array(food) + Array(outdoors)
     }
 
-    /// Telefon başına günde en çok 200 istek (ücretsiz plan günde 3.000).
-    private static func takeAllowance() -> Bool {
-        let key = "geoapify|" + Date().formatted(.iso8601.year().month().day())
+    // MARK: - Yürüme süreleri
+
+    /// Kaynaklardan hedeflere yürüyerek süre ve mesafe (Route Matrix, Oguz'un
+    /// 2026-11-03 kararı). `nil`: istek yapılamadı; hücrede `nil`: yol yok.
+    func walkingMatrix(sources: [CLLocationCoordinate2D], targets: [CLLocationCoordinate2D]) async -> [[WalkLeg?]]? {
+        guard let apiKey = Self.apiKey, !Self.skipsForScreenshot, !sources.isEmpty, !targets.isEmpty,
+              sources.count * targets.count <= 1000,
+              Self.spend(Self.matrixCredits(sources: sources.count, targets: targets.count)) else { return nil }
+        var components = URLComponents(string: "https://api.geoapify.com/v1/routematrix")!
+        components.queryItems = [.init(name: "apiKey", value: apiKey)]
+        guard let url = components.url else { return nil }
+        func points(_ list: [CLLocationCoordinate2D]) -> [[String: Any]] {
+            list.map { ["location": [$0.longitude, $0.latitude]] }
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "mode": "walk", "sources": points(sources), "targets": points(targets),
+        ] as [String: Any])
+        guard let result = try? await URLSession.shared.data(for: request),
+              (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return Self.parseMatrix(result.0, sources: sources.count, targets: targets.count)
+    }
+
+    /// Geoapify'ın fiyatı: büyük taraf × küçük taraf (en çok 10).
+    nonisolated static func matrixCredits(sources: Int, targets: Int) -> Int {
+        max(sources, targets) * min(sources, targets, 10)
+    }
+
+    /// `sources_to_targets[i][j]`: i. kaynaktan j. hedefe; süre saniye, mesafe metre.
+    nonisolated static func parseMatrix(_ data: Data, sources: Int, targets: Int) -> [[WalkLeg?]]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rows = json["sources_to_targets"] as? [[Any]] else { return nil }
+        var matrix = Array(repeating: [WalkLeg?](repeating: nil, count: targets), count: sources)
+        for (rowIndex, row) in rows.enumerated() {
+            for (cellIndex, value) in row.enumerated() {
+                guard let cell = value as? [String: Any] else { continue }
+                let i = cell["source_index"] as? Int ?? rowIndex
+                let j = cell["target_index"] as? Int ?? cellIndex
+                guard matrix.indices.contains(i), matrix[i].indices.contains(j),
+                      let meters = (cell["distance"] as? NSNumber)?.doubleValue,
+                      let seconds = (cell["time"] as? NSNumber)?.doubleValue else { continue }
+                matrix[i][j] = WalkLeg(meters: meters, seconds: seconds)
+            }
+        }
+        return matrix
+    }
+
+    // MARK: - Kota
+
+    /// Telefon başına günde en çok 1.000 kredi; ücretsiz planın günde 3.000
+    /// kredisi bütün kullanıcılar için ortak.
+    static let dailyCredits = 1_000
+
+    static func spend(_ credits: Int) -> Bool {
+        let key = "geoapify-credits|" + Date().formatted(.iso8601.year().month().day())
         let used = UserDefaults.standard.integer(forKey: key)
-        guard used < 200 else { return false }
-        UserDefaults.standard.set(used + 1, forKey: key)
+        guard used + credits <= dailyCredits else { return false }
+        UserDefaults.standard.set(used + credits, forKey: key)
         return true
     }
 

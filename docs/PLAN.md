@@ -179,8 +179,8 @@ Onay bekleyen öneriler buraya yazılır.
   park" Geoapify'dan (anahtar gelince; yoksa yemek Google'dan).
   Sonra düşünülebilir: Geoapify kaydındaki Wikidata bağlantısıyla
   restoran/kafe fotoğrafı; Wikivoyage listelerini öneri adayı yapmak.
-- 2026-11-03: **Geoapify'dan ek ücretsiz API önerisi** (Oguz sordu, karar
-  bekliyor). Şimdi gün sırası, gün süresi ve "Yakınındaki popüler
+- 2026-11-03: **Geoapify'dan ek ücretsiz API önerisi** (Oguz sordu;
+  karar: "Yürüme sürelerini ekle", Route Matrix yapıldı). Şimdi gün sırası, gün süresi ve "Yakınındaki popüler
   yerler"deki "yürüyerek n dk" düz çizgi × 1,3 ile hesaplanıyor; Boğaz
   gibi su ya da otoyol aşan yerler olduğundan yakın görünebiliyor.
   Öneri: **Route Matrix** (yürüyerek gerçek süre, tüm yerler arası tek
