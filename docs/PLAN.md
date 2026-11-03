@@ -179,3 +179,22 @@ Onay bekleyen öneriler buraya yazılır.
   park" Geoapify'dan (anahtar gelince; yoksa yemek Google'dan).
   Sonra düşünülebilir: Geoapify kaydındaki Wikidata bağlantısıyla
   restoran/kafe fotoğrafı; Wikivoyage listelerini öneri adayı yapmak.
+- 2026-11-03: **Geoapify'dan ek ücretsiz API önerisi** (Oguz sordu, karar
+  bekliyor). Şimdi gün sırası, gün süresi ve "Yakınındaki popüler
+  yerler"deki "yürüyerek n dk" düz çizgi × 1,3 ile hesaplanıyor; Boğaz
+  gibi su ya da otoyol aşan yerler olduğundan yakın görünebiliyor.
+  Öneri: **Route Matrix** (yürüyerek gerçek süre, tüm yerler arası tek
+  istekte; 8 yerlik gün ~64 kredi, ücretsiz plan günde 3.000) ile Akıllı
+  sıra, gün süresi ve önerilerde gerçek yürüme dakikası; 25 dakikadan uzak
+  öneri çıkmaz. Sonra düşünülebilir: **Route Planner** (açılış saatleri ve
+  gezme süreleriyle en iyi sıra). Geocoding, harita ve yer ayrıntısı
+  gerekmez (Google var). Not: 3.000 kredi bütün kullanıcılarla ortak;
+  uygulama herkese açılınca yeniden bakılır.
+- 2026-11-03: **Öneri sistemi** (Oguz sordu): yapay zekâ ya da hazır bir
+  öneri servisi yok, puanlama uygulamanın içinde (Recommender.swift):
+  bilinirlik (Wikipedia 30 gün okunma), yakınlık (günün en yakın yeri,
+  en çok 2 km), zevk (kayıtlı yerlerde türün payı), çeşitlilik ve
+  fotoğraf. Yemek/kafe/park için Geoapify (OSM) ve gerekirse Google
+  popüler restoranlar. "Bunu kaydedenler şunları da ekledi" türü
+  (Wanderlog, Polarsteps) çok kullanıcı verisi ister; paylaşılan geziler
+  çoğalınca Supabase'ten yapılabilir.
