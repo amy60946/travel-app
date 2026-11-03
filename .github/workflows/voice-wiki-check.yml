@@ -25,6 +25,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          GEOAPIFY_API_KEY: ${{ secrets.GEOAPIFY_API_KEY }}
           SES_OUT: ${{ runner.temp }}/ses
           # Elle başlatınca Gemini TTS'in günlük ücretsiz sınırı da ölçülür.
           TTS_QUOTA: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}

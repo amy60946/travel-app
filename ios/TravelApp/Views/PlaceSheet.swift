@@ -29,6 +29,10 @@ struct PlaceSheet: View {
     @State private var guidance: GuidanceDestination?
     /// Google'dan puan, saatler, telefon, yorumlar (ve Wikipedia'da yoksa fotoğraflar).
     @State private var google: GooglePlaces.Details?
+    /// Wikidata'dan yapım yılı, mimar, üslup, resmi site...
+    @State private var facts: WikidataService.Facts?
+    /// Wikivoyage'da gezginlerin yazdığı not (saat, fiyat).
+    @State private var listing: WikivoyageListings.Listing?
     @State private var editsNote = false
 
     var body: some View {
@@ -155,11 +159,13 @@ struct PlaceSheet: View {
         }
     }
 
-    /// Dinle kartı ve Wikipedia yazısı; yazı yoksa notu.
+    /// Dinle kartı, kısa bilgiler (gezgin notu, Wikidata) ve Wikipedia
+    /// yazısı; uzun yazı bilgileri aşağıda bırakmasın diye bilgiler önce.
     @ViewBuilder
     private func about(_ place: Place) -> some View {
         if let summary {
             ListenCard(title: place.name, summary: summary, article: article)
+            sourceCards
             VStack(alignment: .leading, spacing: 8) {
                 Text("Hakkında").font(Theme.headline)
                 Text(summary.extract).font(Theme.body)
@@ -176,11 +182,21 @@ struct PlaceSheet: View {
             }
         } else if isLoading {
             ProgressView().frame(maxWidth: .infinity)
+        } else if let listing {
+            // Wikipedia yazısı yok: gezgin notu dinlenir.
+            ListenCard(title: place.name, summary: listing.summary)
+            sourceCards
         } else {
             Text("Bu yer hakkında Wikipedia'da yazı bulunamadı.")
                 .font(Theme.font(14))
                 .foregroundStyle(Theme.muted)
         }
+    }
+
+    @ViewBuilder
+    private var sourceCards: some View {
+        if let listing { TravelerNoteCard(listing: listing) }
+        if let facts, !facts.isEmpty { PlaceFactsCard(facts: facts) }
     }
 
     /// Wikipedia sayfası yoksa yakındaki sayfalardan adı örtüşeni bulup
@@ -190,6 +206,8 @@ struct PlaceSheet: View {
         isLoadingPhotos = true
         summary = nil
         article = nil
+        facts = nil
+        listing = nil
         photos = []
         photosAreNearby = false
         defer { isLoading = false }
@@ -197,13 +215,20 @@ struct PlaceSheet: View {
         // Fotoğraflar yazıyı (çeviri sürebilir) beklemeden gelsin.
         let englishTitle = await store.wikipediaTitle(for: place)
         async let foundSummary = loadSummary(englishTitle)
+        async let foundFacts = loadFacts(englishTitle)
+        async let foundListing = WikivoyageListings.shared.listing(name: place.name, englishTitle: englishTitle,
+                                                                   latitude: place.latitude, longitude: place.longitude)
         if let englishTitle { photos = await WikipediaService.shared.photos(englishTitle: englishTitle) }
+        facts = await foundFacts
+        // Wikipedia sayfasında fotoğraf yoksa Wikidata'daki fotoğraf.
+        if photos.isEmpty, let image = facts?.imageURL { photos = [image] }
         if photos.isEmpty {
             photos = await WikipediaService.shared.nearbyPhotos(latitude: place.latitude, longitude: place.longitude)
             photosAreNearby = !photos.isEmpty
         }
         isLoadingPhotos = false
         summary = await foundSummary
+        listing = await foundListing
         // Yazının tamamı (çevirisi sürebilir) özetten sonra.
         if let englishTitle, summary != nil {
             isLoadingArticle = true
@@ -214,6 +239,11 @@ struct PlaceSheet: View {
         // Ekran görüntüsü için: `-screen photo` fotoğrafı tam ekran açar.
         if UserDefaults.standard.string(forKey: "screen") == "photo", !photos.isEmpty { viewerIndex = 0 }
         #endif
+    }
+
+    private func loadFacts(_ englishTitle: String?) async -> WikidataService.Facts? {
+        guard let englishTitle else { return nil }
+        return await WikidataService.shared.facts(wikipediaTitle: englishTitle)
     }
 
     private func loadSummary(_ englishTitle: String?) async -> WikipediaService.Summary? {

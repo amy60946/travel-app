@@ -30,6 +30,7 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       # Google Haritalar anahtarı (yalnızca io.travelapp.ios'a kilitli).
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      GEOAPIFY_API_KEY: ${{ secrets.GEOAPIFY_API_KEY }}
       # Gezi paylaşımı ve profil (Supabase); boşsa paylaşım bölümleri görünmez.
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -120,6 +121,7 @@ jobs:
               GEMINI_API_KEY="$GEMINI_API_KEY" \
               GROQ_API_KEY="$GROQ_API_KEY" \
               GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_API_KEY" \
+              GEOAPIFY_API_KEY="$GEOAPIFY_API_KEY" \
               SUPABASE_URL="$SUPABASE_URL" \
               SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
               APP_ENTITLEMENTS="$APP_ENTITLEMENTS" \

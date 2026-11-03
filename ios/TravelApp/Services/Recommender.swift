@@ -22,10 +22,18 @@ enum Recommender {
         var anchorName: String
         var distance: CLLocationDistance
         var score: Double
+        /// Gerçek yürüme süresi (Geoapify), biliniyorsa.
+        var walkSeconds: Double?
         var id: String { place.id }
 
-        /// Yürüyerek yaklaşık dakika (yol düz çizgiden ~%30 uzun, dakikada 80 m).
-        var walkingMinutes: Int { max(Int((distance * 1.3 / 80).rounded()), 1) }
+        /// Yürüyerek dakika: gerçek süre ya da tahmin (yol düz çizgiden ~%30
+        /// uzun, dakikada 80 m).
+        var walkingMinutes: Int {
+            if let walkSeconds { return max(Int((walkSeconds / 60).rounded()), 1) }
+            return max(Int((distance * 1.3 / 80).rounded()), 1)
+        }
+
+        var coordinate: CLLocationCoordinate2D { .init(latitude: place.latitude, longitude: place.longitude) }
     }
 
     /// Bir yere bu kadar uzaktakiler önerilmez.
@@ -70,6 +78,46 @@ enum Recommender {
                               distance: distance, score: score)
         }
         return Array(suggestions.sorted { $0.score > $1.score }.prefix(limit))
+    }
+
+    /// Gerçek yürüme bundan uzunsa öneri çıkar (2 km kuş uçuşu ≈ 33 dk).
+    static let maxWalkingMinutes = 35.0
+
+    /// Gerçek yürüme süreleri gelince: en yakın yer, dakika ve yakınlık puanı
+    /// yürüme yoluna göre; Boğaz'ın karşı yakası gibi kuş uçuşu yakın ama
+    /// yürüyerek uzak yerler çıkar. Süresi bilinmeyen öneri olduğu gibi kalır.
+    static func applyingWalks(_ suggestions: [Suggestion], anchors: [Place],
+                              walk: (Place, CLLocationCoordinate2D) -> WalkLeg?) -> [Suggestion] {
+        suggestions.compactMap { suggestion -> Suggestion? in
+            let walked = anchors.compactMap { anchor in walk(anchor, suggestion.coordinate).map { (anchor, $0) } }
+                .min { $0.1.meters < $1.1.meters }
+            guard let walked else { return suggestion }
+            let (anchor, leg) = walked
+            guard leg.minutes <= maxWalkingMinutes else { return nil }
+            var updated = suggestion
+            // Yürüme yolu kuş uçuşundan ~%30 uzun: aynı ölçekte karşılaştırılır.
+            let before = 0.35 + 0.65 * exp(-suggestion.distance / distanceScale)
+            let after = 0.35 + 0.65 * exp(-(leg.meters / 1.3) / distanceScale)
+            updated.score = suggestion.score / before * after
+            updated.anchorName = anchor.name
+            updated.walkSeconds = leg.minutes * 60
+            return updated
+        }
+        .sorted { $0.score > $1.score }
+    }
+
+    /// Her noktaya kuş uçuşu en yakın günün yerleri (yürüme süresi bunlara
+    /// sorulur), en çok `limit`.
+    static func nearestAnchors(to points: [CLLocationCoordinate2D], in day: [Place], limit: Int = 5) -> [Place] {
+        var chosen: [Place] = []
+        for point in points {
+            let location = CLLocation(latitude: point.latitude, longitude: point.longitude)
+            guard let nearest = day.min(by: { $0.location.distance(from: location) < $1.location.distance(from: location) }),
+                  !chosen.contains(where: { $0.id == nearest.id }) else { continue }
+            chosen.append(nearest)
+            if chosen.count == limit { break }
+        }
+        return chosen
     }
 
     /// Yeni sıralamada, bu pencerede eklenen yerler (✓) eski yerlerinde

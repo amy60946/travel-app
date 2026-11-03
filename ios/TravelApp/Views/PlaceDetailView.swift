@@ -12,6 +12,9 @@ struct PlaceDetailView: View {
     @State private var isLoading = true
     @State private var google: GooglePlaces.Details?
     @State private var editsNote = false
+    /// Wikidata bilgileri ve Wikivoyage gezgin notu.
+    @State private var facts: WikidataService.Facts?
+    @State private var listing: WikivoyageListings.Listing?
 
     var body: some View {
         if let place = store.place(placeID) {
@@ -61,7 +64,11 @@ struct PlaceDetailView: View {
                             .foregroundStyle(Theme.muted)
                     }
 
-                    ListenCard(title: place.name, summary: summary, article: article)
+                    // Wikipedia yazısı yoksa gezgin notu dinlenir.
+                    ListenCard(title: place.name, summary: summary ?? listing?.summary, article: article)
+
+                    if let listing { TravelerNoteCard(listing: listing) }
+                    if let facts, !facts.isEmpty { PlaceFactsCard(facts: facts) }
 
                     if let summary {
                         VStack(alignment: .leading, spacing: 8) {
@@ -97,15 +104,25 @@ struct PlaceDetailView: View {
         .task(id: place.wikipediaTitle) {
             isLoading = true
             let title = await store.wikipediaTitle(for: place)
+            async let foundFacts = Self.facts(title)
+            async let foundListing = WikivoyageListings.shared.listing(name: place.name, englishTitle: title,
+                                                                       latitude: place.latitude, longitude: place.longitude)
             if let title {
                 summary = await WikipediaService.shared.summary(englishTitle: title)
             }
+            facts = await foundFacts
+            listing = await foundListing
             isLoading = false
             if let title, summary != nil {
                 article = await WikipediaService.shared.article(englishTitle: title)
             }
         }
         .task(id: place.id) { google = await GooglePlaces.shared.details(for: place, store: store) }
+    }
+
+    private static func facts(_ title: String?) async -> WikidataService.Facts? {
+        guard let title else { return nil }
+        return await WikidataService.shared.facts(wikipediaTitle: title)
     }
 
     /// Tür (haritadaki pinin rengi ve simgesi); yanlış tahmin edildiyse

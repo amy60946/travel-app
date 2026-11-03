@@ -15,6 +15,8 @@ struct DayOrderSheet: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var option = 0
+    /// Yerler arası gerçek yürüme süreleri (Geoapify); gelene kadar tahmin.
+    @State private var walks = DayPlanner.Walks()
 
     private var places: [Place] {
         let days = store.dayPlan(stop: stopID)
@@ -22,7 +24,7 @@ struct DayOrderSheet: View {
     }
 
     private var smartOptions: [[DayPlanner.Stop]] {
-        DayPlanner.smartOrders(store.dayStops(places, stop: stopID))
+        DayPlanner.smartOrders(store.dayStops(places, stop: stopID), walks: walks)
     }
 
     private var shortest: [DayPlanner.Stop] {
@@ -57,7 +59,7 @@ struct DayOrderSheet: View {
                         .foregroundStyle(Theme.muted)
                     summary(proposal)
                     VStack(spacing: 0) {
-                        let entries = DayPlanner.schedule(proposal)
+                        let entries = DayPlanner.schedule(proposal, walks: walks)
                         ForEach(Array(proposal.enumerated()), id: \.element.id) { index, stop in
                             if let place = store.place(stop.id), entries.indices.contains(index) {
                                 row(place, entry: entries[index])
@@ -98,15 +100,20 @@ struct DayOrderSheet: View {
                 }
             }
             .onChange(of: mode) { option = 0 }
+            .task {
+                walks = WalkingTimes.shared.table(for: places)
+                await WalkingTimes.shared.load(places.map(\.coordinate))
+                walks = WalkingTimes.shared.table(for: places)
+            }
         }
         .presentationDetents([.large])
     }
 
     /// "6 durak · ~4 km · yaklaşık 5 sa 30 dk" ve (akıllı sırada) "Öneri 1/3".
     private func summary(_ proposal: [DayPlanner.Stop]) -> some View {
-        let walk = DayPlanner.legMinutes(proposal).reduce(0, +)
+        let walk = DayPlanner.legMinutes(proposal, walks: walks).reduce(0, +)
         let kilometers = walk * 80 / 1000
-        let total = DayPlanner.totalMinutes(proposal)
+        let total = DayPlanner.totalMinutes(proposal, walks: walks)
         return HStack {
             Text("\(proposal.count) durak · ~\(kilometers.formatted(.number.precision(.fractionLength(1)))) km · yaklaşık \(DayPlanner.durationText(total))")
                 .font(Theme.font(14, .semibold))

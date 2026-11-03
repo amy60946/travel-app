@@ -1,13 +1,16 @@
 import AVFoundation
 
-/// Anlatımları iPhone'un kendi sesiyle okur (ücretsiz, internetsiz).
-/// Yeni anlatım başlarken öncekini durdurur; anlatımlar üst üste binmez.
+/// Anlatımları Google'ın doğal sesiyle (Chirp 3 HD, `CloudVoice`) okur;
+/// olmazsa (sınır, internet yok, anahtar yok) iPhone'un kendi sesiyle.
+/// Google sesinde yazı parça parça (cümle sonlarından) sese çevrilir: ilk
+/// parça kısa olduğu için okuma hemen başlar, sonraki parçalar okunurken
+/// hazırlanır. Yeni anlatım başlarken öncekini durdurur; anlatımlar üst üste binmez.
 /// Ekranın altındaki çubuktan duraklatılır, 10 sn geri ya da ileri ya da
 /// çizgiden istenen yere sarılır. Uzun yazılar bölüm bölüm okunur
 /// (Hakkında, Tarihçe, Mimari...): bir bölüme atlanır, bölüm atlanabilir;
 /// hız 0,75x – 1,5x arası seçilir.
 @MainActor
-final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
+final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     static let shared = Narrator()
 
     /// Anlatımın bir bölümü; `start` bölümün yazıdaki başlangıcı.
@@ -50,6 +53,17 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     /// iPhone sesinin saniyede okuduğu yaklaşık harf (normal hızda).
     private static let charactersPerSecond = 14.0
 
+    // Google sesi
+    /// Bu anlatım Google sesiyle mi okunuyor.
+    private var usesCloud = false
+    /// Yazının sese çevrilen parçaları (yazıdaki yerleri).
+    private var segments: [NSRange] = []
+    private var segmentIndex = 0
+    private var player: AVAudioPlayer?
+    private var ticker: Timer?
+    /// Her parça başlatılışı yeni bir kimlik alır; geç gelen eski ses çalınmaz.
+    private var playback = UUID()
+
     override init() {
         let stored = UserDefaults.standard.double(forKey: Self.rateKey)
         rate = Self.rates.contains(stored) ? stored : 1
@@ -58,7 +72,9 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     }
 
     var isActive: Bool { currentTitle != nil }
-    var isSpeaking: Bool { synthesizer.isSpeaking && !synthesizer.isPaused }
+    var isSpeaking: Bool {
+        usesCloud ? isActive && !isPaused : synthesizer.isSpeaking && !synthesizer.isPaused
+    }
 
     private var charactersPerSecond: Double { Self.charactersPerSecond * rate }
 
@@ -122,6 +138,8 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         skippedChapters = []
         chapterIndex = 0
         currentTitle = title
+        usesCloud = CloudVoice.shared.isAvailable
+        segments = usesCloud ? Self.voiceSegments(of: full, breaks: found.map(\.start)) : []
         play(from: 0)
     }
 
@@ -143,8 +161,12 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             full += spoken
             found.append(Chapter(heading: section.heading, start: start, length: (spoken as NSString).length))
         }
+        let previousEnd = text.length
         text = full as NSString
         chapters = found
+        if usesCloud {
+            segments += Self.voiceSegments(of: full, from: previousEnd, breaks: found.map(\.start))
+        }
         update(position: position)
     }
 
@@ -152,6 +174,13 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     var hasChapters: Bool { !chapters.isEmpty }
 
     func togglePause() {
+        if usesCloud {
+            guard isActive else { return }
+            isPaused.toggle()
+            // Ses daha gelmediyse gelince (duraklatılmadıysa) çalar.
+            if isPaused { player?.pause() } else { player?.play() }
+            return
+        }
         if restartsOnResume, isActive {
             restartsOnResume = false
             play(from: wordStart(atOrBefore: position))
@@ -167,6 +196,14 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     /// Kabaca `seconds` saniye ileri (artı) ya da geri (eksi) sarar; kelime başından devam eder.
     func skip(by seconds: Double) {
         guard isActive else { return }
+        if usesCloud, let player {
+            let time = player.currentTime + seconds
+            if time >= 0, time < player.duration {
+                player.currentTime = time
+                tick()
+                return
+            }
+        }
         let target = position + Int(seconds * charactersPerSecond)
         guard target < text.length - 1 else {
             stop()
@@ -181,6 +218,14 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         let target = Int(Double(text.length) * min(max(fraction, 0), 1))
         guard target < text.length - 1 else {
             stop()
+            return
+        }
+        // Google sesinde aynı parçanın içindeyse yalnızca ses sarılır.
+        if usesCloud, let player, segments.indices.contains(segmentIndex),
+           NSLocationInRange(target, segments[segmentIndex]) {
+            let segment = segments[segmentIndex]
+            player.currentTime = player.duration * Double(target - segment.location) / Double(max(segment.length, 1))
+            tick()
             return
         }
         play(from: wordStart(atOrBefore: target))
@@ -208,6 +253,10 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         guard Self.rates.contains(rate), rate != self.rate else { return }
         self.rate = rate
         UserDefaults.standard.set(rate, forKey: Self.rateKey)
+        if usesCloud {
+            player?.rate = Float(rate)
+            return
+        }
         // Çalıyorsa yeni hızla aynı kelimeden devam eder.
         if isPaused {
             restartsOnResume = true
@@ -217,6 +266,10 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     }
 
     func stop() {
+        stopCloud()
+        usesCloud = false
+        segments = []
+        segmentIndex = 0
         utteranceID = nil
         synthesizer.stopSpeaking(at: .immediate)
         currentTitle = nil
@@ -227,6 +280,10 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     }
 
     private func play(from start: Int) {
+        if usesCloud {
+            playCloud(from: start)
+            return
+        }
         restartsOnResume = false
         utteranceID = nil
         synthesizer.stopSpeaking(at: .immediate)
@@ -255,6 +312,147 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         } else {
             stop()
         }
+    }
+
+    // MARK: - Google sesi
+
+    /// Yazının `start`'ı içeren parçasını sese çevirip o noktadan çalar.
+    private func playCloud(from start: Int) {
+        stopCloud()
+        guard let index = segments.firstIndex(where: { $0.location + $0.length > start }) else {
+            stop()
+            return
+        }
+        let segment = segments[index]
+        let begin = max(start, segment.location)
+        segmentIndex = index
+        isPaused = false
+        update(position: begin)
+        let id = playback
+        let piece = text.substring(with: segment)
+        let language = self.language
+        Task {
+            let file = await CloudVoice.shared.audioFile(for: piece, language: language)
+            guard id == self.playback, self.isActive else { return }
+            guard let file, let player = try? AVAudioPlayer(contentsOf: file), player.duration > 0 else {
+                // Google sesi alınamadı: anlatım buradan iPhone sesiyle sürer.
+                self.usesCloud = false
+                self.play(from: begin)
+                return
+            }
+            player.delegate = self
+            player.enableRate = true
+            player.rate = Float(self.rate)
+            player.currentTime = player.duration * Double(begin - segment.location) / Double(max(segment.length, 1))
+            self.player = player
+            if self.isPaused { player.prepareToPlay() } else { player.play() }
+            self.startTicker()
+            self.prefetch(after: index)
+        }
+    }
+
+    /// Sıradaki iki parça okunan parça çalarken hazırlanır (atlanan bölümler hariç).
+    private func prefetch(after index: Int) {
+        let language = self.language
+        for segment in segments.dropFirst(index + 1).prefix(2) {
+            let chapter = chapters.lastIndex { $0.start <= segment.location } ?? 0
+            guard !skippedChapters.contains(chapter) else { continue }
+            let piece = text.substring(with: segment)
+            Task { _ = await CloudVoice.shared.audioFile(for: piece, language: language) }
+        }
+    }
+
+    private func stopCloud() {
+        playback = UUID()
+        ticker?.invalidate()
+        ticker = nil
+        player?.stop()
+        player = nil
+    }
+
+    private func startTicker() {
+        ticker?.invalidate()
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
+        }
+        // Liste kaydırılırken de ilerlesin.
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
+    }
+
+    /// Çalan sesin yeri yazıdaki yere çevrilir (çizgi, bölüm çipi).
+    private func tick() {
+        guard usesCloud, let player, segments.indices.contains(segmentIndex) else { return }
+        let segment = segments[segmentIndex]
+        let fraction = player.duration > 0 ? min(player.currentTime / player.duration, 1) : 0
+        update(position: segment.location + Int(Double(segment.length) * fraction))
+        if skippedChapters.contains(chapterIndex) { continueAfterSkipped(from: chapterIndex) }
+    }
+
+    private func nextSegment() {
+        let next = segmentIndex + 1
+        guard segments.indices.contains(next) else {
+            stop()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            return
+        }
+        playCloud(from: segments[next].location)
+        if skippedChapters.contains(chapterIndex) { continueAfterSkipped(from: chapterIndex) }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        let id = ObjectIdentifier(player)
+        Task { @MainActor in
+            guard let current = self.player, ObjectIdentifier(current) == id else { return }
+            self.nextSegment()
+        }
+    }
+
+    /// Yazıyı Google sesine gidecek parçalara böler: cümle sonlarından,
+    /// bölüm başlarından. İlk parça kısa (okuma hemen başlasın), bölümlerin
+    /// ilk parçası orta (bölüme atlayınca çabuk başlasın), gerisi uzun.
+    /// Yalnızca boşluk olan parçalar atlanır.
+    nonisolated static func voiceSegments(of text: String, from start: Int = 0, breaks: [Int] = [],
+                                     first: Int = 250, chapterFirst: Int = 450, length: Int = 1500) -> [NSRange] {
+        let source = text as NSString
+        var result: [NSRange] = []
+        var location = max(start, 0)
+        while location < source.length {
+            let limit = location == 0 ? first : breaks.contains(location) ? chapterFirst : length
+            var end = min(location + limit, source.length)
+            if let chapter = breaks.first(where: { $0 > location && $0 < end }) {
+                end = chapter
+            } else if end < source.length {
+                end = breakPoint(in: source, from: location, to: end)
+            }
+            let range = NSRange(location: location, length: end - location)
+            if !source.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                result.append(range)
+            }
+            location = end
+        }
+        return result
+    }
+
+    /// `end`'den geriye en yakın cümle sonu (ya da satır sonu); yoksa
+    /// boşluk; o da yoksa `end`. Parçanın ilk üçte birine inilmez.
+    nonisolated private static func breakPoint(in text: NSString, from location: Int, to end: Int) -> Int {
+        let minimum = location + (end - location) / 3
+        func isSpace(_ unit: unichar) -> Bool { unit == 32 || unit == 9 || unit == 10 || unit == 0xA0 }
+        func isSentenceEnd(_ unit: unichar) -> Bool { [46, 33, 63, 0x2026].contains(unit) }
+        var index = end
+        while index > minimum {
+            let previous = text.character(at: index - 1)
+            if previous == 10 { return index }
+            if isSpace(previous), index - 2 >= location, isSentenceEnd(text.character(at: index - 2)) { return index }
+            index -= 1
+        }
+        index = end
+        while index > minimum {
+            if isSpace(text.character(at: index - 1)) { return index }
+            index -= 1
+        }
+        return end
     }
 
     /// iPhone sesinin hızı: 0,5 normal; yavaşlatma ve hızlandırma eşit
@@ -345,18 +543,27 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
 /// Bir yerin anlatımı, yer penceresindeki "Dinle" ile aynı içerik: Wikipedia
 /// özeti hemen okunmaya başlar, yazının bütün bölümleri (Tarihçe, Mimari...)
 /// gelince arkasına eklenir. Yerin sayfası bilinmiyorsa önce aranır
-/// (aramayla eklenen yerler). Sayfası yoksa adı ve türü okunur.
+/// (aramayla eklenen yerler). Wikipedia yazısı yoksa Wikivoyage'daki
+/// gezgin notu, o da yoksa adı ve türü okunur.
 @MainActor
 enum PlaceNarration {
     /// `ready`: okuma başlamadan hemen önce (yükleniyor göstergesi kalksın).
     static func play(_ place: Place, store: AppStore, ready: () -> Void = {}) async {
         let narrator = Narrator.shared
-        guard let title = await store.wikipediaTitle(for: place),
-              let summary = await WikipediaService.shared.summary(englishTitle: title) else {
+        let title = await store.wikipediaTitle(for: place)
+        var found: WikipediaService.Summary?
+        if let title { found = await WikipediaService.shared.summary(englishTitle: title) }
+        guard let title, let summary = found else {
+            let listing = await WikivoyageListings.shared.listing(name: place.name, englishTitle: title,
+                                                                  latitude: place.latitude, longitude: place.longitude)
             ready()
             guard !Task.isCancelled else { return }
-            narrator.speak(String(localized: "\(place.name). \(place.category.title)."), title: place.name,
-                           language: WikipediaService.narrationLanguage)
+            if let listing {
+                narrator.speak(summary: listing.summary, article: nil, title: place.name)
+            } else {
+                narrator.speak(String(localized: "\(place.name). \(place.category.title)."), title: place.name,
+                               language: WikipediaService.narrationLanguage)
+            }
             return
         }
         ready()

@@ -20,6 +20,13 @@ final class DiskCache<Value: Codable> {
         }
     }
 
+    /// Birçok değer tek yazışta.
+    func merge(_ values: [String: Value]) {
+        guard !values.isEmpty else { return }
+        storage.merge(values) { _, new in new }
+        save()
+    }
+
     private func save() {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? JSONEncoder().encode(storage).write(to: url, options: .atomic)

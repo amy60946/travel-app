@@ -161,21 +161,51 @@ Onay bekleyen öneriler buraya yazılır.
   "Publish app" için web sitesi ve gizlilik politikası adresi gerekiyor.
   App Store'a çıkmadan önce gizlilik politikası sayfası hazırlanır (App
   Store da istiyor), Branding'e girilir ve uygulama yayına alınır.
-- 2026-11-03: **Daha doğal ses** (Oguz sordu, karar bekliyor). Şimdiki ses
-  iPhone'un Yelda'sı; telefonda küçük sürümü yüklüyse hece hece okur.
-  Seçenekler: A) iPhone'da "Yelda (Enhanced)" indirmek (ücretsiz, kod yok);
-  B) Google Cloud Chirp 3 HD (ayda 1 milyon harf ücretsiz, sonrası 1M harf
-  30 $; kartlı hesapta Text-to-Speech açılır, uygulama günlük harf sınırı
-  koyar, sesi telefonda saklar, sınırda iPhone sesine döner); C) Google
-  Cloud WaveNet (ayda 4M harf ücretsiz, sonrası 4 $); D) Gemini sesi ücretsiz
-  katmanı: ölçülen sınır dakikada 3 istek, günlük sınır çok düşük ve bütün
-  kullanıcılar paylaşır, tam anlatıma yetmez. Önerilen: bugün A, asıl çözüm
-  B. Ücret çıkabileceği için Oguz'un onayı olmadan açılmaz.
-- 2026-11-03: **Ücretsiz ek yer kaynakları** (Oguz sordu, karar bekliyor).
-  Önerilen: Wikidata (CC0, anahtarsız: kesin sayfa, yapım yılı, mimar,
-  resmi site, fotoğraf) ve Wikivoyage yer listeleri (CC BY-SA: sayfası
-  olmayan kafe/restoran için kısa açıklama, öneri adayı). İsteğe bağlı:
-  Geoapify (OSM verisi, günde 3.000 istek ücretsiz, kart yok, "Powered by
-  Geoapify" yazısı gerekir, `GEOAPIFY_API_KEY`). Foursquare (puan, yorum,
-  fotoğraf ücretli) ve doğrudan Overpass (uygulama arka ucu olarak uygun
-  değil) önerilmez.
+- 2026-11-03: **Daha doğal ses** kararı verildi: Google Cloud Chirp 3 HD
+  (bkz. CLAUDE.md Kararlar). Yapıldı: yazı cümle sonlarından parçalara
+  bölünür (ilk parça kısa, okuma hemen başlar), sonraki iki parça çalarken
+  hazırlanır, sesler telefonda saklanır (en çok 300 MB), telefon başına
+  günde 60.000 / ayda 900.000 harf; olmazsa iPhone sesi. Oguz'un Google
+  Cloud'da Text-to-Speech API'yi açması ve harita anahtarının izin
+  listesine eklemesi gerekiyor. TestFlight'ta birden çok kişi dinlerse
+  aylık ücretsiz kota (1 milyon harf) aşılabilir; o zaman sınır birlikte
+  düşürülür.
+- 2026-11-03: **Ek yer kaynakları** kararı verildi: Wikidata + Wikivoyage +
+  Geoapify. Yapıldı: yer penceresinde "Bilgiler" (Wikidata: yapım yılı,
+  mimar, üslup, yükseklik, yıllık ziyaretçi, koruma, resmi site) ve
+  Wikipedia'da fotoğraf yoksa Wikidata fotoğrafı; "Gezgin notu"
+  (Wikivoyage: açıklama, saat, fiyat), Wikipedia yazısı olmayan yerde
+  Dinle ve yürüyüşte bu not okunur; "Yer ekle"de "Yakında yemek, kahve ve
+  park" Geoapify'dan (anahtar gelince; yoksa yemek Google'dan).
+  Sonra düşünülebilir: Geoapify kaydındaki Wikidata bağlantısıyla
+  restoran/kafe fotoğrafı; Wikivoyage listelerini öneri adayı yapmak.
+- 2026-11-03: **Geoapify'dan ek ücretsiz API önerisi** (Oguz sordu;
+  karar: "Yürüme sürelerini ekle", Route Matrix yapıldı). Şimdi gün sırası, gün süresi ve "Yakınındaki popüler
+  yerler"deki "yürüyerek n dk" düz çizgi × 1,3 ile hesaplanıyor; Boğaz
+  gibi su ya da otoyol aşan yerler olduğundan yakın görünebiliyor.
+  Öneri: **Route Matrix** (yürüyerek gerçek süre, tüm yerler arası tek
+  istekte; 8 yerlik gün ~64 kredi, ücretsiz plan günde 3.000) ile Akıllı
+  sıra, gün süresi ve önerilerde gerçek yürüme dakikası; 25 dakikadan uzak
+  öneri çıkmaz. Sonra düşünülebilir: **Route Planner** (açılış saatleri ve
+  gezme süreleriyle en iyi sıra). Geocoding, harita ve yer ayrıntısı
+  gerekmez (Google var). Not: 3.000 kredi bütün kullanıcılarla ortak;
+  uygulama herkese açılınca yeniden bakılır.
+- 2026-11-03: **Öneri sistemi** (Oguz sordu): yapay zekâ ya da hazır bir
+  öneri servisi yok, puanlama uygulamanın içinde (Recommender.swift):
+  bilinirlik (Wikipedia 30 gün okunma), yakınlık (günün en yakın yeri,
+  en çok 2 km), zevk (kayıtlı yerlerde türün payı), çeşitlilik ve
+  fotoğraf. Yemek/kafe/park için Geoapify (OSM) ve gerekirse Google
+  popüler restoranlar. "Bunu kaydedenler şunları da ekledi" türü
+  (Wanderlog, Polarsteps) çok kullanıcı verisi ister; paylaşılan geziler
+  çoğalınca Supabase'ten yapılabilir.
+- 2026-11-03: **"Bunu kaydedenler şunu da kaydetti" önerisi** (Oguz sordu,
+  karar bekliyor). Hazır servis: Recombee ücretsiz planı (ayda 100.000
+  öneri isteği, 20.000 kullanıcı/yer) bu işi yapar ama kullanıcı kayıtlarıyla
+  öğrenir (şu an tek kullanıcı; kayıtlar dış şirkete gider). Google Maps,
+  Tripadvisor ve Wanderlog bunu kendi milyonlarca kullanıcısının verisiyle
+  yapıyor. Bugün çalışan ücretsiz yol: **Wikipedia clickstream** (aylık,
+  CC0; okurların hangi sayfadan hangisine geçtiği, 10'dan az geçiş
+  yayımlanmaz; İngilizce, Japonca gibi dillerde var, Türkçe yok). Her ay
+  GitHub Actions'ta işlenip yerler için "buna bakanlar şunlara da baktı"
+  listesi çıkarılır; öneri puanına ölçü olarak girer, yer penceresinde liste
+  olabilir. Kullanıcılar çoğalınca Supabase'teki kendi verimiz eklenir.
