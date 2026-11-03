@@ -130,6 +130,8 @@ final class PlaceSourcesTests: XCTestCase {
         let istanbul = GeoapifyService.readable([spot("Fazıl Bey"), spot("جلسة امام برج الفتاة (m&h)"),
                                                  spot("Korcan Aile Çay Bahçesi")])
         XCTAssertEqual(istanbul.map(\.name), ["Fazıl Bey", "Korcan Aile Çay Bahçesi"])
+        XCTAssertEqual(GeoapifyService.script(of: "جلسة امام برج الفتاة (m&h)"), "arabic")
+        XCTAssertEqual(GeoapifyService.script(of: "Café Ali"), "latin")
         // Tokyo: çoğunluk Japonca, Japonca adlar da Latin adlar da kalır.
         let tokyo = GeoapifyService.readable([spot("浅草寺"), spot("カフェ ムルソー"), spot("Fuglen Asakusa"), spot("上野公園")])
         XCTAssertEqual(tokyo.count, 4)
