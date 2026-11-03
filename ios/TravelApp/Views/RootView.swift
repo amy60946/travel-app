@@ -215,7 +215,7 @@ struct RootView: View {
             if let target = places.first(where: { $0.name == "Tokyo Skytree" }) ?? places.first {
                 guidance = GuidanceDestination(place: target)
             }
-        case "place": if let firstPlace { path = [.plan(stop), .place(firstPlace.id)] }
+        case "place": if let firstPlace { open([.plan(stop), .place(firstPlace.id)]) }
         case "walk", "walkPlaying": path = [.plan(stop), .walk(stop: stop, day: 0)]
         case "add", "addSearch": present(.addPlace(city: city, stop: stop))
         case "search", "searchSave": present(.search(city: city))

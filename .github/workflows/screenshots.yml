@@ -107,7 +107,7 @@ jobs:
             PID="${LAUNCHED##*: }"
             # Yol tarifi, Keşfet ve fotoğraflı sayfalar içeriği internetten bulur; biraz daha bekle.
             case "$screen" in
-              guide|continent|country|cityGuide|addToPlan|journey|journeyFull|swipeDelete|transport|tripFromCollection|reorder|editPlace|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|cityTall|fewerDays|mapAdd|mapAdded|sheetTall|sheet|googlePlace|googleTall|map|homeFull|homeSmall|dayOrder|timed|walk|walkPlaying|sharedTrip|traveler|searchTrips|profileShared|shareTrip) sleep 14 ;;
+              guide|continent|country|cityGuide|addToPlan|journey|journeyFull|swipeDelete|transport|tripFromCollection|reorder|editPlace|discover|discoverTall|collections|collection|saveTo|add|addSearch|pins|city|cityTall|fewerDays|mapAdd|mapAdded|sheetTall|sheet|googlePlace|googleTall|map|homeFull|homeSmall|dayOrder|timed|walk|walkPlaying|sharedTrip|traveler|searchTrips|profileShared|shareTrip|place) sleep 14 ;;
               *) sleep 8 ;;
             esac
             t 60 xcrun simctl io "$DEVICE_ID" screenshot "$file" || echo "çekilemedi: $screen"
