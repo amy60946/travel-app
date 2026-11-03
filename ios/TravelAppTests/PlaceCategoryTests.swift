@@ -8,6 +8,7 @@ final class PlaceCategoryTests: XCTestCase {
         let cases: [(String, PlaceCategory)] = [
             ("Sensō-ji", .temple),
             ("Meiji Jingu", .temple),
+            ("Meiji Jingu Stadium", .sight),
             ("Süleymaniye Camii", .temple),
             ("浅草寺", .temple),
             ("Tokyo National Museum", .museum),
