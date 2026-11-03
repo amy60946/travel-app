@@ -4,8 +4,11 @@ import Foundation
 /// İki yer arası yürüme (Geoapify, OpenStreetMap yolları).
 struct WalkLeg: Codable, Equatable {
     var meters: Double
+    /// Geoapify'ın süresi (saniye); yavaş hesaplıyor (Üsküdar'da dakikada ~50 m).
     var seconds: Double
-    var minutes: Double { seconds / 60 }
+    /// Dakika: yolun uzunluğu, dakikada 80 m (Google'ın yürüyüş hızı ve
+    /// uygulamanın geri kalanıyla aynı). Vapurlu yol uzun çıkar, önerilmez.
+    var minutes: Double { meters / 80 }
 }
 
 /// Geoapify Places (OpenStreetMap verisi; ücretsiz planda günde 3.000

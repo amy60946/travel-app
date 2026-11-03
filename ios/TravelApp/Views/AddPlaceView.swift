@@ -335,7 +335,7 @@ struct AddPlaceView: View {
         let walked = dayPlaces.compactMap { place in
             WalkingTimes.shared.walk(place.coordinate, location.coordinate).map { (place, $0) }
         }
-        .min { $0.1.seconds < $1.1.seconds }
+        .min { $0.1.meters < $1.1.meters }
         if let walked {
             return Self.walkText(minutes: max(Int(walked.1.minutes.rounded()), 1), near: walked.0.name)
         }

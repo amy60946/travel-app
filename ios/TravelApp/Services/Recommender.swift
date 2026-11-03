@@ -90,7 +90,7 @@ enum Recommender {
                               walk: (Place, CLLocationCoordinate2D) -> WalkLeg?) -> [Suggestion] {
         suggestions.compactMap { suggestion -> Suggestion? in
             let walked = anchors.compactMap { anchor in walk(anchor, suggestion.coordinate).map { (anchor, $0) } }
-                .min { $0.1.seconds < $1.1.seconds }
+                .min { $0.1.meters < $1.1.meters }
             guard let walked else { return suggestion }
             let (anchor, leg) = walked
             guard leg.minutes <= maxWalkingMinutes else { return nil }
@@ -100,7 +100,7 @@ enum Recommender {
             let after = 0.35 + 0.65 * exp(-(leg.meters / 1.3) / distanceScale)
             updated.score = suggestion.score / before * after
             updated.anchorName = anchor.name
-            updated.walkSeconds = leg.seconds
+            updated.walkSeconds = leg.minutes * 60
             return updated
         }
         .sorted { $0.score > $1.score }

@@ -17,7 +17,8 @@ final class WalkingTimesTests: XCTestCase {
         let matrix = try XCTUnwrap(GeoapifyService.parseMatrix(Data(json.utf8), sources: 2, targets: 2))
         XCTAssertEqual(matrix[0][1], WalkLeg(meters: 1450, seconds: 1100))
         XCTAssertNil(matrix[1][0])
-        XCTAssertEqual(matrix[0][1]?.minutes ?? 0, 1100 / 60, accuracy: 0.01)
+        // Dakika yolun uzunluğundan, dakikada 80 m.
+        XCTAssertEqual(matrix[0][1]?.minutes ?? 0, 1450.0 / 80, accuracy: 0.01)
         XCTAssertNil(GeoapifyService.parseMatrix(Data("{}".utf8), sources: 1, targets: 1))
     }
 
@@ -102,7 +103,7 @@ final class WalkingTimesTests: XCTestCase {
         let walks: [String: WalkLeg] = [
             "Karşı Yaka|Kız Kulesi": WalkLeg(meters: 9000, seconds: 6600),     // 110 dk: çıkar
             "Şemsi Paşa Camii|Kız Kulesi": WalkLeg(meters: 1400, seconds: 1080),
-            "Şemsi Paşa Camii|Salacak": WalkLeg(meters: 600, seconds: 450),    // en kısa
+            "Şemsi Paşa Camii|Salacak": WalkLeg(meters: 600, seconds: 720),    // en kısa: 7,5 dk
         ]
         let result = Recommender.applyingWalks([across, mosque, unknown], anchors: [tower, salacak]) { anchor, point in
             let title = [across, mosque, unknown].first {
