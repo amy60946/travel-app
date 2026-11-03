@@ -65,44 +65,61 @@ def open_text(path):
     return open(path, encoding="utf-8", errors="replace")
 
 
+# geo_tags tablosunun bilinen sütun sırası (CREATE TABLE okunamazsa).
+DEFAULT_COLUMNS = ["gt_id", "gt_page_id", "gt_globe", "gt_primary", "gt_lat", "gt_lon",
+                   "gt_dim", "gt_type", "gt_name", "gt_country", "gt_region"]
+
+
 def read_geotags(path):
     """Sayfa numarası → (enlem, boylam); yalnızca Dünya'daki ana konum."""
     columns = []
+    create = None
     places = {}
     skipped = defaultdict(int)
+    inserts = rows = 0
     with open_text(path) as handle:
-        in_create = False
-        for line in handle:
+        for number, line in enumerate(handle):
+            if number < 40:
+                print("geo_tags satırı:", line[:160].rstrip(), flush=True)
+            if create is not None:
+                create += line
+                if ";" in line:
+                    # Sütun tanımı: `gt_lat` decimal(11,8) ... (anahtar tanımları değil).
+                    columns = re.findall(r"`(gt_\w+)`\s+[a-z]", create)
+                    print("sütunlar:", columns, flush=True)
+                    create = None
+                continue
             if line.startswith("CREATE TABLE"):
-                in_create = True
+                create = line
                 continue
-            if in_create:
-                match = re.match(r"\s+`(\w+)`", line)
-                if match:
-                    columns.append(match.group(1))
-                elif line.startswith(")"):
-                    in_create = False
+            if "INSERT INTO" not in line[:40]:
                 continue
-            if not line.startswith("INSERT INTO"):
-                continue
-            index = {name: i for i, name in enumerate(columns)}
+            inserts += 1
+            names = columns if {"gt_page_id", "gt_globe", "gt_primary", "gt_lat", "gt_lon"} <= set(columns) \
+                else DEFAULT_COLUMNS
+            index = {name: i for i, name in enumerate(names)}
             page, globe, primary = index["gt_page_id"], index["gt_globe"], index["gt_primary"]
-            lat, lon, kind = index["gt_lat"], index["gt_lon"], index["gt_type"]
+            lat, lon = index["gt_lat"], index["gt_lon"]
+            kind = index.get("gt_type")
             for row in TUPLE.finditer(line):
+                rows += 1
                 fields = [unquote(f) for f in FIELD.findall(row.group(1))]
-                if len(fields) != len(columns):
+                if rows == 1:
+                    print("ilk kayıt:", fields, flush=True)
+                if len(fields) != len(names):
                     skipped["bad"] += 1
                     continue
                 if fields[globe] != "earth" or fields[primary] != "1":
                     continue
-                if (fields[kind] or "").lower() in SKIP_TYPES:
-                    skipped[fields[kind].lower()] += 1
+                kind_value = (fields[kind] or "").lower() if kind is not None else ""
+                if kind_value in SKIP_TYPES:
+                    skipped[kind_value] += 1
                     continue
                 try:
                     places[int(fields[page])] = (float(fields[lat]), float(fields[lon]))
                 except (TypeError, ValueError):
                     skipped["bad"] += 1
-    print(f"geo_tags: {len(places)} yer; atlanan: {dict(skipped)}", flush=True)
+    print(f"geo_tags: {inserts} INSERT, {rows} kayıt, {len(places)} yer; atlanan: {dict(skipped)}", flush=True)
     return places
 
 
