@@ -158,6 +158,29 @@ def gemini_tts(text):
         print(f"   kaydedildi: {path} ({len(pcm) / (rate * 2):.0f} sn ses)")
 
 
+def gemini_tts_quota():
+    """Ücretsiz katmanın günlük TTS sınırı: kısa isteklerle 429 gelene kadar (en çok 40)."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key or not os.environ.get("TTS_QUOTA"):
+        return
+    headers = {"x-goog-api-key": key}
+    body = {"contents": [{"parts": [{"text": "Merhaba."}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"],
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}}}}
+    for model in ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        print(f"\n===== Gemini TTS sınırı: {model}")
+        for count in range(1, 41):
+            status, raw, seconds = call(url, headers, body, timeout=120)
+            if status != 200:
+                print(f"   {count}. istek: HTTP {status}")
+                print("   " + raw.decode("utf-8", "replace")[:1500])
+                break
+            time.sleep(4)  # dakikalık sınıra takılmamak için
+        else:
+            print("   40 istek de geçti")
+
+
 def google_cloud_tts(text):
     key = os.environ.get("GOOGLE_MAPS_API_KEY")
     if not key:
@@ -213,6 +236,7 @@ def main():
     print(f"\n===== Okunan yazı ({len(text)} harf):\n{text}")
     apple_voice(text)
     gemini_tts(text)
+    gemini_tts_quota()
     google_cloud_tts(text)
     print("\n===== Dosyalar:", sorted(os.listdir(OUT)))
 

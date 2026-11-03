@@ -18,7 +18,7 @@ jobs:
   check:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ses-test]')
     runs-on: macos-15-intel
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Dene ve ses örneklerini üret
@@ -26,6 +26,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SES_OUT: ${{ runner.temp }}/ses
+          # Elle başlatınca Gemini TTS'in günlük ücretsiz sınırı da ölçülür.
+          TTS_QUOTA: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: python3 ios/scripts/voice_wiki_check.py
       - name: Ses örneklerini dala koy
         env:
