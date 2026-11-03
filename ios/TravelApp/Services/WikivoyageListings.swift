@@ -62,13 +62,19 @@ actor WikivoyageListings {
         for query in queries {
             articles += await searchArticles(query)
         }
-        articles += await nearbyArticles(latitude: latitude, longitude: longitude)
+        let nearby = await nearbyArticles(latitude: latitude, longitude: longitude)
+        articles += nearby
         var seen: Set<String> = []
         articles = articles.filter { seen.insert($0).inserted }
-        for article in articles.prefix(5) {
+        for article in articles.prefix(6) {
             let listings = await listings(in: article)
-            let best = Self.bestMatch(listings, name: name, latitude: latitude, longitude: longitude)
-                ?? englishTitle.flatMap { Self.bestMatch(listings, name: $0, latitude: latitude, longitude: longitude) }
+            // Uzaktaki konu sayfalarında ("Lighthouses" gibi) yalnızca konumu
+            // 300 m içinde olan liste kabul edilir.
+            let located = !nearby.contains(article)
+            let best = Self.bestMatch(listings, name: name, latitude: latitude, longitude: longitude, requiresLocation: located)
+                ?? englishTitle.flatMap {
+                    Self.bestMatch(listings, name: $0, latitude: latitude, longitude: longitude, requiresLocation: located)
+                }
             if let best {
                 match = best
                 break
@@ -171,13 +177,14 @@ actor WikivoyageListings {
 
     // MARK: - Eşleme
 
-    static func bestMatch(_ listings: [Listing], name: String, latitude: Double, longitude: Double) -> Listing? {
+    static func bestMatch(_ listings: [Listing], name: String, latitude: Double, longitude: Double,
+                          requiresLocation: Bool = false) -> Listing? {
         let place = CLLocation(latitude: latitude, longitude: longitude)
         let candidates = listings.compactMap { listing -> (Listing, Double)? in
             guard sameName(listing.name, name) || listing.alt.map({ sameName($0, name) }) == true else { return nil }
             guard let lat = listing.latitude, let lon = listing.longitude else {
                 // Konumu olmayan listede ad birebir tutmalı.
-                return fold(listing.name) == fold(name) ? (listing, 0) : nil
+                return !requiresLocation && fold(listing.name) == fold(name) ? (listing, .infinity) : nil
             }
             let distance = CLLocation(latitude: lat, longitude: lon).distance(from: place)
             return distance <= 300 ? (listing, distance) : nil

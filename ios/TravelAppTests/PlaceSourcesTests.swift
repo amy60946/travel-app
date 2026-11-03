@@ -89,6 +89,9 @@ final class PlaceSourcesTests: XCTestCase {
         XCTAssertEqual(WikivoyageListings.bestMatch(listings, name: "Omoide Yokocho", latitude: 35.69, longitude: 139.69)?.kind,
                        "eat")
         XCTAssertNil(WikivoyageListings.bestMatch(listings, name: "Omoide", latitude: 35.69, longitude: 139.69))
+        // Uzaktaki konu sayfasında konumsuz liste kabul edilmez.
+        XCTAssertNil(WikivoyageListings.bestMatch(listings, name: "Omoide Yokocho", latitude: 35.69, longitude: 139.69,
+                                                  requiresLocation: true))
     }
 
     func testCleansWikiMarkup() {
