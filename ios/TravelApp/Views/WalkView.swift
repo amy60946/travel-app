@@ -395,29 +395,16 @@ struct WalkView: View {
         }
     }
 
-    /// Önce özet okunur; yazının tamamı gelince bölümler eklenir (özetten
-    /// sonra okunur, çiplerle atlanır).
+    /// Yer penceresindeki "Dinle" ile aynı: önce özet okunur, yazının
+    /// tamamı gelince bölümler eklenir (özetten sonra okunur, çiplerle
+    /// atlanır). Konumdan bağımsız: "Dinle" her yerden çalışır.
     private func narrate(_ place: Place) {
         narration?.cancel()
         narrated.insert(place.id)
+        preparing = place.id
         narration = Task {
-            let fallback = String(localized: "\(place.name). \(place.category.title).")
-            guard let title = place.wikipediaTitle else {
-                narrator.speak(fallback, title: place.name, language: WikipediaService.narrationLanguage)
-                return
-            }
-            preparing = place.id
-            let summary = await WikipediaService.shared.summary(englishTitle: title)
-            preparing = nil
-            guard !Task.isCancelled else { return }
-            guard let summary else {
-                narrator.speak(fallback, title: place.name, language: WikipediaService.narrationLanguage)
-                return
-            }
-            narrator.speak(summary: summary, article: nil, title: place.name)
-            guard let article = await WikipediaService.shared.article(englishTitle: title),
-                  !Task.isCancelled, article.language == summary.language else { return }
-            narrator.append(sections: article.sections.map { (heading: $0.heading, text: $0.text) }, to: place.name)
+            await PlaceNarration.play(place, store: store) { if preparing == place.id { preparing = nil } }
+            if preparing == place.id { preparing = nil }
         }
     }
 
@@ -426,7 +413,7 @@ struct WalkView: View {
     private func prefetchArticles(_ stops: [Place]) async {
         for place in stops {
             guard !Task.isCancelled else { return }
-            if let title = place.wikipediaTitle {
+            if let title = await store.wikipediaTitle(for: place) {
                 _ = await WikipediaService.shared.summary(englishTitle: title)
                 _ = await WikipediaService.shared.article(englishTitle: title)
             }

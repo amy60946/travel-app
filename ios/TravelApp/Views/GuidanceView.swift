@@ -163,8 +163,10 @@ struct GuidanceView: View {
                 }
             }
             Spacer(minLength: 4)
-            if guide.arrived, let place = destination.placeID.flatMap(store.place), place.wikipediaTitle != nil {
-                PrimaryButton(title: "Dinle", systemImage: "play.fill") { Task { await listen(place) } }
+            if guide.arrived, let place = destination.placeID.flatMap(store.place) {
+                PrimaryButton(title: "Dinle", systemImage: "play.fill") {
+                    Task { await PlaceNarration.play(place, store: store) }
+                }
             } else if guide.status == .denied {
                 SecondaryButton(title: "Ayarları aç", systemImage: "gear") {
                     if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -193,12 +195,6 @@ struct GuidanceView: View {
         .padding(16)
         .background(.white, in: RoundedRectangle(cornerRadius: 20))
         .softShadow()
-    }
-
-    private func listen(_ place: Place) async {
-        guard let title = place.wikipediaTitle,
-              let summary = await WikipediaService.shared.summary(englishTitle: title) else { return }
-        Narrator.shared.speak(summary.extract, title: place.name, language: summary.language)
     }
 
     // MARK: - Yardımcılar

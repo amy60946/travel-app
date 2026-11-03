@@ -635,3 +635,7 @@
 "Google ile giriş yap" = "Sign in with Google";
 "Google ile giriş yapıldı" = "Signed in with Google";
 "Google ile giriş yapılamadı. Yeniden dene." = "Couldn't sign in with Google. Please try again.";
+"Yakınındaki popüler yerler" = "Popular nearby";
+"Günündeki yerlerin yakınında popüler bir yer bulunamadı." = "No popular places found near the places in this day.";
+"Yakında yemek ve kahve" = "Food and coffee nearby";
+"%@ yakınında · yürüyerek %lld dk" = "Near %1$@ · %2$lld min walk";

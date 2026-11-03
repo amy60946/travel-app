@@ -111,7 +111,8 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         for (index, section) in sections.enumerated() where !section.text.isEmpty {
             if !full.isEmpty { full += "\n\n" }
             let start = (full as NSString).length
-            let spoken = index == 0 || section.heading.isEmpty ? section.text : "\(section.heading).\n\(section.text)"
+            let body = Self.speakable(section.text)
+            let spoken = index == 0 || section.heading.isEmpty ? body : "\(section.heading).\n\(body)"
             full += spoken
             found.append(Chapter(heading: section.heading, start: start, length: (spoken as NSString).length))
         }
@@ -138,7 +139,7 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         for section in sections {
             full += "\n\n"
             let start = (full as NSString).length
-            let spoken = "\(section.heading).\n\(section.text)"
+            let spoken = "\(section.heading).\n\(Self.speakable(section.text))"
             full += spoken
             found.append(Chapter(heading: section.heading, start: start, length: (spoken as NSString).length))
         }
@@ -273,6 +274,35 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         return max(index, 0)
     }
 
+    /// Sesin takıldığı parçalar okunmaz: içinde Latin dışı yazı (Japonca,
+    /// Yunanca, Arapça...) ya da okunuş işaretleri olan parantezler
+    /// ("(Yunanca: Δαμάλεις)", "(/ˈtoʊkioʊ/)") ve kaynak numaraları ("[3]").
+    /// Yazının ekrandaki hâli değişmez.
+    nonisolated static func speakable(_ text: String) -> String {
+        let cleaned = text.replacingOccurrences(of: "\\[[0-9a-z ]{1,5}\\]", with: "", options: .regularExpression)
+        guard let regex = try? NSRegularExpression(pattern: "\\s*\\(([^()]*)\\)") else { return cleaned }
+        let source = cleaned as NSString
+        var output = ""
+        var last = 0
+        for match in regex.matches(in: cleaned, range: NSRange(location: 0, length: source.length))
+        where isUnspeakable(source.substring(with: match.range(at: 1))) {
+            output += source.substring(with: NSRange(location: last, length: match.range.location - last))
+            last = match.range.location + match.range.length
+        }
+        output += source.substring(from: last)
+        return output.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
+    }
+
+    /// Latin harfleri (Türkçe dahil) dışında bir yazı ya da IPA işareti var mı.
+    nonisolated private static func isUnspeakable(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            let value = scalar.value
+            if (0x0250...0x02FF).contains(value) { return true }
+            guard scalar.properties.isAlphabetic else { return false }
+            return !(value < 0x0250 || (0x1E00...0x1EFF).contains(value))
+        }
+    }
+
     /// Dilin en iyi iPhone sesi (indirilmiş "gelişmiş" ses varsa o).
     private static func voice(for language: String) -> AVSpeechSynthesisVoice? {
         let code = language == "tr" ? "tr-TR" : "en-US"
@@ -309,5 +339,31 @@ final class Narrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             self.stop()
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
+    }
+}
+
+/// Bir yerin anlatımı, yer penceresindeki "Dinle" ile aynı içerik: Wikipedia
+/// özeti hemen okunmaya başlar, yazının bütün bölümleri (Tarihçe, Mimari...)
+/// gelince arkasına eklenir. Yerin sayfası bilinmiyorsa önce aranır
+/// (aramayla eklenen yerler). Sayfası yoksa adı ve türü okunur.
+@MainActor
+enum PlaceNarration {
+    /// `ready`: okuma başlamadan hemen önce (yükleniyor göstergesi kalksın).
+    static func play(_ place: Place, store: AppStore, ready: () -> Void = {}) async {
+        let narrator = Narrator.shared
+        guard let title = await store.wikipediaTitle(for: place),
+              let summary = await WikipediaService.shared.summary(englishTitle: title) else {
+            ready()
+            guard !Task.isCancelled else { return }
+            narrator.speak(String(localized: "\(place.name). \(place.category.title)."), title: place.name,
+                           language: WikipediaService.narrationLanguage)
+            return
+        }
+        ready()
+        guard !Task.isCancelled else { return }
+        narrator.speak(summary: summary, article: nil, title: place.name)
+        guard let article = await WikipediaService.shared.article(englishTitle: title),
+              !Task.isCancelled, article.language == summary.language else { return }
+        narrator.append(sections: article.sections.map { (heading: $0.heading, text: $0.text) }, to: place.name)
     }
 }

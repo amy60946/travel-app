@@ -135,6 +135,45 @@ final class GooglePlaces {
         return (response.places ?? []).compactMap(\.searchResult)
     }
 
+    /// Bir noktanın çevresindeki en popüler restoran ve kafeler (Google'ın
+    /// popülerlik sırası; "Yakınındaki popüler yerler"de günde yemek yoksa).
+    /// Yalnızca ad, adres, konum ve tür istenir (Nearby Search Pro, aylık
+    /// 5.000 ücretsiz). Aynı çevre bu açılışta bir kez sorulur; telefon
+    /// başına günde en çok 40 istek.
+    func popularFood(near center: CLLocationCoordinate2D, radius: Double = 1000) async -> [SearchResult] {
+        let key = "\(GoogleAPI.language)|\((center.latitude * 500).rounded())|\((center.longitude * 500).rounded())"
+        if let cached = nearbyFood[key] { return cached }
+        guard !Self.skipsForScreenshot, Self.takeNearbyAllowance() else { return [] }
+        let body: [String: Any] = [
+            "includedTypes": ["restaurant", "cafe"],
+            "maxResultCount": 8,
+            "rankPreference": "POPULARITY",
+            "languageCode": GoogleAPI.language,
+            "locationRestriction": Self.circle(center, radius: radius),
+        ]
+        let fields = "places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,"
+            + "places.location,places.types,places.primaryType"
+        guard let url = URL(string: Self.base + "places:searchNearby"),
+              let request = try? GoogleAPI.request(url, fields: fields, body: body),
+              let response = try? await GoogleAPI.fetch(SearchResponse.self, request) else { return [] }
+        let found = (response.places ?? []).compactMap(\.searchResult)
+        nearbyFood[key] = found
+        return found
+    }
+
+    private var nearbyFood: [String: [SearchResult]] = [:]
+
+    /// Telefon başına günlük Nearby Search sınırı (aylık ücretsiz kotanın altında kalsın).
+    private static func takeNearbyAllowance() -> Bool {
+        let defaults = UserDefaults.standard
+        let today = Date().formatted(.iso8601.year().month().day())
+        let key = "googleNearby|\(today)"
+        let used = defaults.integer(forKey: key)
+        guard used < 40 else { return false }
+        defaults.set(used + 1, forKey: key)
+        return true
+    }
+
     /// Kayıtlı bir yerin Google kimliği: aynı adla, yakınında aranır
     /// (yalnızca kimlik istenir; bu arama ücretsiz ve sınırsız).
     func findID(name: String, near coordinate: CLLocationCoordinate2D) async -> String? {

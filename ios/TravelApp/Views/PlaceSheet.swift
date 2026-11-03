@@ -194,17 +194,8 @@ struct PlaceSheet: View {
         photosAreNearby = false
         defer { isLoading = false }
 
-        var title = place.wikipediaTitle
-        if title == nil, let found = await WikipediaService.shared.findArticle(
-            name: place.name, city: place.city, latitude: place.latitude, longitude: place.longitude) {
-            title = found
-            if var updated = store.place(place.id) {
-                updated.wikipediaTitle = found
-                store.update(updated)
-            }
-        }
         // Fotoğraflar yazıyı (çeviri sürebilir) beklemeden gelsin.
-        let englishTitle = title
+        let englishTitle = await store.wikipediaTitle(for: place)
         async let foundSummary = loadSummary(englishTitle)
         if let englishTitle { photos = await WikipediaService.shared.photos(englishTitle: englishTitle) }
         if photos.isEmpty {

@@ -120,6 +120,8 @@ struct RootView: View {
         // Aktarılan yerlerin türünü (müze, kafe...) arka planda bulur;
         // yeni yer gelince kaldığı yerden devam eder.
         .task(id: store.places.count) { await store.refineCategories() }
+        // Yeni eklenen yerin Wikipedia sayfası (fotoğraf ve anlatım için) hemen aranır.
+        .task(id: store.places.count) { await store.resolveWikipediaTitles() }
         // E-postadan ya da Dosyalar'dan "Paylaş → TravelApp" ile gelen veri dosyası.
         .onOpenURL { url in
             if url.isFileURL { sheet = .importFile(url) }

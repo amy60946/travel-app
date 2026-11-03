@@ -161,3 +161,21 @@ Onay bekleyen öneriler buraya yazılır.
   "Publish app" için web sitesi ve gizlilik politikası adresi gerekiyor.
   App Store'a çıkmadan önce gizlilik politikası sayfası hazırlanır (App
   Store da istiyor), Branding'e girilir ve uygulama yayına alınır.
+- 2026-11-03: **Daha doğal ses** (Oguz sordu, karar bekliyor). Şimdiki ses
+  iPhone'un Yelda'sı; telefonda küçük sürümü yüklüyse hece hece okur.
+  Seçenekler: A) iPhone'da "Yelda (Enhanced)" indirmek (ücretsiz, kod yok);
+  B) Google Cloud Chirp 3 HD (ayda 1 milyon harf ücretsiz, sonrası 1M harf
+  30 $; kartlı hesapta Text-to-Speech açılır, uygulama günlük harf sınırı
+  koyar, sesi telefonda saklar, sınırda iPhone sesine döner); C) Google
+  Cloud WaveNet (ayda 4M harf ücretsiz, sonrası 4 $); D) Gemini sesi ücretsiz
+  katmanı: ölçülen sınır dakikada 3 istek, günlük sınır çok düşük ve bütün
+  kullanıcılar paylaşır, tam anlatıma yetmez. Önerilen: bugün A, asıl çözüm
+  B. Ücret çıkabileceği için Oguz'un onayı olmadan açılmaz.
+- 2026-11-03: **Ücretsiz ek yer kaynakları** (Oguz sordu, karar bekliyor).
+  Önerilen: Wikidata (CC0, anahtarsız: kesin sayfa, yapım yılı, mimar,
+  resmi site, fotoğraf) ve Wikivoyage yer listeleri (CC BY-SA: sayfası
+  olmayan kafe/restoran için kısa açıklama, öneri adayı). İsteğe bağlı:
+  Geoapify (OSM verisi, günde 3.000 istek ücretsiz, kart yok, "Powered by
+  Geoapify" yazısı gerekir, `GEOAPIFY_API_KEY`). Foursquare (puan, yorum,
+  fotoğraf ücretli) ve doğrudan Overpass (uygulama arka ucu olarak uygun
+  değil) önerilmez.
