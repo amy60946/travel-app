@@ -735,7 +735,10 @@ actor WikipediaService {
                         "embassy", "ministry", "headquarters", "prefecture", "ward", "district",
                         "company", "corporation", "bank", "court", "police", "office", "airport",
                         "expressway", "highway", "route", "list of", "chongryon", "constituency",
-                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty"]
+                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty",
+                        // Olaylar (okuma izlerinde görüldü, 2026-11-03): "Fall of Constantinople".
+                        "fall of", "sack of", "siege of", "battle of", "conquest of", "massacre",
+                        "earthquake", "bombing of"]
         return !excluded.contains { lower.contains($0) }
     }
 

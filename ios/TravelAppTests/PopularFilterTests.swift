@@ -9,6 +9,10 @@ final class PopularFilterTests: XCTestCase {
         XCTAssertFalse(WikipediaService.isSight("Ichigaya Station"))
         XCTAssertFalse(WikipediaService.isSight("Chongryon"))
         XCTAssertFalse(WikipediaService.isSight("Empire of Japan"))
+        // Okuma izlerinde Ayasofya'dan sonra okunan olaylar (2026-11-03).
+        XCTAssertFalse(WikipediaService.isSight("Fall of Constantinople"))
+        XCTAssertFalse(WikipediaService.isSight("Sack of Constantinople"))
+        XCTAssertTrue(WikipediaService.isSight("Basilica Cistern"))
     }
 
     func testDropsCountriesCitiesAndStationsByTypeAndDescription() {
