@@ -320,9 +320,8 @@ actor WikipediaService {
                       .init(name: "lllang", value: language),
                       .init(name: "lllimit", value: "max")]
         }
-        components.queryItems = items
         struct Response: Decodable {
-            struct Query: Decodable { var pages: [Page] }
+            struct Query: Decodable { var pages: [Page]? }
             struct Page: Decodable {
                 struct Thumbnail: Decodable { var source: URL }
                 struct Link: Decodable { var title: String }
@@ -333,17 +332,32 @@ actor WikipediaService {
                 var description: String?
             }
             var query: Query?
+            var next: [String: String]?
+            enum CodingKeys: String, CodingKey { case query, next = "continue" }
         }
-        guard let url = components.url, let (data, _) = try? await session.data(from: url),
-              let pages = try? JSONDecoder().decode(Response.self, from: data).query?.pages
-        else { return [:] }
+        // Okunma sayısı her istekte yalnızca birkaç sayfa için gelir; kalanlar
+        // "continue" ile parça parça istenir (yoksa çoğu yer 0 okunmuş görünür
+        // ve sıralama bozulur; Kız Kulesi çevresinde denendi, 2026-11-03).
         var result: [String: PageDetails] = [:]
-        for page in pages {
-            let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
-            let local = page.langlinks?.first?.title
-                .replacingOccurrences(of: "\\s*\\([^)]*\\)$", with: "", options: .regularExpression)
-            result[page.title] = PageDetails(views: views, thumbnail: page.thumbnail?.source, localTitle: local,
-                                             description: page.description)
+        var continuation: [URLQueryItem] = []
+        for _ in 0..<8 {
+            components.queryItems = items + continuation
+            guard let url = components.url, let (data, _) = try? await session.data(from: url),
+                  let decoded = try? JSONDecoder().decode(Response.self, from: data) else { break }
+            for page in decoded.query?.pages ?? [] {
+                var detail = result[page.title] ?? PageDetails()
+                let views = page.pageviews?.values.compactMap { $0 }.reduce(0, +) ?? 0
+                detail.views = max(detail.views, views)
+                if let thumbnail = page.thumbnail?.source { detail.thumbnail = thumbnail }
+                if let local = page.langlinks?.first?.title {
+                    detail.localTitle = local.replacingOccurrences(of: "\\s*\\([^)]*\\)$", with: "",
+                                                                   options: .regularExpression)
+                }
+                if let description = page.description { detail.description = description }
+                result[page.title] = detail
+            }
+            guard let next = decoded.next, !next.isEmpty else { break }
+            continuation = next.map { URLQueryItem(name: $0.key, value: $0.value) }
         }
         return result
     }
@@ -723,7 +737,12 @@ actor WikipediaService {
                         "railway station", "metro station", "subway station", "train station", "railway line",
                         "university", "school in", "college in", "company", "corporation", "hospital", "embassy",
                         "ministry", "political party", "electoral", "constituency", "airport",
-                        "expressway", "stock exchange", "newspaper", "broadcaster", "television station"]
+                        "expressway", "stock exchange", "newspaper", "broadcaster", "television station",
+                        // Kız Kulesi çevresinde görüldü (2026-11-03): semt, ilçe, cezaevi, iskele, metro durağı.
+                        "neighbourhood", "neighborhood", "quarter in", "quarter of", "district in", "district of",
+                        "district and municipality", "prison", "ferry terminal", "ferry port", "station of the",
+                        "train stop", "bus station", "bus terminal", "primary school", "high school",
+                        "football club", "sports club", "village in", "suburb of"]
         return !excluded.contains { lower.contains($0) }
     }
 

@@ -23,5 +23,15 @@ final class PopularFilterTests: XCTestCase {
         XCTAssertFalse(WikipediaService.isSight(description: "Japanese state from 1868 to 1947"))
         XCTAssertFalse(WikipediaService.isSight(description: "Island country in East Asia"))
         XCTAssertFalse(WikipediaService.isSight(description: "Railway station in Tokyo, Japan"))
+        // Kız Kulesi çevresi (Wikipedia, 2026-11-03)
+        XCTAssertTrue(WikipediaService.isSight(description: "16th century Turkish mosque"))
+        XCTAssertTrue(WikipediaService.isSight(description: "Fountain in Istanbul, Turkey"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Quarter in Marmara, Turkey"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Neighbourhood in Istanbul, Turkey"))
+        XCTAssertFalse(WikipediaService.isSight(description: "District and municipality in Istanbul, Turkey"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Prison in Turkey"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Ferry terminal in Üsküdar, Istanbul"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Station of the Istanbul Metro"))
+        XCTAssertFalse(WikipediaService.isSight(description: "Train stop in eastern Istanbul"))
     }
 }

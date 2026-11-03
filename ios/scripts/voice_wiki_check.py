@@ -79,12 +79,20 @@ def wiki_checks():
     views = {}
     for start in range(0, len(titles), 50):
         chunk = titles[start:start + 50]
-        pages = wiki("en", {"prop": "pageviews|description|langlinks", "pvipdays": "30", "lllang": "tr",
-                            "lllimit": "max", "titles": "|".join(chunk)}).get("query", {}).get("pages", [])
-        for page in pages:
-            total = sum(v or 0 for v in (page.get("pageviews") or {}).values())
-            local = (page.get("langlinks") or [{}])[0].get("title")
-            views[page["title"]] = (total, local, page.get("description", ""))
+        params = {"prop": "pageviews|description|langlinks", "pvipdays": "30", "lllang": "tr",
+                  "lllimit": "max", "titles": "|".join(chunk)}
+        # Uygulamadaki pageDetails gibi: okunma sayıları "continue" ile parça parça gelir.
+        for round_ in range(8):
+            response = wiki("en", params)
+            for page in response.get("query", {}).get("pages", []):
+                total = sum(v or 0 for v in (page.get("pageviews") or {}).values())
+                old = views.get(page["title"], (0, None, ""))
+                local = (page.get("langlinks") or [{}])[0].get("title") or old[1]
+                views[page["title"]] = (max(total, old[0]), local, page.get("description") or old[2])
+            if "continue" not in response:
+                print(f"   {len(chunk)} sayfa {round_ + 1} istekte geldi")
+                break
+            params = {**params, **response["continue"]}
     dist_of = {page["title"]: page.get("dist", 0) for page in geo}
     ranked = sorted(views.items(), key=lambda item: -item[1][0])[:20]
     print(f"   {len(geo)} sayfa bulundu; en çok okunan 20:")
