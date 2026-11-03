@@ -485,6 +485,8 @@ struct AddPlaceView: View {
         loadingNearby = true
         defer { loadingNearby = false }
         let anchors = Recommender.anchors(day)
+        // Günün yerlerine bakan Wikipedia okurlarının baktığı yerler (okuma izleri).
+        async let trails = ReadingTrails.shared.alsoRead(from: day)
         let candidates = await withTaskGroup(of: [WikipediaService.PopularPlace].self) { group in
             for anchor in anchors {
                 group.addTask {
@@ -496,10 +498,21 @@ struct AddPlaceView: View {
             for await found in group { all += found }
             return all
         }
+        let alsoRead = await trails
+        // Okuma izindeki yer yürüme mesafesindeyse aday da olur (çevre aramasına girmese bile).
+        let known = Set(candidates.map(\.title))
+        let walkable = alsoRead.values.filter { item in
+            !known.contains(item.title) && day.contains {
+                $0.location.distance(from: CLLocation(latitude: item.latitude, longitude: item.longitude))
+                    <= Recommender.maxDistance
+            }
+        }
+        let extra = await WikipediaService.shared.places(Array(walkable.sorted { $0.strength > $1.strength }.prefix(20)))
         guard !Task.isCancelled else { return }
         let planned = store.trip(stop: stop).placeIDs.compactMap(store.place)
         let kept = addedHere
-        let fresh = Recommender.rank(candidates, anchors: day, saved: store.places) { candidate in
+        let fresh = Recommender.rank(candidates + extra, anchors: day, saved: store.places,
+                                     alsoRead: alsoRead.mapValues(\.strength)) { candidate in
             guard !kept.contains(candidate.id) else { return false }
             return planned.contains { Self.isSame($0, candidate) }
         }
@@ -629,7 +642,7 @@ struct AddPlaceView: View {
 
 /// Listede bir yer: fotoğraf (köşesinde türün simgesi), türün renkli
 /// etiketi, ad, şehir; sağda "+" (eklenince ✓). Satıra dokununca ayrıntı.
-private struct SpotRow<Thumbnail: View>: View {
+struct SpotRow<Thumbnail: View>: View {
     let category: PlaceCategory
     let title: String
     let subtitle: String

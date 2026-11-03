@@ -13,7 +13,9 @@ import Foundation
 /// - bilinirlik: Wikipedia sayfasının son 30 gündeki okunma sayısı,
 /// - yakınlık: günün en yakın yerine yürüme mesafesi (2 km'den uzak yok),
 /// - zevk: kullanıcının kayıtlı yerlerinde o türün payı,
-/// - çeşitlilik: günde aynı türden çok yer varsa o tür biraz geride.
+/// - çeşitlilik: günde aynı türden çok yer varsa o tür biraz geride,
+/// - birlikte okunma: günün yerlerine bakan Wikipedia okurlarının buna da
+///   bakması (okuma izleri, ReadingTrails; "buna bakanlar şunlara da baktı").
 enum Recommender {
     struct Suggestion: Identifiable, Equatable {
         var place: WikipediaService.PopularPlace
@@ -24,6 +26,8 @@ enum Recommender {
         var score: Double
         /// Gerçek yürüme süresi (Geoapify), biliniyorsa.
         var walkSeconds: Double?
+        /// 0...1: günün yerlerine bakanların buna da bakma gücü (okuma izleri).
+        var alsoRead: Double = 0
         var id: String { place.id }
 
         /// Yürüyerek dakika: gerçek süre ya da tahmin (yol düz çizgiden ~%30
@@ -41,8 +45,13 @@ enum Recommender {
     /// Yakınlığın etkisi: ~900 m'de yarıya yakın düşer (12 dk yürüme).
     private static let distanceScale: CLLocationDistance = 900
 
+    /// Birlikte okunmanın en büyük etkisi: en güçlü okuma izi puanı 1,8 katına çıkarır.
+    static let alsoReadWeight = 0.8
+
     /// Adayları puanlar ve sıralar. `excluded`: zaten rotada olanlar.
+    /// `alsoRead`: aday başlığı → birlikte okunma gücü (0...1).
     static func rank(_ candidates: [WikipediaService.PopularPlace], anchors: [Place], saved: [Place],
+                     alsoRead: [String: Double] = [:],
                      excluded: (WikipediaService.PopularPlace) -> Bool = { _ in false },
                      limit: Int = 20) -> [Suggestion] {
         guard !anchors.isEmpty else { return [] }
@@ -73,9 +82,10 @@ enum Recommender {
             let sameKind = dayCounts[category] ?? 0
             let variety: Double = sameKind >= 3 ? 0.7 : sameKind == 2 ? 0.85 : 1
             let photo: Double = candidate.thumbnailURL == nil ? 0.95 : 1
-            let score = popularity * (0.35 + 0.65 * proximity) * taste * variety * photo
+            let together = alsoRead[candidate.title] ?? 0
+            let score = popularity * (0.35 + 0.65 * proximity) * taste * variety * photo * (1 + alsoReadWeight * together)
             return Suggestion(place: candidate, category: category, anchorName: nearest.name,
-                              distance: distance, score: score)
+                              distance: distance, score: score, alsoRead: together)
         }
         return Array(suggestions.sorted { $0.score > $1.score }.prefix(limit))
     }

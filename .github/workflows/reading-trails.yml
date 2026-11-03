@@ -1,0 +1,77 @@
+# Wikipedia okuma izleri ("Buna bakanlar şunlara da baktı", Oguz'un
+# 2026-11-03 kararı). Her ayın 10'unda İngilizce Wikipedia'nın son aylık
+# clickstream dosyası (CC0) indirilir; yalnızca haritada yeri olan sayfalar
+# arasındaki geçişler 0,5°'lik kare dosyalarına yazılıp "okuma-izleri"
+# dalına konur. Uygulama dosyaları raw.githubusercontent.com'dan okur.
+# Ücretsiz: açık depoda Linux makinesi; Wikimedia dökümleri anahtarsız.
+# Commit mesajında "[okuma-izi]" geçen gönderimde ya da elle de çalışır.
+name: Okuma izleri
+
+on:
+  schedule:
+    - cron: "0 5 10 * *"
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reading-trails
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'push' || contains(github.event.head_commit.message, '[okuma-izi]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wikipedia dökümlerini indir
+        env:
+          UA: "TravelApp-reading-trails/1.0 (https://github.com/amy60946/travel-app)"
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          base=https://dumps.wikimedia.org
+          get() { curl -fsSL -A "$UA" --retry 5 --retry-delay 15 "$@"; }
+          # Son yayımlanan ay (klasör var ama dosya henüz yoksa bir önceki).
+          month=""
+          for m in $(get "$base/other/clickstream/" | grep -oE 'href="[0-9]{4}-[0-9]{2}/"' | grep -oE '[0-9]{4}-[0-9]{2}' | sort -r | head -3); do
+            if curl -fsI -A "$UA" "$base/other/clickstream/$m/clickstream-enwiki-$m.tsv.gz" >/dev/null; then month=$m; break; fi
+          done
+          test -n "$month"
+          echo "MONTH=$month" >> "$GITHUB_ENV"
+          echo "Ay: $month"
+          get -o clickstream.tsv.gz "$base/other/clickstream/$month/clickstream-enwiki-$month.tsv.gz" & first=$!
+          get -o geo_tags.sql.gz "$base/enwiki/latest/enwiki-latest-geo_tags.sql.gz" & second=$!
+          wait "$first"
+          wait "$second"
+          get -o index.txt.bz2 "$base/enwiki/latest/enwiki-latest-pages-articles-multistream-index.txt.bz2"
+          ls -la
+      - name: Yerler arası okuma izlerini çıkar
+        run: |
+          python3 -I ios/scripts/reading_trails.py \
+            --clickstream "$RUNNER_TEMP/clickstream.tsv.gz" \
+            --geotags "$RUNNER_TEMP/geo_tags.sql.gz" \
+            --index "$RUNNER_TEMP/index.txt.bz2" \
+            --month "$MONTH" --out "$RUNNER_TEMP/out"
+      - name: Kareleri "okuma-izleri" dalına koy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/out"
+          cat > README.md <<EOF
+          Wikipedia okuma izleri (clickstream-enwiki-$MONTH, CC0, Wikimedia Foundation).
+          ios/scripts/reading_trails.py ile üretildi; uygulama tiles/<enlem>_<boylam>.json dosyalarını okur.
+          EOF
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b okuma-izleri
+          git add .
+          git commit -qm "Okuma izleri: $MONTH"
+          # Her ay tek commit (eski ayın dosyaları geçmişte birikmez).
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" okuma-izleri
+          du -sh .

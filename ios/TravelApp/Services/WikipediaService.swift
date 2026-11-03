@@ -294,6 +294,26 @@ actor WikipediaService {
         return Array(sorted.prefix(limit))
     }
 
+    /// Okuma izlerinden gelen yerler: okunma, fotoğraf ve uygulama dilindeki
+    /// ad; gezilecek yer olmayanlar (semt, istasyon...) çıkar. Sıra korunur.
+    func places(_ items: [ReadingTrails.Related]) async -> [PopularPlace] {
+        let sights = items.filter { Self.isSight($0.title) }
+        guard !sights.isEmpty else { return [] }
+        let language = Self.narrationLanguage
+        var details: [String: PageDetails] = [:]
+        for start in stride(from: 0, to: sights.count, by: 50) {
+            let titles = sights[start..<min(start + 50, sights.count)].map(\.title)
+            let found = await pageDetails(titles, language: language)
+            details.merge(found) { first, _ in first }
+        }
+        return sights.filter { Self.isSight(description: details[$0.title]?.description) }.map { item in
+            let detail = details[item.title]
+            return PopularPlace(title: item.title, latitude: item.latitude, longitude: item.longitude,
+                                monthlyViews: detail?.views ?? 0, thumbnailURL: detail?.thumbnail,
+                                localTitle: detail?.localTitle)
+        }
+    }
+
     private struct PageDetails {
         var views = 0
         var thumbnail: URL?
@@ -715,7 +735,10 @@ actor WikipediaService {
                         "embassy", "ministry", "headquarters", "prefecture", "ward", "district",
                         "company", "corporation", "bank", "court", "police", "office", "airport",
                         "expressway", "highway", "route", "list of", "chongryon", "constituency",
-                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty"]
+                        "empire of", "kingdom of", "republic of", "shogunate", "dynasty",
+                        // Olaylar (okuma izlerinde görüldü, 2026-11-03): "Fall of Constantinople".
+                        "fall of", "sack of", "siege of", "battle of", "conquest of", "massacre",
+                        "earthquake", "bombing of"]
         return !excluded.contains { lower.contains($0) }
     }
 

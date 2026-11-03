@@ -125,6 +125,8 @@ enum PlaceCategory: String, Codable, CaseIterable, Identifiable {
         (.museum, ["museum*", "muze*", "museo", "musee", "museu*", "gallery", "galeri*",
                    "kunsthalle", "exhibition", "sergi*", "teamlab", "美術館", "博物館",
                    "ミュージアム", "記念館", "資料館"]),
+        // "Meiji Jingu Stadium" tapınak değil (okuma izlerinde görüldü, 2026-11-03).
+        (.sight, ["stadium", "stadyum*", "arena", "ballpark"]),
         (.temple, ["temple", "shrine", "jinja", "jingu", "taisha", "tera", "dera", "ji",
                    "mosque", "cami", "camii", "camisi", "church", "kilise*", "cathedral",
                    "katedral*", "basilica", "bazilika*", "chapel", "synagogue", "sinagog*",
