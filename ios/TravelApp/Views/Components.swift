@@ -581,6 +581,52 @@ struct PlaceRowThumbnail: View {
         LocationPhoto(name: place.name, category: place.category, city: place.city,
                       latitude: place.latitude, longitude: place.longitude,
                       englishTitle: place.wikipediaTitle, size: size)
+            .overlay(alignment: .topTrailing) {
+                if place.visitedAt != nil { VisitedBadge(size: size * 0.34).offset(x: 6, y: -6) }
+            }
+    }
+}
+
+/// Gidilen yerin işareti ("Gittim"): yeşil daire içinde beyaz ✓. Haritada
+/// pinin sol üstünde, listede fotoğrafın sağ üstünde.
+struct VisitedBadge: View {
+    var size: CGFloat = 18
+
+    var body: some View {
+        Image(systemName: "checkmark")
+            .font(.system(size: size * 0.52, weight: .heavy))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(Theme.visited, in: Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 1.5))
+            .softShadow()
+            .accessibilityLabel(Text("Gittim"))
+    }
+}
+
+/// "Gittim" düğmesi: yerin yanında birkaç dakika kalınca kendiliğinden
+/// işaretlenir (yeşil); buradan elle işaretlenir ya da kaldırılır.
+struct VisitedButton: View {
+    let place: Place
+    @EnvironmentObject private var store: AppStore
+
+    var body: some View {
+        let visited = place.visitedAt != nil
+        Button { store.setVisited(!visited, place.id) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: visited ? "checkmark.circle.fill" : "checkmark.circle")
+                Text("Gittim")
+            }
+            .font(Theme.font(15, .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+            .background(visited ? Theme.visited : Theme.button, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(visited ? .isSelected : [])
+        .sensoryFeedback(.success, trigger: visited) { old, new in !old && new }
     }
 }
 

@@ -110,13 +110,18 @@ struct RootView: View {
         .task {
             openLaunchScreen()
             askLocationOnce()
+            // Gidilen yerler: yanında birkaç dakika kalınan kayıtlı yer "Gittim" olur.
+            VisitTracker.shared.attach(store)
+            VisitTracker.shared.setForeground(scenePhase == .active)
             // Paylaşılan geziler değişince sunucudaki kopyaları güncellenir.
             TripSharing.shared.startSync(with: store)
             await openImportIfNewExport()
         }
         .onChange(of: scenePhase) { _, phase in
+            VisitTracker.shared.setForeground(phase == .active)
             if phase == .active { Task { await openImportIfNewExport() } }
         }
+        .onChange(of: store.places) { VisitTracker.shared.refresh() }
         // Aktarılan yerlerin türünü (müze, kafe...) arka planda bulur;
         // yeni yer gelince kaldığı yerden devam eder.
         .task(id: store.places.count) { await store.refineCategories() }
@@ -188,9 +193,13 @@ struct RootView: View {
         case "saved": path = [.saved]
         case "downloads": path = [.downloads]
         case "city", "cityTall", "spot", "moved", "movedList", "photo", "sheetTall", "all", "listen", "pins",
-             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded", "dayOrder", "timed":
+             "reorder", "editPlace", "fewerDays", "mapAdd", "mapAdded", "dayOrder", "timed", "visited", "visitedSheet":
             // `fewerDays`: gün sayısı 3'ten 2'ye inmiş (3. günün yerleri yerinde kalır).
             if screen == "fewerDays" { store.setDays(2, stop: stop) }
+            // `visited`: 1. günün ilk iki yerine gidilmiş (haritada ve listede yeşil ✓).
+            if screen == "visited" || screen == "visitedSheet", let firstDay = store.dayPlan(stop: stop).first {
+                store.markVisited(Dictionary(uniqueKeysWithValues: firstDay.prefix(2).map { ($0.id, Date()) }))
+            }
             // `timed`: 1. günde yemek yerine 19:00 verilmiş ve akıllı sıra uygulanmış.
             if screen == "timed", let firstDay = store.dayPlan(stop: stop).first, firstDay.count > 1 {
                 if let food = firstDay.first(where: { $0.category == .food }) {

@@ -108,10 +108,11 @@ struct PlaceSheet: View {
         }
     }
 
-    /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle") ve Yol tarifi.
+    /// Gün düğmesi (rotadaysa "2. gün ⌄", değilse "Rotaya ekle"), Gittim ve Yol tarifi.
     private func actions(_ place: Place) -> some View {
         HStack(spacing: 8) {
             PlanDayButton(place: place, stop: stop, fallbackDay: fallbackDay)
+            VisitedButton(place: place)
             DirectionsButton { guidance = GuidanceDestination(place: place) }
         }
     }

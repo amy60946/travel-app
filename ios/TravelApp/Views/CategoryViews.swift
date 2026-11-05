@@ -40,10 +40,12 @@ struct CategoryIcon: View {
 struct CategoryPin: View {
     let category: PlaceCategory
     var size: CGFloat = 30
+    /// Gidilen yerde çerçeve yeşil.
+    var visited = false
 
     var body: some View {
         CategoryIcon(category: category, size: size)
-            .overlay(Circle().stroke(.white, lineWidth: 2))
+            .overlay(Circle().stroke(visited ? Theme.visited : .white, lineWidth: visited ? 3 : 2))
             .softShadow()
     }
 }

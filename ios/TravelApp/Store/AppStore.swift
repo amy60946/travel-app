@@ -634,6 +634,28 @@ final class AppStore: ObservableObject {
         save()
     }
 
+    // MARK: - Gidilen yerler
+
+    /// Konumdan bulunan gidilen yerler ("Gittim"); "Geri al" ile kaldırılır.
+    /// Zaten işaretli yerler değişmez.
+    func markVisited(_ visits: [UUID: Date]) {
+        let fresh = visits.filter { id, _ in place(id).map { $0.visitedAt == nil } ?? false }
+        guard let first = fresh.keys.first.flatMap({ self.place($0) }) else { return }
+        snapshot(fresh.count == 1 ? String(localized: "Gittin: \(first.name) ✓")
+                                  : String(localized: "\(fresh.count) yere gittin ✓"))
+        for index in places.indices {
+            if let date = fresh[places[index].id] { places[index].visitedAt = date }
+        }
+        save()
+    }
+
+    /// Yer penceresindeki "Gittim" düğmesi: elle işaretler ya da kaldırır.
+    func setVisited(_ visited: Bool, _ id: UUID) {
+        guard let index = places.firstIndex(where: { $0.id == id }) else { return }
+        places[index].visitedAt = visited ? places[index].visitedAt ?? Date() : nil
+        save()
+    }
+
     /// Aynı adla 200 m içinde kayıtlı yer (haritadan eklerken iki kez
     /// kaydedilmesin).
     func savedPlace(named name: String, near coordinate: CLLocationCoordinate2D) -> Place? {

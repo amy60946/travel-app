@@ -653,3 +653,8 @@
 "Gezgin notu" = "Traveller's note";
 "Buna bakanlar şunlara da baktı" = "People who viewed this also viewed";
 "yürüyerek %lld dk" = "%lld min walk";
+
+/* Gidilen yerler ("Gittim", 2026-11-05) */
+"Gittim" = "Visited";
+"Gittin: %@ ✓" = "Visited: %@ ✓";
+"%lld yere gittin ✓" = "Visited %lld places ✓";

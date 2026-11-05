@@ -4,6 +4,8 @@ import SwiftUI
 enum Theme {
     static let accent = Color(hex: 0xC94A2B)   // Kiremit: yalnızca rota ve ana düğme
     static let ink = Color(hex: 0x222222)
+    /// Gidilen yer ("Gittim"): haritada pinin yeşil çerçevesi ve ✓.
+    static let visited = Color(hex: 0x1E8E3E)
     static let muted = Color(hex: 0x6A6A6A)
     static let hairline = Color(hex: 0xDDDDDD)
     static let hairlineLight = Color(hex: 0xEBEBEB)

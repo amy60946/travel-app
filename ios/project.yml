@@ -34,7 +34,10 @@ targets:
       path: TravelApp/Info.plist
       properties:
         UIAppFonts: [Figtree.ttf]
-        NSLocationWhenInUseUsageDescription: "Yol tarifi, yürüyüşte anlatımı başlatmak ve fotoğrafla eklenen yeri bulmak için konumunu kullanıyoruz."
+        NSLocationWhenInUseUsageDescription: "Yol tarifi, yürüyüşte anlatımı başlatmak, fotoğrafla eklenen yeri bulmak ve gittiğin yerleri haritada işaretlemek için konumunu kullanıyoruz."
+        # Gidilen yerler (2026-11-05): uygulama kapalıyken de "Gittim" işareti
+        # (Apple'ın bölge izlemesi ve ziyaret bildirimi; arka plan modu gerekmez).
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Rotandaki ve haritandaki yerlere gittiğinde, uygulama kapalıyken de haritada \"Gittim\" diye işaretlemek için konumunu kullanıyoruz. Bunun için konumun telefonundan dışarı gönderilmez."
         NSCameraUsageDescription: "Tabela ya da bina fotoğrafından yeri bulmak için kamerayı kullanıyoruz."
         NSPhotoLibraryUsageDescription: "Kaydettiğin gönderinin ekran görüntüsünden yeri bulmak için yalnızca en yeni ekran görüntüsüne bakıyoruz."
         GeminiAPIKey: "$(GEMINI_API_KEY)"
