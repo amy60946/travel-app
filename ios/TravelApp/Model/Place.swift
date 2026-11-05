@@ -163,6 +163,9 @@ struct Place: Identifiable, Codable, Hashable {
     var googlePlaceID: String?
     /// Kullanıcının verdiği gezme süresi (dakika); yoksa türün ortalaması.
     var visitMinutes: Int?
+    /// Yere gidildiği an ("Gittim"): yanında birkaç dakika kalınca konumdan
+    /// kendiliğinden ya da yer penceresinden elle. Haritada yeşil ✓.
+    var visitedAt: Date?
 
     /// Bu yerde geçirilecek süre (dakika).
     var visitDuration: Int { visitMinutes ?? category.averageMinutes }

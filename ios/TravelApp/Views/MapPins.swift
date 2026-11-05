@@ -55,12 +55,14 @@ final class PinPhotos: ObservableObject {
 /// Haritadaki kayıtlı yer pini (resme çevrilip haritaya konur): türün
 /// renkli dairesi ya da yerin yuvarlak fotoğrafı (köşesinde türün küçük
 /// simgesi); "Tüm yerler"de köşesinde gün numarası; istenirse altında adı.
+/// Gidilen yerde ("Gittim") çerçeve yeşil, sol üstte yeşil ✓.
 struct PlacePinImage: View {
     let category: PlaceCategory
     var size: CGFloat = 32
     var photo: UIImage?
     var day: Int?
     var title: String?
+    var visited = false
 
     /// Pinin çevresindeki boşluk: gölge ve köşe rozetleri kesilmesin.
     static let margin: CGFloat = 8
@@ -78,6 +80,9 @@ struct PlacePinImage: View {
                         DayBadge(number: day + 1, size: 16).offset(x: 7, y: -5)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if visited { VisitedBadge(size: 17).offset(x: -7, y: -5) }
+                }
                 .padding(Self.margin)
             if let title {
                 MapTitle(text: title)
@@ -93,13 +98,13 @@ struct PlacePinImage: View {
                 .scaledToFill()
                 .frame(width: size + 10, height: size + 10)
                 .clipShape(Circle())
-                .overlay(Circle().stroke(.white, lineWidth: 2.5))
+                .overlay(Circle().stroke(visited ? Theme.visited : .white, lineWidth: visited ? 3.5 : 2.5))
                 .overlay(alignment: .bottomTrailing) {
                     CategoryBadge(category: category, size: 16).offset(x: 3, y: 3)
                 }
                 .softShadow()
         } else {
-            CategoryPin(category: category, size: size)
+            CategoryPin(category: category, size: size, visited: visited)
         }
     }
 }
@@ -129,11 +134,13 @@ extension GoogleMap.Marker {
                       showsTitle: Bool = false, zIndex: Int32 = 0,
                       onTap: (() -> Void)? = nil) -> GoogleMap.Marker {
         let title = showsTitle ? place.name : nil
-        let key = "\(place.name)|\(place.category.rawValue)|\(size)|\(photo.map { "\($0.hash)" } ?? "-")|\(day ?? -1)|\(title ?? "")"
+        let visited = place.visitedAt != nil
+        let key = "\(place.name)|\(place.category.rawValue)|\(size)|\(photo.map { "\($0.hash)" } ?? "-")|\(day ?? -1)|\(title ?? "")|\(visited)"
         return GoogleMap.Marker(id: place.id.uuidString, coordinate: place.coordinate, key: key,
                                 pinHeight: PlacePinImage.blockHeight(size: size, photo: photo != nil),
                                 zIndex: zIndex, onTap: onTap) {
-            PlacePinImage(category: place.category, size: size, photo: photo, day: day, title: title)
+            PlacePinImage(category: place.category, size: size, photo: photo, day: day, title: title,
+                          visited: visited)
         }
     }
 }

@@ -10,6 +10,9 @@ struct TravelAppApp: App {
     init() {
         AppLanguage.activate()
         GoogleAPI.configure()
+        // Gidilen yerler: Apple uygulamayı bir bölge olayı için arka planda
+        // açtığında da konum yöneticisi hazır olsun.
+        MainActor.assumeIsolated { VisitTracker.shared.activate() }
     }
 
     /// Yalnızca geliştirme sürümünde: ekran görüntüsü açılışları (`-screen`)

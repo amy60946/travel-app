@@ -417,4 +417,58 @@ final class AppStoreTests: XCTestCase {
         store.undo()
         XCTAssertNotNil(store.collection(id))
     }
+
+    // MARK: - Gidilen yerler ("Gittim", 2026-11-05)
+
+    func testMarkVisitedShowsUndoAndKeepsFirstVisit() throws {
+        let store = makeStore()
+        let places = store.places(in: "Tokyo")
+        let first = try XCTUnwrap(places.first)
+        let second = try XCTUnwrap(places.dropFirst().first)
+        let morning = Date(timeIntervalSince1970: 1_800_000_000)
+
+        store.markVisited([first.id: morning])
+        XCTAssertEqual(store.place(first.id)?.visitedAt, morning)
+        XCTAssertNil(store.place(second.id)?.visitedAt)
+        XCTAssertTrue(store.undoMessage?.contains(first.name) ?? false)
+
+        // Aynı yer yeniden bulunursa ilk gidiş kalır, yeni mesaj çıkmaz.
+        store.dismissUndo()
+        store.markVisited([first.id: morning.addingTimeInterval(3600)])
+        XCTAssertEqual(store.place(first.id)?.visitedAt, morning)
+        XCTAssertNil(store.undoMessage)
+
+        store.markVisited([second.id: morning, UUID(): morning])
+        XCTAssertNotNil(store.place(second.id)?.visitedAt)
+        store.undo()
+        XCTAssertNil(store.place(second.id)?.visitedAt, "Geri al işareti kaldırır")
+        XCTAssertNotNil(store.place(first.id)?.visitedAt)
+    }
+
+    func testVisitedButtonTogglesAndIsSaved() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent("state.json")
+        let store = AppStore(fileURL: url)
+        let place = try XCTUnwrap(store.places.first)
+        store.setVisited(true, place.id)
+        let marked = try XCTUnwrap(store.place(place.id)?.visitedAt)
+        store.setVisited(true, place.id)
+        XCTAssertEqual(store.place(place.id)?.visitedAt, marked, "Yeniden basınca tarih değişmez")
+        let reloaded = try XCTUnwrap(AppStore(fileURL: url).place(place.id)?.visitedAt, "Telefonda saklanır")
+        XCTAssertEqual(reloaded.timeIntervalSince1970, marked.timeIntervalSince1970, accuracy: 0.001)
+        store.setVisited(false, place.id)
+        XCTAssertNil(store.place(place.id)?.visitedAt)
+    }
+
+    func testOldSavesWithoutVisitedStillLoad() throws {
+        let place = Place(name: "Sensō-ji", city: "Tokyo", latitude: 35.7148, longitude: 139.7967,
+                          category: .temple, source: .search)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(place)) as? [String: Any])
+        XCTAssertNil(json["visitedAt"])
+        json["visitedAt"] = nil
+        let decoded = try JSONDecoder().decode(Place.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(decoded.visitedAt)
+        XCTAssertEqual(decoded.name, "Sensō-ji")
+    }
 }

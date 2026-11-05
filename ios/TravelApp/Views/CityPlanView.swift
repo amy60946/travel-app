@@ -757,6 +757,11 @@ struct CityPlanView: View {
             panelStop = Self.panelStops.count - 1
             return
         }
+        // `visitedSheet`: gidilen yerin penceresi (yeşil "Gittim").
+        if screen == "visitedSheet", let place = days.first?.first {
+            focus(place)
+            return
+        }
         // `mapAdd`: haritada Google yerine dokunulmuş (Rotaya ekle, yer imi, yol tarifi).
         if screen == "mapAdd" {
             let shibuya = CLLocationCoordinate2D(latitude: 35.6595, longitude: 139.7005)

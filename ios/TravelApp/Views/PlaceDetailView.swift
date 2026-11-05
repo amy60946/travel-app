@@ -156,6 +156,7 @@ struct PlaceDetailView: View {
         HStack {
             Text(place.city).font(Theme.headline)
             Spacer()
+            VisitedButton(place: place)
             PlanDayButton(place: place)
         }
         .padding(.horizontal, 20)
