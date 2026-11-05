@@ -5,7 +5,8 @@ import Foundation
 /// yanında birkaç dakika kalınca yer "Gittim" diye işaretlenir, haritada
 /// pininde yeşil ✓ görünür. Konum telefondan dışarı gönderilmez.
 ///
-/// - Uygulama açıkken: telefonun konumu (`VisitDetector`, 3 dakika kural).
+/// - Uygulama açıkken: telefonun konumu ve çalan anlatım (`VisitDetector`:
+///   durma, büyük yerde gezinme, yerin yanında anlatımı dinleme).
 /// - Uygulama kapalıyken ("Her zaman" konum izni verildiyse): Apple'ın
 ///   pil dostu bölge izlemesi (en yakın 20 yer, 5 dakika kural) ve
 ///   "ziyaret" bildirimi (telefon bir yerde durunca). Bunlar uygulamayı
@@ -102,7 +103,10 @@ final class VisitTracker: NSObject, CLLocationManagerDelegate {
 
     private func handle(_ location: CLLocation) {
         if isForeground {
-            let found = detector.update(location, targets: targets)
+            // Yerin anlatımı yerin yanında dinleniyorsa bu da gidildiğini gösterir.
+            let narrator = Narrator.shared
+            let narrating = narrator.isSpeaking ? narrator.currentTitle : nil
+            let found = detector.update(location, targets: targets, narrating: narrating)
             if !found.isEmpty { record(Dictionary(uniqueKeysWithValues: found.map { ($0, location.timestamp) })) }
             // Pil: gidilmemiş en yakın yer uzaksa konum seyrek ve kaba istenir.
             let nearest = targets.map { location.distance(from: $0.location) }.min() ?? .infinity
